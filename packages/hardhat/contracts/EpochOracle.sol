@@ -9,12 +9,13 @@ contract EpochOracle is Ownable {
     event NewEpochBlock(uint256 epoch, uint256 networkId, bytes32 blockHash);
 
     struct EpochBlockUpdate {
-        uint8 networkId;
+        // EIP-155 (chainid) https://github.com/ethereum/EIPs/blob/master/EIPS/eip-155.md
+        uint16 networkId;
         bytes32 blockHash;
     }
 
     constructor(address _owner) {
-      transferOwnership(_owner);
+        transferOwnership(_owner);
     }
 
     // set multiple epoch blocks
