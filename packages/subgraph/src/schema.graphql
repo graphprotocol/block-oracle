@@ -1,15 +1,23 @@
-type Purpose @entity {
-  id: ID!
-  sender: Sender!
-  purpose: String!
-  createdAt: BigInt!
-  transactionHash: String!
-}
-
-type Sender @entity {
+type Oracle @entity {
   id: ID!
   address: Bytes!
-  purposes: [Purpose!] @derivedFrom(field: "sender")
-  createdAt: BigInt!
-  purposeCount: BigInt!
+}
+
+type Epoch @entity {
+  id: ID!
+  epochBlocks: [EpochBlock!] @derivedFrom(field: "epoch")
+}
+
+type Network @entity {
+  id: ID!
+  name: String!
+  epochBlocks: [EpochBlock!] @derivedFrom(field: "network")
+}
+
+type EpochBlock @entity {
+  id: ID!
+  epoch: Epoch!
+  network: Network!
+  blockHash: String!
+  oracle: Oracle!
 }

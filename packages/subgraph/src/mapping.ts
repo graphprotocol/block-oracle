@@ -1,33 +1,49 @@
 import { BigInt, Address } from "@graphprotocol/graph-ts";
 import {
-  YourContract,
-  SetPurpose,
-} from "../generated/YourContract/YourContract";
-import { Purpose, Sender } from "../generated/schema";
+  newEpochBlock,
+} from "../generated/EpochOracle/EpochOracle";
+import { Oracle, Network, Epoch, EpochBlock } from "../generated/schema";
 
-export function handleSetPurpose(event: SetPurpose): void {
-  let senderString = event.params.sender.toHexString();
+let networks = new Map<i32,string>()
 
-  let sender = Sender.load(senderString);
+networks.set(1, "mainnet")
 
-  if (sender === null) {
-    sender = new Sender(senderString);
-    sender.address = event.params.sender;
-    sender.createdAt = event.block.timestamp;
-    sender.purposeCount = BigInt.fromI32(1);
-  } else {
-    sender.purposeCount = sender.purposeCount.plus(BigInt.fromI32(1));
+export function handleNewEpochBlock(event: newEpochBlock): void {
+
+  if(event.transaction.from !== "0xE09750abE36beA8B2236E48C84BB9da7Ef5aA07c") { // Can this be relied upon?
+    return
   }
 
-  let purpose = new Purpose(
-    event.transaction.hash.toHex() + "-" + event.logIndex.toString()
-  );
+  let senderString = event.transaction.from.toHexString()
+  let oracle = Oracle.load(senderString);
 
-  purpose.purpose = event.params.purpose;
-  purpose.sender = senderString;
-  purpose.createdAt = event.block.timestamp;
-  purpose.transactionHash = event.transaction.hash.toHex();
+  if (oracle === null) {
+    oracle = new Oracle(senderString);
+    oracle.address = event.transaction.from;
+    oracle.save();
+  }
 
-  purpose.save();
-  sender.save();
+  if(networks.has(event.params.network)) {
+
+  let network = Network.load(event.params.network.toHexString());
+
+  if (network === null) {
+    network = new Network(event.params.network.toHexString());
+    network.name = networks.get(event.params.network);
+    network.save();
+  }
+
+  let epoch = Epoch.load(event.params.epoch.toHexString());
+
+  if (epoch === null) {
+    epoch = new Epoch(event.params.epoch.toHexString());
+    epoch.save();
+  }
+
+  let epochBlock = new EpochBlock(event.params.epoch.toHexString() + "-" + event.params.network.toHexString());
+  epochBlock.epoch = event.params.epoch.toHexString();
+  epochBlock.epoch = event.params.network.toHexString();
+  epochBlock.blockHash = event.params.blockHash;
+  epochBlock.save();
+}
 }

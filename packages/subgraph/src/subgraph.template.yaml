@@ -3,23 +3,24 @@ schema:
   file: ./src/schema.graphql
 dataSources:
   - kind: ethereum/contract
-    name: YourContract
+    name: EpochOracle
     network: localhost
     source:
-      address: "{{localhost_YourContractAddress}}"
-      abi: YourContract
+      address: "{{localhost_EpochOracleAddress}}"
+      abi: EpochOracle
       startBlock: 1
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.5
       language: wasm/assemblyscript
       entities:
-        - Purpose
-        - Sender
+        - Epoch
+        - Network
+        - EpochBlock
       abis:
-        - name: YourContract
+        - name: EpochOracle
           file: ./abis/localhost_YourContract.json
       eventHandlers:
-        - event: SetPurpose(address,string)
-          handler: handleSetPurpose
+        - event: newEpochBlock(uint256,uint256,string)
+          handler: handleNewEpochBlock
       file: ./src/mapping.ts
