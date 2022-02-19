@@ -1,31 +1,31 @@
-const { ethers } = require("hardhat");
-const { use, expect } = require("chai");
-const { solidity } = require("ethereum-waffle");
+const { ethers } = require('hardhat')
+const { use, expect } = require('chai')
+const { solidity } = require('ethereum-waffle')
 
-use(solidity);
+use(solidity)
 
-describe("My Dapp", function () {
-  let myContract;
+describe('EpochOracle', function() {
+  let myContract
 
   // quick fix to let gas reporter fetch data from gas station & coinmarketcap
-  before((done) => {
-    setTimeout(done, 2000);
-  });
+  before(done => {
+    setTimeout(done, 2000)
+  })
 
-  describe("YourContract", function () {
-    it("Should deploy YourContract", async function () {
-      const YourContract = await ethers.getContractFactory("YourContract");
+  describe('YourContract', function() {
+    it('Should deploy YourContract', async function() {
+      const YourContract = await ethers.getContractFactory('YourContract')
 
-      myContract = await YourContract.deploy();
-    });
+      myContract = await YourContract.deploy()
+    })
 
-    describe("setPurpose()", function () {
-      it("Should be able to set a new purpose", async function () {
-        const newPurpose = "Test Purpose";
+    describe('setPurpose()', function() {
+      it('Should be able to set a new purpose', async function() {
+        const newPurpose = 'Test Purpose'
 
-        await myContract.setPurpose(newPurpose);
-        expect(await myContract.purpose()).to.equal(newPurpose);
-      });
+        await myContract.setPurpose(newPurpose)
+        expect(await myContract.purpose()).to.equal(newPurpose)
+      })
 
       // Uncomment the event and emit lines in YourContract.sol to make this test pass
 
@@ -38,6 +38,6 @@ describe("My Dapp", function () {
           emit(myContract, "SetPurpose").
             withArgs(owner.address, newPurpose);
       });*/
-    });
-  });
-});
+    })
+  })
+})
