@@ -22,6 +22,8 @@ dataSources:
         - name: EpochOracle
           file: ./abis/localhost_EpochOracle.json
       eventHandlers:
-        - event: newEpochBlock(uint256,uint256,string)
+        - event: NewEpochBlock(uint256,uint256,bytes32)
           handler: handleNewEpochBlock
+        - event: OwnershipTransferred(indexed address,indexed address)
+          handler: handleOwnershipTransferred
       file: ./src/mapping.ts

@@ -18,6 +18,7 @@ type EpochBlock @entity {
   id: ID!
   epoch: Epoch!
   network: Network!
-  blockHash: String!
+  blockHash: Bytes!
   oracle: Oracle!
+  timestamp: BigInt!
 }

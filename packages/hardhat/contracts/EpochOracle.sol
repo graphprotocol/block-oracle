@@ -13,6 +13,10 @@ contract EpochOracle is Ownable {
         bytes32 blockHash;
     }
 
+    constructor(address _owner) {
+      transferOwnership(_owner);
+    }
+
     // set multiple epoch blocks
     function setEpochBlocks(
         uint256 _epoch,
