@@ -290,7 +290,7 @@ function App(props) {
             */}
 
           <Contract
-            name="YourContract"
+            name="EpochOracle"
             price={price}
             signer={userSigner}
             provider={localProvider}

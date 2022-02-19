@@ -4,7 +4,7 @@ const fs = require("fs");
 const chalk = require("chalk");
 
 require("@nomiclabs/hardhat-waffle");
-require("@tenderly/hardhat-tenderly");
+//require("@tenderly/hardhat-tenderly");
 
 require("hardhat-deploy");
 require("hardhat-gas-reporter");
@@ -66,10 +66,10 @@ module.exports = {
   networks: {
     localhost: {
       url: "http://localhost:8545",
-      /*      
+      /*
         notice no mnemonic here? it will just use account 0 of the hardhat node to deploy
         (you can put in a mnemonic here to set the deployer locally)
-      
+
       */
     },
     rinkeby: {

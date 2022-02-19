@@ -17,9 +17,10 @@ dataSources:
         - Epoch
         - Network
         - EpochBlock
+        - Oracle
       abis:
         - name: EpochOracle
-          file: ./abis/localhost_YourContract.json
+          file: ./abis/localhost_EpochOracle.json
       eventHandlers:
         - event: newEpochBlock(uint256,uint256,string)
           handler: handleNewEpochBlock
