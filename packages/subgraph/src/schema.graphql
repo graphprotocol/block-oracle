@@ -12,6 +12,7 @@ type Network @entity {
   id: ID!
   name: String!
   epochBlocks: [EpochBlock!] @derivedFrom(field: "network")
+  latestEpochBlock: EpochBlock!
 }
 
 type EpochBlock @entity {
@@ -21,4 +22,24 @@ type EpochBlock @entity {
   blockHash: Bytes!
   oracle: Oracle!
   timestamp: BigInt!
+  transactionHash: Bytes!
+  epochBlockUpdates: [EpochBlockUpdate!] @derivedFrom(field: "epochBlock")
+}
+
+type EpochBlockUpdate @entity {
+  id: ID!
+  epochBlock: EpochBlock!
+  epoch: Epoch!
+  network: Network!
+  blockHash: Bytes!
+  oracle: Oracle!
+  transactionHash: Bytes!
+  timestamp: BigInt!
+}
+
+type InvalidUpdate @entity {
+  id: ID!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+  caller: Bytes!
 }
