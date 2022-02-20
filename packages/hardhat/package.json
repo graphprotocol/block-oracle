@@ -4,12 +4,18 @@
   "main": "index.js",
   "license": "MIT",
   "devDependencies": {
+    "@typechain/ethers-v5": "^9.0.0",
+    "@typechain/hardhat": "^4.0.0",
     "eslint": "^7.5.0",
     "eslint-config-airbnb": "^18.2.0",
     "eslint-config-prettier": "^6.11.0",
     "eslint-plugin-babel": "^5.3.1",
     "eslint-plugin-prettier": "^3.4.0",
-    "solhint": "^3.3.7"
+    "hardhat-abi-exporter": "^2.8.0",
+    "hardhat-contract-sizer": "^2.4.0",
+    "solhint": "^3.3.7",
+    "ts-node": "^10.5.0",
+    "typechain": "^7.0.0"
   },
   "dependencies": {
     "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers",
