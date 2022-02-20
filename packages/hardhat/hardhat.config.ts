@@ -45,7 +45,8 @@ const config: HardhatUserConfig = {
   paths: {
     sources: './contracts',
     tests: './test',
-    artifacts: './build/contracts',
+    cache: './cache',
+    artifacts: './build/artifacts',
   },
   solidity: {
     compilers: [
@@ -133,6 +134,11 @@ const config: HardhatUserConfig = {
     alphaSort: true,
     runOnCompile: false,
     disambiguatePaths: false,
+  },
+  namedAccounts: {
+    deployer: {
+      default: 0,
+    },
   },
 }
 
