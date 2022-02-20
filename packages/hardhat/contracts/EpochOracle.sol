@@ -5,7 +5,6 @@ pragma solidity >=0.8.0 <0.9.0;
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract EpochOracle is Ownable {
-    // TODO: do we know if block hash could always fit in 32 bytes?
     event NewEpochBlock(uint256 epoch, uint256 networkId, bytes32 blockHash);
 
     struct EpochBlockUpdate {
@@ -14,18 +13,32 @@ contract EpochOracle is Ownable {
         bytes32 blockHash;
     }
 
+    // Payload format
+    // {
+    //     length: 1 byte
+    //     arrayOfUpdates: [{
+    //        networkId: 2 bytes
+    //        blockHash: 32 bytes
+    //     }, ...]
+    // }
+
     constructor(address _owner) {
         transferOwnership(_owner);
     }
 
-    // set multiple epoch blocks
+    /// @notice Set multiple epoch blocks
+    /// @dev Emits events with the updates
     function setEpochBlocks(
         uint256 _epoch,
         EpochBlockUpdate[] calldata _updates
-    ) public {
+    ) external {
         for (uint256 i = 0; i < _updates.length; i++) {
             uint256 networkId = _updates[i].networkId;
             emit NewEpochBlock(_epoch, networkId, _updates[i].blockHash);
         }
     }
+
+    /// @notice Set multiple epoch blocks
+    /// @dev Does not do execution just post payload
+    function setEpochBlocksPayload(bytes calldata _payload) external {}
 }
