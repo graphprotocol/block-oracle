@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.0 <0.9.0;
 
@@ -13,25 +13,13 @@ contract EpochOracle is Ownable {
         bytes32 blockHash;
     }
 
-    // Payload format
-    // {
-    //     length: 1 byte
-    //     arrayOfUpdates: [{
-    //        networkId: 2 bytes
-    //        blockHash: 32 bytes
-    //     }, ...]
-    // }
-
     constructor(address _owner) {
         transferOwnership(_owner);
     }
 
     /// @notice Set multiple epoch blocks
     /// @dev Emits events with the updates
-    function setEpochBlocks(
-        uint256 _epoch,
-        EpochBlockUpdate[] calldata _updates
-    ) external {
+    function setEpochBlocks(uint256 _epoch, EpochBlockUpdate[] calldata _updates) external {
         for (uint256 i = 0; i < _updates.length; i++) {
             uint256 networkId = _updates[i].networkId;
             emit NewEpochBlock(_epoch, networkId, _updates[i].blockHash);

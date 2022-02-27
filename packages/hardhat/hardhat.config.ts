@@ -89,20 +89,26 @@ const config: HardhatUserConfig = {
       url: 'http://localhost:8545',
       gasPrice: 300000000000, // 300 gwei
     },
+    ropsten: {
+      url: 'https://ropsten.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad',
+      accounts: {
+        mnemonic: mnemonic(),
+      },
+    },
     rinkeby: {
-      url: 'https://rinkeby.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad', // <---- YOUR INFURA ID! (or it won't work)
+      url: 'https://rinkeby.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad',
       accounts: {
         mnemonic: mnemonic(),
       },
     },
     mainnet: {
-      url: 'https://mainnet.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad', // <---- YOUR INFURA ID! (or it won't work)
+      url: 'https://mainnet.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad',
       accounts: {
         mnemonic: mnemonic(),
       },
     },
     goerli: {
-      url: 'https://goerli.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad', // <---- YOUR INFURA ID! (or it won't work)
+      url: 'https://goerli.infura.io/v3/460f40a260564ac4a4f4b3fffb032dad',
       accounts: {
         mnemonic: mnemonic(),
       },
