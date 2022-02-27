@@ -43,3 +43,8 @@ type InvalidUpdate @entity {
   transactionHash: Bytes!
   caller: Bytes!
 }
+
+type RawUpdate @entity {
+  id: ID!
+  payload: String!
+}
