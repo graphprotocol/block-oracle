@@ -1,4 +1,4 @@
-import { BigInt, Address, log } from "@graphprotocol/graph-ts";
+import { BigInt, Address, log, Bytes } from "@graphprotocol/graph-ts";
 import {
   NewEpochBlock,
   OwnershipTransferred,
@@ -6,96 +6,138 @@ import {
 } from "../generated/EpochOracle/EpochOracle";
 import {
   Oracle,
-  Network,
   Epoch,
   EpochBlock,
-  EpochBlockUpdate,
   InvalidUpdate,
-  RawUpdate,
+  Update,
 } from "../generated/schema";
 
-let networks = new Map<string, string>();
-networks.set("1", "mainnet");
-networks.set("2", "polygon");
+// Constants
+const UPDATE_VERSION_OFFSET = 0;
+const UPDATE_VERSION_BYTES = 1;
+const UPDATE_LENGTH_OFFSET = UPDATE_VERSION_OFFSET + UPDATE_VERSION_BYTES;
+const UPDATE_LENGTH_BYTES = 1;
+const UPDATE_EPOCH_OFFSET = UPDATE_LENGTH_OFFSET + UPDATE_LENGTH_BYTES;
+const UPDATE_EPOCH_BYTES = 8;
+const UPDATE_ITEMS_OFFSET = UPDATE_EPOCH_OFFSET + UPDATE_EPOCH_BYTES;
+
+const UPDATE_NETWORK_ID_BYTES = 2;
+const UPDATE_BLOCKHASH_BYTES = 32;
+const UPDATE_BYTES = UPDATE_NETWORK_ID_BYTES + UPDATE_BLOCKHASH_BYTES;
 
 export function handleOwnershipTransferred(event: OwnershipTransferred): void {
   let oracle = new Oracle("oracle");
-  oracle.address = event.params.newOwner;
+  oracle.owner = event.params.newOwner;
   oracle.save();
+}
+
+function loadOrSaveEpoch(epochNumber: BigInt): Epoch {
+  let epochNumberStr = epochNumber.toString();
+  let epoch = Epoch.load(epochNumberStr);
+  if (epoch === null) {
+    epoch = new Epoch(epochNumberStr);
+    epoch.epochNumber = epochNumber;
+    epoch.save();
+  }
+  return epoch;
+}
+
+class Payload {
+  version: i32;
+  length: i32;
+  epochNumber: BigInt;
+  itemsBytes: Bytes;
+
+  constructor(
+    version: i32,
+    length: i32,
+    epochNumber: BigInt,
+    itemsBytes: Bytes
+  ) {
+    this.version = version;
+    this.length = length;
+    this.epochNumber = epochNumber;
+    this.itemsBytes = itemsBytes;
+  }
+}
+
+function decodePayload(payloadBytes: Bytes): Payload {
+  // Decode payload version
+  let version = payloadBytes.subarray(
+    UPDATE_VERSION_OFFSET,
+    UPDATE_VERSION_OFFSET + UPDATE_VERSION_BYTES
+  );
+  // Decode length
+  let length = payloadBytes.subarray(
+    UPDATE_LENGTH_OFFSET,
+    UPDATE_LENGTH_OFFSET + UPDATE_LENGTH_BYTES
+  );
+  // Decode epochNumber
+  let epochNumber = payloadBytes.subarray(
+    UPDATE_EPOCH_OFFSET,
+    UPDATE_EPOCH_OFFSET + UPDATE_EPOCH_BYTES
+  );
+  // Bytes for all the update items
+  let itemsBytes = payloadBytes.subarray(UPDATE_ITEMS_OFFSET);
+
+  return new Payload(
+    Bytes.fromUint8Array(version).toI32(),
+    Bytes.fromUint8Array(length).toI32(),
+    changetype<BigInt>(epochNumber.reverse()),
+    Bytes.fromUint8Array(itemsBytes)
+  );
 }
 
 export function handleSetEpochBlocksPayload(
   call: SetEpochBlocksPayloadCall
 ): void {
-  let rawUpdate = new RawUpdate(call.transaction.hash.toHexString());
-  rawUpdate.payload = call.inputs._payload.toHexString();
-  rawUpdate.save();
+  // TODO: verify if caller is not authorized oracle ignore payload
+  // TODO: verify if not valid version discard
+  // TODO: verify if not valid network discard
+
+  // Read input vars
+  let payloadBytes = call.inputs._payload;
+  let txHash = call.transaction.hash.toHexString();
+
+  // Decode payload
+  let payload = decodePayload(payloadBytes);
+
+  // Save raw update payload
+  let update = new Update(txHash);
+  update.version = payload.version;
+  update.length = payload.length;
+  update.epochNumber = payload.epochNumber;
+  update.payload = payloadBytes.toHexString();
+  update.save();
+
+  // Create epoch if not there
+  let epoch = loadOrSaveEpoch(payload.epochNumber);
+
+  // Create each of the epoch updates
+  for (let i = 0; i < payload.length; i++) {
+    let startIndex = UPDATE_ITEMS_OFFSET + i * UPDATE_BYTES;
+
+    // Parse networkId
+    let networkId = Bytes.fromUint8Array(
+      payloadBytes
+        .subarray(startIndex, startIndex + UPDATE_NETWORK_ID_BYTES)
+        .reverse()
+    ).toI32();
+    startIndex += UPDATE_NETWORK_ID_BYTES;
+
+    // Parse blockHash
+    let blockHash = Bytes.fromUint8Array(
+      payloadBytes.subarray(startIndex, startIndex + UPDATE_BLOCKHASH_BYTES)
+    );
+
+    let epochBlockId = epoch.id + "-" + networkId.toString();
+    let epochBlock = new EpochBlock(epochBlockId);
+    epochBlock.epoch = epoch.id;
+    epochBlock.networkId = networkId;
+    epochBlock.blockHash = blockHash;
+    epochBlock.timestamp = call.block.timestamp.toI32();
+    epochBlock.transactionHash = call.transaction.hash;
+    epochBlock.oracle = call.transaction.from.toString(); // caller
+    epochBlock.save();
+  }
 }
-
-// export function handleNewEpochBlock(event: NewEpochBlock): void {
-//   let oracle = Oracle.load("oracle");
-
-//   if (oracle !== null && event.transaction.from != oracle.address) {
-//     // Can this be relied upon?
-
-//     let invalidUpdate = new InvalidUpdate(event.transaction.hash.toHexString());
-//     invalidUpdate.caller = event.transaction.from;
-//     invalidUpdate.timestamp = event.block.timestamp;
-//     invalidUpdate.transactionHash = event.transaction.hash;
-//     invalidUpdate.save();
-
-//     return;
-//   }
-
-//   if (networks.has(event.params.networkId.toString())) {
-//     let epochBlockId =
-//       event.params.epoch.toString() + "-" + event.params.networkId.toString();
-
-//     let network = Network.load(event.params.networkId.toString());
-
-//     if (network === null) {
-//       network = new Network(event.params.networkId.toString());
-//       network.name = networks.get(event.params.networkId.toString());
-//       network.latestEpochBlock =
-//         event.params.epoch.toString() + "-" + event.params.networkId.toString();
-//       network.save();
-//     } else {
-//       network.latestEpochBlock = epochBlockId;
-//       network.save();
-//     }
-
-//     let epoch = Epoch.load(event.params.epoch.toString());
-
-//     if (epoch === null) {
-//       epoch = new Epoch(event.params.epoch.toString());
-//       epoch.save();
-//     }
-
-//     let epochBlock = new EpochBlock(epochBlockId);
-//     epochBlock.epoch = event.params.epoch.toString();
-//     epochBlock.network = event.params.networkId.toString();
-//     epochBlock.blockHash = event.params.blockHash;
-//     epochBlock.timestamp = event.block.timestamp;
-//     epochBlock.transactionHash = event.transaction.hash;
-//     epochBlock.oracle = event.transaction.from.toString();
-//     epochBlock.save();
-
-//     let epochBlockUpdate = new EpochBlockUpdate(
-//       epochBlockId +
-//         "-" +
-//         event.block.timestamp.toString() +
-//         "-" +
-//         event.transaction.index.toString() +
-//         "-" +
-//         event.logIndex.toString()
-//     );
-//     epochBlockUpdate.epochBlock = epochBlockId;
-//     epochBlockUpdate.epoch = event.params.epoch.toString();
-//     epochBlockUpdate.network = event.params.networkId.toString();
-//     epochBlockUpdate.blockHash = event.params.blockHash;
-//     epochBlockUpdate.timestamp = event.block.timestamp;
-//     epochBlockUpdate.transactionHash = event.transaction.hash;
-//     epochBlockUpdate.oracle = event.transaction.from.toString();
-//     epochBlockUpdate.save();
-//   }
-// }

@@ -1,50 +1,35 @@
 type Oracle @entity {
   id: ID!
-  address: Bytes!
+  owner: Bytes!
 }
 
 type Epoch @entity {
   id: ID!
+  epochNumber: BigInt!
   epochBlocks: [EpochBlock!] @derivedFrom(field: "epoch")
-}
-
-type Network @entity {
-  id: ID!
-  name: String!
-  epochBlocks: [EpochBlock!] @derivedFrom(field: "network")
-  latestEpochBlock: EpochBlock!
 }
 
 type EpochBlock @entity {
   id: ID!
   epoch: Epoch!
-  network: Network!
+  networkId: Int!
   blockHash: Bytes!
   oracle: Oracle!
-  timestamp: BigInt!
+  timestamp: Int!
   transactionHash: Bytes!
-  epochBlockUpdates: [EpochBlockUpdate!] @derivedFrom(field: "epochBlock")
-}
-
-type EpochBlockUpdate @entity {
-  id: ID!
-  epochBlock: EpochBlock!
-  epoch: Epoch!
-  network: Network!
-  blockHash: Bytes!
-  oracle: Oracle!
-  transactionHash: Bytes!
-  timestamp: BigInt!
 }
 
 type InvalidUpdate @entity {
   id: ID!
-  timestamp: BigInt!
+  timestamp: Int!
   transactionHash: Bytes!
   caller: Bytes!
 }
 
-type RawUpdate @entity {
+type Update @entity {
   id: ID!
+  version: Int!
+  length: Int!
+  epochNumber: BigInt!
   payload: String!
 }
