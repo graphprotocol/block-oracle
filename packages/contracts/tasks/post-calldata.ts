@@ -5,10 +5,9 @@ task('data:post', 'Post calldata')
   .addParam('vault', 'Address of the data vault contract')
   .addParam('data', 'Call data to post')
   .setAction(async (taskArgs, hre) => {
-    console.log(taskArgs)
     // prepare data
-    const vaultAddress = ''
-    const txData = ''
+    const vaultAddress = taskArgs.vault
+    const txData = taskArgs.data
     const contract = await hre.ethers.getContractAt('DataVault', vaultAddress)
     const txRequest = {
       data: txData,

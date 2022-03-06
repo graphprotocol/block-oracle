@@ -32,6 +32,20 @@
     "README.md",
     "LICENSE"
   ],
+  "lint-staged": {
+    "contracts/*.sol": [
+      "prettier --write"
+    ],
+    "test/**/*.ts": [
+      "prettier --write"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "git diff HEAD --quiet && yarn lint && yarn test"
+    }
+  },
   "author": "The Graph Team",
   "license": "GPL-2.0-or-later",
   "devDependencies": {
@@ -65,6 +79,8 @@
     "hardhat-abi-exporter": "^2.2.0",
     "hardhat-contract-sizer": "^2.0.3",
     "hardhat-gas-reporter": "^1.0.4",
+    "husky": "^7.0.4",
+    "lint-staged": "^12.3.5",
     "prettier": "^2.1.1",
     "prettier-plugin-solidity": "^1.0.0-alpha.56",
     "solhint": "^3.3.7",
