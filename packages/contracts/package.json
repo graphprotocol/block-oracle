@@ -4,6 +4,7 @@
   "description": "The Graph Data Vault",
   "main": "index.js",
   "scripts": {
+    "prepare": "cd ../.. && husky install packages/contracts/.husky",
     "prepublishOnly": "scripts/prepublish",
     "build": "scripts/build",
     "clean": "rm -rf build/ cache/ dist/",
