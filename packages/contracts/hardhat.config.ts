@@ -16,6 +16,10 @@ import '@tenderly/hardhat-tenderly'
 import '@openzeppelin/hardhat-upgrades'
 import '@typechain/hardhat'
 
+// Tasks
+
+import './tasks/post-calldata'
+
 // Networks
 
 interface NetworkConfig {
