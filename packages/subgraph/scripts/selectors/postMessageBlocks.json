@@ -1,0 +1,13 @@
+{
+  "inputs": [
+    {
+      "internalType": "bytes",
+      "name": "_payload",
+      "type": "bytes"
+    }
+  ],
+  "name": "postMessageBlocks",
+  "outputs": [],
+  "stateMutability": "nonpayable",
+  "type": "function"
+}

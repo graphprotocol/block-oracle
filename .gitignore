@@ -20,3 +20,6 @@ bin/
 
 # Reports
 /reports
+
+# Subgraph
+generated/

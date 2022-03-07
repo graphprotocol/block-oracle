@@ -1,0 +1,17 @@
+{
+  "name": "block-oracle",
+  "license": "MIT",
+  "scripts": {
+    "prepare": "./scripts/prepare.sh",
+    "codegen": "graph codegen",
+    "build": "yarn prepare && graph build",
+    "deploy": "graph deploy --node https://api.thegraph.com/deploy/ abarmat/block-oracle",
+    "create-local": "graph create --node http://localhost:8020/ abarmat/block-oracle",
+    "remove-local": "graph remove --node http://localhost:8020/ abarmat/block-oracle",
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 abarmat/block-oracle"
+  },
+  "dependencies": {
+    "@graphprotocol/graph-cli": "0.27.0",
+    "@graphprotocol/graph-ts": "0.24.1"
+  }
+}

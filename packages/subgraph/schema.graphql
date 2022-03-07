@@ -1,0 +1,10 @@
+type Vault @entity {
+  id: ID!
+  owner: Bytes!
+}
+
+type Message @entity {
+  id: ID!
+  data: Bytes!
+  submitter: String!
+}
