@@ -1,4 +1,4 @@
-type Vault @entity {
+type DataEdge @entity {
   id: ID!
   owner: Bytes!
 }

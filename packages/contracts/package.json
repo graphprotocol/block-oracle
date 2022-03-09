@@ -1,7 +1,7 @@
 {
-  "name": "graph-data-vault",
+  "name": "graph-data-edge",
   "version": "0.1.0",
-  "description": "The Graph Data Vault",
+  "description": "The Graph Data Edge",
   "main": "index.js",
   "scripts": {
     "prepare": "cd ../.. && husky install packages/contracts/.husky",

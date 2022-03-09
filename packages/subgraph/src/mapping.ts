@@ -1,14 +1,5 @@
-import {
-  OwnershipTransferred,
-  PostMessageBlocksCall,
-} from "../generated/DataVault/DataVault";
-import { Vault, Message } from "../generated/schema";
-
-export function handleOwnershipTransferred(event: OwnershipTransferred): void {
-  let oracle = new Vault(event.address.toString());
-  oracle.owner = event.params.newOwner;
-  oracle.save();
-}
+import { PostMessageBlocksCall } from "../generated/DataEdge/DataEdge";
+import { DataEdge, Message } from "../generated/schema";
 
 export function handlePostMessageBlocks(call: PostMessageBlocksCall): void {
   // Read input vars
