@@ -2,22 +2,22 @@ import { ethers } from 'hardhat'
 import '@nomiclabs/hardhat-ethers'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
-import { DataVault__factory, DataVault } from '../build/types'
+import { DataEdge__factory, DataEdge } from '../build/types'
 import { expect } from 'chai'
 
 const { getContractFactory, getSigners } = ethers
 const { id, hexConcat, randomBytes, hexlify, defaultAbiCoder } = ethers.utils
 
-describe('DataVault', () => {
-  let vault: DataVault
+describe('DataEdge', () => {
+  let edge: DataEdge
   let me: SignerWithAddress
 
   beforeEach(async () => {
     ;[me] = await getSigners()
 
-    const factory = (await getContractFactory('DataVault', me)) as DataVault__factory
-    vault = await factory.deploy()
-    await vault.deployed()
+    const factory = (await getContractFactory('DataEdge', me)) as DataEdge__factory
+    edge = await factory.deploy()
+    await edge.deployed()
   })
 
   describe('submit data', async () => {
@@ -25,7 +25,7 @@ describe('DataVault', () => {
       // virtual function call
       const txRequest = {
         data: '0x123123',
-        to: vault.address,
+        to: edge.address,
       }
       // send transaction
       const tx = await me.sendTransaction(txRequest)
@@ -44,7 +44,7 @@ describe('DataVault', () => {
       // craft full transaction
       const txRequest = {
         data: txData,
-        to: vault.address,
+        to: edge.address,
       }
       // send transaction
       const tx = await me.sendTransaction(txRequest)
