@@ -7,7 +7,6 @@ The DataEdge accepts any function call by using a fallback function that will no
 ### Additional Considerations
 
 - Fallback is not payable to avoid anyone sending ETH by mistake as the main purpose is to store calldata.
-- Contract is ownable as it can help with initial validation for who can send a payload
 
 # Deploying
 

@@ -18,6 +18,7 @@ import '@typechain/hardhat'
 
 // Tasks
 
+import './tasks/craft-calldata'
 import './tasks/post-calldata'
 
 // Networks
