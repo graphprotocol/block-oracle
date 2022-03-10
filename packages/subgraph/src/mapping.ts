@@ -1,7 +1,9 @@
-import { PostMessageBlocksCall } from "../generated/DataEdge/DataEdge";
+import { CrossChainEpochOracleCall } from "../generated/DataEdge/DataEdge";
 import { DataEdge, Message } from "../generated/schema";
 
-export function handlePostMessageBlocks(call: PostMessageBlocksCall): void {
+export function handleCrossChainEpochOracle(
+  call: CrossChainEpochOracleCall
+): void {
   // Read input vars
   let submitter = call.transaction.from.toString();
   let payloadBytes = call.inputs._payload;
