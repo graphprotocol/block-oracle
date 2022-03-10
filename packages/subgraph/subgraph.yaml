@@ -18,6 +18,6 @@ dataSources:
         - name: DataEdge
           file: ./abis/DataEdgeFull.json
       callHandlers:
-        - function: postMessageBlocks(bytes)
-          handler: handlePostMessageBlocks
+        - function: crossChainEpochOracle(bytes)
+          handler: handleCrossChainEpochOracle
       file: ./src/mapping.ts

@@ -6,7 +6,7 @@
       "type": "bytes"
     }
   ],
-  "name": "postMessageBlocks",
+  "name": "crossChainEpochOracle",
   "outputs": [],
   "stateMutability": "nonpayable",
   "type": "function"
