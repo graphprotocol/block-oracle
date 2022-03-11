@@ -5,7 +5,7 @@ export function handleCrossChainEpochOracle(
   call: CrossChainEpochOracleCall
 ): void {
   // Read input vars
-  let submitter = call.transaction.from.toString();
+  let submitter = call.transaction.from.toHexString();
   let payloadBytes = call.inputs._payload;
   let txHash = call.transaction.hash.toHexString();
 
