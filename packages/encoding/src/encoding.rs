@@ -1,4 +1,4 @@
-use crate::{messages::*, Bytes32};
+use crate::{messages::*, Bytes32, NetworkId};
 
 pub fn encode_messages(messages: &[CompressedMessage]) -> Vec<u8> {
     let mut bytes = Vec::new();
@@ -22,13 +22,13 @@ fn encode_preamble(messages: &[CompressedMessage], bytes: &mut Vec<u8>) {
             CompressedMessage::SetBlockNumbersForNextEpoch { .. } => 0u8,
             CompressedMessage::CorrectEpochs => 1,
             CompressedMessage::UpdateVersion => 2,
-            CompressedMessage::RegisterNetworks => 3,
+            CompressedMessage::RegisterNetworks { .. } => 3,
         }
     }
 
     let mut preamble = 0;
     for (i, message) in messages.iter().enumerate() {
-        preamble &= tag(message) << (i * 2);
+        preamble |= tag(message) << (i * 2);
     }
 
     bytes.push(preamble)
@@ -40,19 +40,44 @@ fn encode_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
             accelerations,
             root,
         } => encode_set_block_numbers_for_next_block(accelerations, root, bytes),
+        CompressedMessage::RegisterNetworks { add, remove } => {
+            encode_register_networks(add, remove, bytes)
+        }
+
         _ => todo!(),
     }
 }
 
 fn encode_set_block_numbers_for_next_block(
     accelerations: &[i64],
-    root: &Bytes32,
+    root: &Option<Bytes32>,
     bytes: &mut Vec<u8>,
 ) {
-    bytes.extend_from_slice(root);
+    if let Some(root) = root {
+        bytes.extend_from_slice(root);
+    }
     for acceleration in accelerations {
         encode_i64(*acceleration, bytes);
     }
+}
+
+fn encode_register_networks(add: &[String], remove: &[NetworkId], bytes: &mut Vec<u8>) {
+    // Write count for remove, followed by network ids
+    encode_u64(remove.len() as u64, bytes);
+    for remove in remove {
+        // TODO: Compression - could delta encode series here. Probably not worth it.
+        encode_u64(*remove, bytes);
+    }
+
+    encode_u64(add.len() as u64, bytes);
+    for add in add {
+        encode_str(add, bytes);
+    }
+}
+
+fn encode_str(value: &str, bytes: &mut Vec<u8>) {
+    encode_u64(value.len() as u64, bytes);
+    bytes.extend_from_slice(value.as_bytes());
 }
 
 fn encode_u64(value: u64, bytes: &mut Vec<u8>) {
