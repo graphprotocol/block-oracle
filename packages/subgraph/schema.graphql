@@ -3,8 +3,22 @@ type DataEdge @entity {
   owner: Bytes!
 }
 
-type Message @entity {
+type MessageBlock @entity {
   id: ID!
   data: Bytes!
   submitter: String!
+  messages: [Message!]! @derivedFrom(field: "block")
+}
+
+type Message @entity {
+  id: ID!
+  type: MessageType!
+  block: MessageBlock!
+}
+
+enum MessageType {
+  SetBlockNumbersForEpoch
+  CorrectEpochs
+  UpdateVersions
+  RegisterNetworks
 }
