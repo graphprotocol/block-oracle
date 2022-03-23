@@ -1,13 +1,6 @@
 import { Bytes, BigInt } from "@graphprotocol/graph-ts";
 import { GlobalState } from "../generated/schema";
-import {
-  SET_BLOCK_NUMBERS_FOR_EPOCH,
-  CORRECT_EPOCHS,
-  UPDATE_VERSIONS,
-  REGISTER_NETWORKS,
-  PREAMBLE_BIT_LENGTH,
-  TAG_BIT_LENGTH
-} from "./constants";
+import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH } from "./constants";
 
 export function getGlobalState(): GlobalState {
   let state = GlobalState.load("0");
@@ -18,8 +11,8 @@ export function getGlobalState(): GlobalState {
   return state;
 }
 
-export function getTags(preamble: Bytes): Array<String> {
-  let tags = new Array<String>();
+export function getTags(preamble: Bytes): Array<i32> {
+  let tags = new Array<i32>();
   for (let i = 0; i < PREAMBLE_BIT_LENGTH / TAG_BIT_LENGTH; i++) {
     tags.push(getTag(preamble, i));
   }
@@ -118,53 +111,65 @@ export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): u64 {
   //     return Err(DecodeError::InvalidFormat);
   // }
 
-  let result = 0 as u64;
+  let result: u64;
   if (shift == "00000000") {
-    result = (bytes[offset + 1] as u64)
-        | ((bytes[offset + 2] as u64) << 8)
-        | ((bytes[offset + 3] as u64) << 16)
-        | ((bytes[offset + 4] as u64) << 24)
-        | ((bytes[offset + 5] as u64) << 32)
-        | ((bytes[offset + 6] as u64) << 40)
-        | ((bytes[offset + 7] as u64) << 48)
-        | ((bytes[offset + 8] as u64) << 56)
+    result =
+      (bytes[offset + 1] as u64) |
+      ((bytes[offset + 2] as u64) << 8) |
+      ((bytes[offset + 3] as u64) << 16) |
+      ((bytes[offset + 4] as u64) << 24) |
+      ((bytes[offset + 5] as u64) << 32) |
+      ((bytes[offset + 6] as u64) << 40) |
+      ((bytes[offset + 7] as u64) << 48) |
+      ((bytes[offset + 8] as u64) << 56);
   } else if (shift.endsWith("0000000")) {
-    result = (bytes[offset + 1] as u64)
-        | ((bytes[offset + 2] as u64) << 8)
-        | ((bytes[offset + 3] as u64) << 16)
-        | ((bytes[offset + 4] as u64) << 24)
-        | ((bytes[offset + 5] as u64) << 32)
-        | ((bytes[offset + 6] as u64) << 40)
-        | ((bytes[offset + 7] as u64) << 48)
+    result =
+      (bytes[offset + 1] as u64) |
+      ((bytes[offset + 2] as u64) << 8) |
+      ((bytes[offset + 3] as u64) << 16) |
+      ((bytes[offset + 4] as u64) << 24) |
+      ((bytes[offset + 5] as u64) << 32) |
+      ((bytes[offset + 6] as u64) << 40) |
+      ((bytes[offset + 7] as u64) << 48);
   } else if (shift.endsWith("000000")) {
-    result = (first >> 7) as u64
-        | ((bytes[offset + 1] as u64) << 1)
-        | ((bytes[offset + 2] as u64) << 9)
-        | ((bytes[offset + 3] as u64) << 17)
-        | ((bytes[offset + 4] as u64) << 25)
-        | ((bytes[offset + 5] as u64) << 33)
-        | ((bytes[offset + 6] as u64) << 41)
+    result =
+      ((first >> 7) as u64) |
+      ((bytes[offset + 1] as u64) << 1) |
+      ((bytes[offset + 2] as u64) << 9) |
+      ((bytes[offset + 3] as u64) << 17) |
+      ((bytes[offset + 4] as u64) << 25) |
+      ((bytes[offset + 5] as u64) << 33) |
+      ((bytes[offset + 6] as u64) << 41);
   } else if (shift.endsWith("00000")) {
-    result = (first >> 6) as u64
-        | ((bytes[offset + 1] as u64) << 2)
-        | ((bytes[offset + 2] as u64) << 10)
-        | ((bytes[offset + 3] as u64) << 18)
-        | ((bytes[offset + 4] as u64) << 26)
-        | ((bytes[offset + 5] as u64) << 34)
+    result =
+      ((first >> 6) as u64) |
+      ((bytes[offset + 1] as u64) << 2) |
+      ((bytes[offset + 2] as u64) << 10) |
+      ((bytes[offset + 3] as u64) << 18) |
+      ((bytes[offset + 4] as u64) << 26) |
+      ((bytes[offset + 5] as u64) << 34);
   } else if (shift.endsWith("0000")) {
-    result = (first >> 5) as u64
-        | ((bytes[offset + 1] as u64) << 3)
-        | ((bytes[offset + 2] as u64) << 11)
-        | ((bytes[offset + 3] as u64) << 19)
-        | ((bytes[offset + 4] as u64) << 27)
+    result =
+      ((first >> 5) as u64) |
+      ((bytes[offset + 1] as u64) << 3) |
+      ((bytes[offset + 2] as u64) << 11) |
+      ((bytes[offset + 3] as u64) << 19) |
+      ((bytes[offset + 4] as u64) << 27);
   } else if (shift.endsWith("000")) {
-    result = (first >> 4) as u64 | ((bytes[offset + 1] as u64) << 4) | ((bytes[offset + 2] as u64) << 12) | ((bytes[offset + 3] as u64) << 20)
+    result =
+      ((first >> 4) as u64) |
+      ((bytes[offset + 1] as u64) << 4) |
+      ((bytes[offset + 2] as u64) << 12) |
+      ((bytes[offset + 3] as u64) << 20);
   } else if (shift.endsWith("00")) {
-    result = (first >> 3) as u64 | ((bytes[offset + 1] as u64) << 5) | ((bytes[offset + 2] as u64) << 13)
+    result =
+      ((first >> 3) as u64) |
+      ((bytes[offset + 1] as u64) << 5) |
+      ((bytes[offset + 2] as u64) << 13);
   } else if (shift.endsWith("0")) {
-    result = (first >> 2) as u64 | ((bytes[offset + 1] as u64) << 6)
+    result = ((first >> 2) as u64) | ((bytes[offset + 1] as u64) << 6);
   } else {
-    result = (first >> 1) as u64
+    result = (first >> 1) as u64;
   }
 
   return result;

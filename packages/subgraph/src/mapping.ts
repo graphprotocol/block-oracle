@@ -1,12 +1,22 @@
 import { CrossChainEpochOracleCall } from "../generated/DataEdge/DataEdge";
 import { Bytes, BigInt } from "@graphprotocol/graph-ts";
-import { DataEdge, Message, MessageBlock, Payload } from "../generated/schema";
+import {
+  DataEdge,
+  SetBlockNumbersForEpochMessage,
+  CorrectEpochsMessage,
+  UpdateVersionsMessage,
+  RegisterNetworksMessage,
+  MessageBlock,
+  Payload,
+  GlobalState
+} from "../generated/schema";
 import {
   getGlobalState,
   getTags,
   decodePrefixVarIntU64,
   decodePrefixVarIntI64
 } from "./helpers";
+import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH } from "./constants";
 
 export function handleCrossChainEpochOracle(
   call: CrossChainEpochOracleCall
@@ -58,9 +68,9 @@ function executeMessage(
 ): void {
   // ToDo, parse and actually execute message
   let message = new SetBlockNumbersForEpochMessage(
-    [messageBlockID, BigInt.fromI32(i).toString()].join("-")
+    [messageBlockID, BigInt.fromI32(index).toString()].join("-")
   );
-  message.block = messageBlock.id;
+  message.block = messageBlockID;
 
   if (tag == 0) {
     // Do stuff
