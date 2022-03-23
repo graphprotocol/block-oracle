@@ -4,6 +4,7 @@
   "scripts": {
     "prepare": "./scripts/prepare.sh",
     "codegen": "graph codegen",
+    "test": "graph test",
     "build": "yarn prepare && graph build",
     "deploy": "graph deploy --node https://api.thegraph.com/deploy/ juanmardefago/block-oracle",
     "create-local": "graph create --node http://localhost:8020/ abarmat/block-oracle",
@@ -13,5 +14,8 @@
   "dependencies": {
     "@graphprotocol/graph-cli": "0.27.0",
     "@graphprotocol/graph-ts": "0.24.1"
+  },
+  "devDependencies": {
+    "matchstick-as": "^0.4.1"
   }
 }

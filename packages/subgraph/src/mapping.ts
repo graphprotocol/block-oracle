@@ -1,14 +1,12 @@
 import { CrossChainEpochOracleCall } from "../generated/DataEdge/DataEdge";
 import { Bytes, BigInt } from "@graphprotocol/graph-ts";
-import { DataEdge, Message, MessageBlock } from "../generated/schema";
+import { DataEdge, Message, MessageBlock, Payload } from "../generated/schema";
 import {
-  SET_BLOCK_NUMBERS_FOR_EPOCH,
-  CORRECT_EPOCHS,
-  UPDATE_VERSIONS,
-  REGISTER_NETWORKS,
-  PREAMBLE_BIT_LENGTH,
-  TAG_BIT_LENGTH
-} from "./constants";
+  getGlobalState,
+  getTags,
+  decodePrefixVarIntU64,
+  decodePrefixVarIntI64
+} from "./helpers";
 
 export function handleCrossChainEpochOracle(
   call: CrossChainEpochOracleCall
@@ -18,48 +16,66 @@ export function handleCrossChainEpochOracle(
   let payloadBytes = call.inputs._payload;
   let txHash = call.transaction.hash.toHexString();
 
-  // Save raw message
-  let messageBlock = new MessageBlock(txHash);
-  messageBlock.data = payloadBytes;
-  messageBlock.submitter = submitter;
-  messageBlock.save();
+  // Load GlobalState
+  let globalState = getGlobalState();
 
-  let tags = getTags(
-    changetype<Bytes>(messageBlock.data.slice(0, PREAMBLE_BIT_LENGTH / 8))
-  );
-  for (let i = 0; i < tags.length; i++) {
-    let message = new Message([txHash, BigInt.fromI32(i).toString()].join("-"));
-    message.type = tags[i];
-    message.block = messageBlock.id;
-    message.save();
+  // Save raw payload
+  let payload = new Payload(txHash);
+  payload.data = payloadBytes;
+  payload.submitter = submitter;
+  payload.save();
+
+  let rawPayloadData = payloadBytes;
+
+  let messageBlockCounter = 0;
+
+  while (rawPayloadData.length > 0) {
+    // Save raw message
+    let messageBlock = new MessageBlock(
+      [txHash, BigInt.fromI32(messageBlockCounter).toString()].join("-")
+    );
+
+    let tags = getTags(
+      changetype<Bytes>(rawPayloadData.slice(0, PREAMBLE_BIT_LENGTH / 8))
+    );
+
+    for (let i = 0; i < tags.length; i++) {
+      executeMessage(tags[i], i, globalState, messageBlock.id, rawPayloadData);
+    }
+
+    messageBlock.data = rawPayloadData; // cut it to the amount actually read
+    messageBlock.save();
+    messageBlockCounter++;
   }
 }
 
-function getTags(preamble: Bytes): Array<String> {
-  let tags = new Array<String>();
-  for (let i = 0; i < PREAMBLE_BIT_LENGTH / TAG_BIT_LENGTH; i++) {
-    tags.push(getTag(preamble, i));
-  }
-  return tags;
-}
-
-function getTag(preamble: Bytes, index: i32): String {
-  return translateI32ToMessageType(
-    (BigInt.fromUnsignedBytes(preamble).toI32() >> (index * TAG_BIT_LENGTH)) &
-      (2 ** TAG_BIT_LENGTH - 1)
+function executeMessage(
+  tag: i32,
+  index: i32,
+  globalState: GlobalState,
+  messageBlockID: String,
+  data: Bytes
+): void {
+  // ToDo, parse and actually execute message
+  let message = new SetBlockNumbersForEpochMessage(
+    [messageBlockID, BigInt.fromI32(i).toString()].join("-")
   );
-}
+  message.block = messageBlock.id;
 
-function translateI32ToMessageType(tag: i32): String {
-  let result = "";
   if (tag == 0) {
-    result = SET_BLOCK_NUMBERS_FOR_EPOCH;
+    // Do stuff
+    message.save();
   } else if (tag == 1) {
-    result = CORRECT_EPOCHS;
+    let coercedMessage = changetype<CorrectEpochsMessage>(message);
+    // Do stuff
+    coercedMessage.save();
   } else if (tag == 2) {
-    result = UPDATE_VERSIONS;
+    let coercedMessage = changetype<UpdateVersionsMessage>(message);
+    // Do stuff
+    coercedMessage.save();
   } else if (tag == 3) {
-    result = REGISTER_NETWORKS;
+    let coercedMessage = changetype<RegisterNetworksMessage>(message);
+    // Do stuff
+    coercedMessage.save();
   }
-  return result;
 }

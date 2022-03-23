@@ -3,22 +3,55 @@ type DataEdge @entity {
   owner: Bytes!
 }
 
-type MessageBlock @entity {
+type Payload @entity {
   id: ID!
   data: Bytes!
   submitter: String!
+  messageBlocks: [MessageBlock!]! @derivedFrom(field: "payload")
+}
+
+type MessageBlock @entity {
+  id: ID!
+  data: Bytes!
+  payload: Payload!
   messages: [Message!]! @derivedFrom(field: "block")
 }
 
-type Message @entity {
+interface Message {
   id: ID!
-  type: MessageType!
   block: MessageBlock!
+  data: Bytes!
 }
 
-enum MessageType {
-  SetBlockNumbersForEpoch
-  CorrectEpochs
-  UpdateVersions
-  RegisterNetworks
+type SetBlockNumbersForEpochMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes!
+}
+
+type CorrectEpochsMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes!
+}
+
+type UpdateVersionsMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes!
+}
+
+type RegisterNetworksMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes!
+}
+
+type Network @entity {
+  id: ID!
+}
+
+type GlobalState @entity {
+  id: ID!
+  networkCount: BigInt!
 }
