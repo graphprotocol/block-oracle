@@ -154,36 +154,6 @@ test("U64 Decoding InvalidFormat 0x00FFFFFFFFFFFFFF (1 byte less than valid)", (
   assert.bigIntEquals(BigInt.fromU64(decoded[1]), BigInt.fromU64(0 as u64));
 });
 
-/*
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn known_values() {
-        let result = ZigZag::encode(0i32);
-        assert_eq!(result, 0);
-
-        let result = ZigZag::encode(-1i32);
-        assert_eq!(result, 1);
-
-        let result = ZigZag::encode(2147483647i32);
-        assert_eq!(result, 4294967294);
-
-        let result = ZigZag::encode(-2147483648i32);
-        assert_eq!(result, 4294967295);
-    }
-
-    #[test]
-    fn all_values() {
-        for i in std::i16::MIN..=std::i16::MAX {
-            let zig = ZigZag::encode(i);
-            let zag = ZigZag::decode(zig);
-            assert_eq!(i, zag);
-        }
-    }
-}
-*/
-
 test("ZigZag Decoding 0", () => {
   // 0 should decode to 0
   let encoded = 0 as u64;

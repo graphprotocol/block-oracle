@@ -20,25 +20,26 @@ type MessageBlock @entity {
 interface Message {
   id: ID!
   block: MessageBlock!
-  data: Bytes!
+  "data is optional since it might be an empty message"
+  data: Bytes
 }
 
 type SetBlockNumbersForEpochMessage implements Message @entity {
   id: ID!
   block: MessageBlock!
-  data: Bytes!
+  data: Bytes
 }
 
 type CorrectEpochsMessage implements Message @entity {
   id: ID!
   block: MessageBlock!
-  data: Bytes!
+  data: Bytes
 }
 
 type UpdateVersionsMessage implements Message @entity {
   id: ID!
   block: MessageBlock!
-  data: Bytes!
+  data: Bytes
 }
 
 type RegisterNetworksMessage implements Message @entity {

@@ -49,23 +49,36 @@ export function handleCrossChainEpochOracle(
       changetype<Bytes>(rawPayloadData.slice(0, PREAMBLE_BIT_LENGTH / 8))
     );
 
+    rawPayloadData = rawPayloadData.slice(PREAMBLE_BIT_LENGTH / 8);
+
     for (let i = 0; i < tags.length; i++) {
-      executeMessage(tags[i], i, globalState, messageBlock.id, rawPayloadData);
+      let bytesRead = executeMessage(
+        tags[i],
+        i,
+        globalState,
+        messageBlock.id,
+        rawPayloadData
+      );
+      rawPayloadData = rawPayloadData.slice(bytesRead);
     }
 
     messageBlock.data = rawPayloadData; // cut it to the amount actually read
     messageBlock.save();
     messageBlockCounter++;
   }
+
+  globalState.save();
 }
 
+// Executes the message and returns the amount of bytes read
 function executeMessage(
   tag: i32,
   index: i32,
   globalState: GlobalState,
   messageBlockID: String,
   data: Bytes
-): void {
+): i32 {
+  let bytesRead = 0;
   // ToDo, parse and actually execute message
   let message = new SetBlockNumbersForEpochMessage(
     [messageBlockID, BigInt.fromI32(index).toString()].join("-")
@@ -73,19 +86,75 @@ function executeMessage(
   message.block = messageBlockID;
 
   if (tag == 0) {
-    // Do stuff
-    message.save();
+    bytesRead = executeSetBlockNumbersForEpochMessage(
+      message,
+      globalState,
+      data
+    );
   } else if (tag == 1) {
-    let coercedMessage = changetype<CorrectEpochsMessage>(message);
-    // Do stuff
-    coercedMessage.save();
+    bytesRead = executeCorrectEpochsMessage(
+      changetype<CorrectEpochsMessage>(message),
+      globalState,
+      data
+    );
   } else if (tag == 2) {
-    let coercedMessage = changetype<UpdateVersionsMessage>(message);
-    // Do stuff
-    coercedMessage.save();
+    bytesRead = executeUpdateVersionsMessage(
+      changetype<UpdateVersionsMessage>(message),
+      globalState,
+      data
+    );
   } else if (tag == 3) {
-    let coercedMessage = changetype<RegisterNetworksMessage>(message);
-    // Do stuff
-    coercedMessage.save();
+    bytesRead = executeRegisterNetworksMessage(
+      changetype<RegisterNetworksMessage>(message),
+      globalState,
+      data
+    );
   }
+
+  return bytesRead;
+}
+
+function executeSetBlockNumbersForEpochMessage(
+  message: SetBlockNumbersForEpochMessage,
+  globalState: GlobalState,
+  data: Bytes
+): i32 {
+  let bytesRead = 0;
+  if (globalState.networkCount != 0) {
+    // To Do
+    message.save();
+  } else {
+    message.save();
+  }
+  return bytesRead;
+}
+
+function executeCorrectEpochsMessage(
+  message: CorrectEpochsMessage,
+  globalState: GlobalState,
+  data: Bytes
+): i32 {
+  let bytesRead = 0;
+  // To Do
+  return bytesRead;
+}
+
+function executeUpdateVersionsMessage(
+  message: UpdateVersionsMessage,
+  globalState: GlobalState,
+  data: Bytes
+): i32 {
+  let bytesRead = 0;
+  // To Do
+  return bytesRead;
+}
+
+function executeRegisterNetworksMessage(
+  message: RegisterNetworksMessage,
+  globalState: GlobalState,
+  data: Bytes
+): i32 {
+  let bytesRead = 0;
+  // To Do
+  return bytesRead;
 }

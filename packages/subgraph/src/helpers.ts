@@ -29,14 +29,15 @@ function getTag(preamble: Bytes, index: i32): i32 {
 
 // Returns the decoded i64 and the amount of bytes read. [0,0] -> Error
 export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): Array<i64> {
-  let result: Array<i64> = [0,0];
+  let result: i64 = 0;
+
   // First we need to decode the raw bytes into a u64 and check that it didn't error out
   let zigZagDecodeInput = decodePrefixVarIntU64(bytes, offset)
   if(zigZagDecodeInput[1] != 0) {
     // Then we need to decode the U64 with ZigZag
     result = zigZagDecode(zigZagDecodeInput[0])
   }
-  return result
+  return [result, zigZagDecodeInput[1]]
 }
 
 // Returns the decoded u64 and the amount of bytes read. [0,0] -> Error
@@ -114,7 +115,6 @@ export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): Array<u64> {
   return [result, shift + 1];
 }
 
-// Returns the decoded u64 and the amount of bytes read. [0,0] -> Error
 export function zigZagDecode(input: u64): i64 {
   return ((input >> 1) ^ -(input & 1)) as i64
 }
