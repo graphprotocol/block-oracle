@@ -1,6 +1,7 @@
 import { Bytes, BigInt } from "@graphprotocol/graph-ts";
 import { GlobalState } from "../generated/schema";
 import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH } from "./constants";
+import { log } from "@graphprotocol/graph-ts";
 
 export function getGlobalState(): GlobalState {
   let state = GlobalState.load("0");
@@ -100,67 +101,80 @@ pub fn decode_prefix_varint(bytes: &[u8], offset: &mut usize) -> DecodeResult<u6
 }
 */
 
-export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): i64 {}
+// Returns the decoded i64 and the amount of bytes read. [0,0] -> Error
+export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): Array<i64> {}
 
-export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): u64 {
+// Returns the decoded u64 and the amount of bytes read. [0,0] -> Error
+export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): Array<u64> {
   let first = bytes[offset];
-  let shift = ctz(first);
+  // shift can't be more than 8, but AS compiles u8 to an i32 in bytecode, so ctz acts weirdly here without the min.
+  let shift = min(ctz(first), 8);
 
-  // // TODO: Check that the compiler does unchecked indexing after this
-  // if (*offset + (shift as usize)) >= bytes.len() {
-  //     return Err(DecodeError::InvalidFormat);
-  // }
-
-
-
-  let result: u64;
-  if(shift == 0) {
-    result = ((first >> 1) as u64)
-  } else if(shift == 1) {
-    result  = (((first >> 2) as u64) | ((bytes[offset + 1] as u64) << 6))
-  } else if(shift == 2) {
-    result = (((first >> 3) as u64) | ((bytes[offset + 1] as u64) << 5) | ((bytes[offset + 2] as u64) << 13))
-  } else if(shift == 3) {
-    result = (((first >> 4) as u64) | ((bytes[offset + 1] as u64) << 4) | ((bytes[offset + 2] as u64) << 12) | ((bytes[offset + 3] as u64) << 20))
-  } else if(shift == 4) {
-    result = (((first >> 5) as u64)
-        | ((bytes[offset + 1] as u64) << 3)
-        | ((bytes[offset + 2] as u64) << 11)
-        | ((bytes[offset + 3] as u64) << 19)
-        | ((bytes[offset + 4] as u64) << 27))
-  } else if(shift == 5) {
-    result = (((first >> 6) as u64)
-        | ((bytes[offset + 1] as u64) << 2)
-        | ((bytes[offset + 2] as u64) << 10)
-        | ((bytes[offset + 3] as u64) << 18)
-        | ((bytes[offset + 4] as u64) << 26)
-        | ((bytes[offset + 5] as u64) << 34))
-  } else if(shift == 6) {
-    result = (((first >> 7) as u64)
-        | ((bytes[offset + 1] as u64) << 1)
-        | ((bytes[offset + 2] as u64) << 9)
-        | ((bytes[offset + 3] as u64) << 17)
-        | ((bytes[offset + 4] as u64) << 25)
-        | ((bytes[offset + 5] as u64) << 33)
-        | ((bytes[offset + 6] as u64) << 41))
-  } else if(shift == 7) {
-    result = ((bytes[offset + 1] as u64)
-        | ((bytes[offset + 2] as u64) << 8)
-        | ((bytes[offset + 3] as u64) << 16)
-        | ((bytes[offset + 4] as u64) << 24)
-        | ((bytes[offset + 5] as u64) << 32)
-        | ((bytes[offset + 6] as u64) << 40)
-        | ((bytes[offset + 7] as u64) << 48))
-  } else if(shift == 8) {
-    result = ((bytes[offset + 1] as u64)
-        | ((bytes[offset + 2] as u64) << 8)
-        | ((bytes[offset + 3] as u64) << 16)
-        | ((bytes[offset + 4] as u64) << 24)
-        | ((bytes[offset + 5] as u64) << 32)
-        | ((bytes[offset + 6] as u64) << 40)
-        | ((bytes[offset + 7] as u64) << 48)
-        | ((bytes[offset + 8] as u64) << 56))
+  // Checking for invalid inputs that would break the algorithm
+  if (((offset + shift) as i32) >= bytes.length) {
+    return [0, 0];
   }
 
-  return result;
+  let result: u64;
+  if (shift == 0) {
+    result = (first >> 1) as u64;
+  } else if (shift == 1) {
+    result = ((first >> 2) as u64) | ((bytes[offset + 1] as u64) << 6);
+  } else if (shift == 2) {
+    result =
+      ((first >> 3) as u64) |
+      ((bytes[offset + 1] as u64) << 5) |
+      ((bytes[offset + 2] as u64) << 13);
+  } else if (shift == 3) {
+    result =
+      ((first >> 4) as u64) |
+      ((bytes[offset + 1] as u64) << 4) |
+      ((bytes[offset + 2] as u64) << 12) |
+      ((bytes[offset + 3] as u64) << 20);
+  } else if (shift == 4) {
+    result =
+      ((first >> 5) as u64) |
+      ((bytes[offset + 1] as u64) << 3) |
+      ((bytes[offset + 2] as u64) << 11) |
+      ((bytes[offset + 3] as u64) << 19) |
+      ((bytes[offset + 4] as u64) << 27);
+  } else if (shift == 5) {
+    result =
+      ((first >> 6) as u64) |
+      ((bytes[offset + 1] as u64) << 2) |
+      ((bytes[offset + 2] as u64) << 10) |
+      ((bytes[offset + 3] as u64) << 18) |
+      ((bytes[offset + 4] as u64) << 26) |
+      ((bytes[offset + 5] as u64) << 34);
+  } else if (shift == 6) {
+    result =
+      ((first >> 7) as u64) |
+      ((bytes[offset + 1] as u64) << 1) |
+      ((bytes[offset + 2] as u64) << 9) |
+      ((bytes[offset + 3] as u64) << 17) |
+      ((bytes[offset + 4] as u64) << 25) |
+      ((bytes[offset + 5] as u64) << 33) |
+      ((bytes[offset + 6] as u64) << 41);
+  } else if (shift == 7) {
+    result =
+      (bytes[offset + 1] as u64) |
+      ((bytes[offset + 2] as u64) << 8) |
+      ((bytes[offset + 3] as u64) << 16) |
+      ((bytes[offset + 4] as u64) << 24) |
+      ((bytes[offset + 5] as u64) << 32) |
+      ((bytes[offset + 6] as u64) << 40) |
+      ((bytes[offset + 7] as u64) << 48);
+  } else if (shift == 8) {
+    result =
+      (bytes[offset + 1] as u64) |
+      ((bytes[offset + 2] as u64) << 8) |
+      ((bytes[offset + 3] as u64) << 16) |
+      ((bytes[offset + 4] as u64) << 24) |
+      ((bytes[offset + 5] as u64) << 32) |
+      ((bytes[offset + 6] as u64) << 40) |
+      ((bytes[offset + 7] as u64) << 48) |
+      ((bytes[offset + 8] as u64) << 56);
+  }
+
+  return [result, shift + 1];
 }
