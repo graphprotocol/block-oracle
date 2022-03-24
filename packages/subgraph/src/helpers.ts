@@ -27,82 +27,17 @@ function getTag(preamble: Bytes, index: i32): i32 {
   );
 }
 
-/*
-Prefix Varint decode rust example
-
-#[cfg(feature = "decode")]
-pub fn decode_prefix_varint(bytes: &[u8], offset: &mut usize) -> DecodeResult<u64> {
-    // TODO: (Performance) When reading from an array, a series of values can be decoded unchecked.
-    // Eg: If there are 100 bytes, each number taken can read at most 9 bytes,
-    // so 11 values can be taken unchecked (up to 99 bytes). This will likely read less,
-    // so this can remain in an amortized check loop until the size of the remainder
-    // is less than 9 bytes.
-
-    let first = bytes.get(*offset).ok_or_else(|| DecodeError::InvalidFormat)?;
-    let shift = first.trailing_zeros();
-
-    // TODO: Check that the compiler does unchecked indexing after this
-    if (*offset + (shift as usize)) >= bytes.len() {
-        return Err(DecodeError::InvalidFormat);
-    }
-
-    let result = match shift {
-        0 => (first >> 1) as u64,
-        1 => (first >> 2) as u64 | ((bytes[*offset + 1] as u64) << 6),
-        2 => (first >> 3) as u64 | ((bytes[*offset + 1] as u64) << 5) | ((bytes[*offset + 2] as u64) << 13),
-        3 => (first >> 4) as u64 | ((bytes[*offset + 1] as u64) << 4) | ((bytes[*offset + 2] as u64) << 12) | ((bytes[*offset + 3] as u64) << 20),
-        4 => {
-            (first >> 5) as u64
-                | ((bytes[*offset + 1] as u64) << 3)
-                | ((bytes[*offset + 2] as u64) << 11)
-                | ((bytes[*offset + 3] as u64) << 19)
-                | ((bytes[*offset + 4] as u64) << 27)
-        }
-        5 => {
-            (first >> 6) as u64
-                | ((bytes[*offset + 1] as u64) << 2)
-                | ((bytes[*offset + 2] as u64) << 10)
-                | ((bytes[*offset + 3] as u64) << 18)
-                | ((bytes[*offset + 4] as u64) << 26)
-                | ((bytes[*offset + 5] as u64) << 34)
-        }
-        6 => {
-            (first >> 7) as u64
-                | ((bytes[*offset + 1] as u64) << 1)
-                | ((bytes[*offset + 2] as u64) << 9)
-                | ((bytes[*offset + 3] as u64) << 17)
-                | ((bytes[*offset + 4] as u64) << 25)
-                | ((bytes[*offset + 5] as u64) << 33)
-                | ((bytes[*offset + 6] as u64) << 41)
-        }
-        7 => {
-            (bytes[*offset + 1] as u64)
-                | ((bytes[*offset + 2] as u64) << 8)
-                | ((bytes[*offset + 3] as u64) << 16)
-                | ((bytes[*offset + 4] as u64) << 24)
-                | ((bytes[*offset + 5] as u64) << 32)
-                | ((bytes[*offset + 6] as u64) << 40)
-                | ((bytes[*offset + 7] as u64) << 48)
-        }
-        8 => {
-            (bytes[*offset + 1] as u64)
-                | ((bytes[*offset + 2] as u64) << 8)
-                | ((bytes[*offset + 3] as u64) << 16)
-                | ((bytes[*offset + 4] as u64) << 24)
-                | ((bytes[*offset + 5] as u64) << 32)
-                | ((bytes[*offset + 6] as u64) << 40)
-                | ((bytes[*offset + 7] as u64) << 48)
-                | ((bytes[*offset + 8] as u64) << 56)
-        }
-        _ => unreachable!(),
-    };
-    *offset += (shift + 1) as usize;
-    Ok(result)
-}
-*/
-
 // Returns the decoded i64 and the amount of bytes read. [0,0] -> Error
-export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): Array<i64> {}
+export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): Array<i64> {
+  let result: Array<i64> = [0,0];
+  // First we need to decode the raw bytes into a u64 and check that it didn't error out
+  let zigZagDecodeInput = decodePrefixVarIntU64(bytes, offset)
+  if(zigZagDecodeInput[1] != 0) {
+    // Then we need to decode the U64 with ZigZag
+    result = zigZagDecode(zigZagDecodeInput[0])
+  }
+  return result
+}
 
 // Returns the decoded u64 and the amount of bytes read. [0,0] -> Error
 export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): Array<u64> {
@@ -177,4 +112,9 @@ export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): Array<u64> {
   }
 
   return [result, shift + 1];
+}
+
+// Returns the decoded u64 and the amount of bytes read. [0,0] -> Error
+export function zigZagDecode(input: u64): i64 {
+  return ((input >> 1) ^ -(input & 1)) as i64
 }
