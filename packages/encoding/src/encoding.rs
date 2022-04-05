@@ -1,4 +1,4 @@
-use crate::{messages::*, Bytes32, NetworkId};
+use crate::{messages::*, NetworkId};
 
 pub fn encode_messages(messages: &[CompressedMessage]) -> Vec<u8> {
     let mut bytes = Vec::new();
@@ -36,10 +36,9 @@ fn encode_preamble(messages: &[CompressedMessage], bytes: &mut Vec<u8>) {
 
 fn encode_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
     match message {
-        CompressedMessage::SetBlockNumbersForNextEpoch {
-            accelerations,
-            root,
-        } => encode_set_block_numbers_for_next_block(accelerations, root, bytes),
+        CompressedMessage::SetBlockNumbersForNextEpoch(compressed_block_numbers) => {
+            encode_set_block_numbers_for_next_block(compressed_block_numbers, bytes)
+        }
         CompressedMessage::RegisterNetworks { add, remove } => {
             encode_register_networks(add, remove, bytes)
         }
@@ -49,15 +48,20 @@ fn encode_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
 }
 
 fn encode_set_block_numbers_for_next_block(
-    accelerations: &[i64],
-    root: &Option<Bytes32>,
+    block_numbers: &CompressedSetBlockNumbersForNextEpoch,
     bytes: &mut Vec<u8>,
 ) {
-    if let Some(root) = root {
-        bytes.extend_from_slice(root);
-    }
-    for acceleration in accelerations {
-        encode_i64(*acceleration, bytes);
+    match block_numbers {
+        CompressedSetBlockNumbersForNextEpoch::Empty { count } => encode_u64(*count, bytes),
+        CompressedSetBlockNumbersForNextEpoch::NonEmpty {
+            accelerations,
+            root,
+        } => {
+            bytes.extend_from_slice(root);
+            for acceleration in accelerations {
+                encode_i64(*acceleration, bytes);
+            }
+        }
     }
 }
 

@@ -137,50 +137,66 @@ where
             // Set Block Numbers //
             ///////////////////////
 
-            // Sort the block pointers by network id.
-            let mut by_id = Vec::new();
-            for block_ptr in block_ptrs {
-                let id = if let Some(id) = networks.get(block_ptr.0) {
-                    id
-                } else {
-                    return Ok(Err(ValidationError::NetworkMismatch));
+            // There are separate cases for empty sets and non-empty sets.
+            // If we have an empty set we may need to extend the last message.
+            if block_ptrs.len() == 0 {
+                let count = loop {
+                    match compressed.last_mut() {
+                        Some(CompressedMessage::SetBlockNumbersForNextEpoch(
+                            CompressedSetBlockNumbersForNextEpoch::Empty { count },
+                        )) => break count,
+                        _ => {
+                            compressed.push(CompressedMessage::SetBlockNumbersForNextEpoch(
+                                CompressedSetBlockNumbersForNextEpoch::Empty { count: 0 },
+                            ));
+                        }
+                    }
                 };
-                by_id.push((*id, block_ptr.1));
-            }
-            by_id.sort_unstable_by_key(|i| i.0);
-
-            // Get accelerations and merkle leaves based on previous deltas.
-            let mut accelerations = Vec::with_capacity(by_id.len());
-            let mut merkle_leaves = Vec::with_capacity(by_id.len());
-            for (id, ptr) in by_id.into_iter() {
-                let mut network = if let Some(network) = db.get_network(id).await? {
-                    network
-                } else {
-                    return Ok(Err(ValidationError::NetworkMismatch));
-                };
-                let delta = (ptr.number - network.block_number) as i64;
-                let acceleration = delta - network.block_delta;
-                network.block_number = ptr.number;
-                network.block_delta = delta;
-                db.set_network(id, network).await?;
-                accelerations.push(acceleration);
-                merkle_leaves.push(MerkleLeaf {
-                    network_id: id,
-                    block_hash: ptr.hash,
-                    block_number: ptr.number,
-                });
-            }
-
-            let root = if merkle_leaves.len() != 0 {
-                Some(merkle_root(&merkle_leaves))
+                *count += 1;
             } else {
-                None
-            };
+                // Sort the block pointers by network id.
+                let mut by_id = Vec::new();
+                for block_ptr in block_ptrs {
+                    let id = if let Some(id) = networks.get(block_ptr.0) {
+                        id
+                    } else {
+                        return Ok(Err(ValidationError::NetworkMismatch));
+                    };
+                    by_id.push((*id, block_ptr.1));
+                }
+                by_id.sort_unstable_by_key(|i| i.0);
 
-            compressed.push(CompressedMessage::SetBlockNumbersForNextEpoch {
-                accelerations,
-                root,
-            });
+                // Get accelerations and merkle leaves based on previous deltas.
+                let mut accelerations = Vec::with_capacity(by_id.len());
+                let mut merkle_leaves = Vec::with_capacity(by_id.len());
+                for (id, ptr) in by_id.into_iter() {
+                    let mut network = if let Some(network) = db.get_network(id).await? {
+                        network
+                    } else {
+                        return Ok(Err(ValidationError::NetworkMismatch));
+                    };
+                    let delta = (ptr.number - network.block_number) as i64;
+                    let acceleration = delta - network.block_delta;
+                    network.block_number = ptr.number;
+                    network.block_delta = delta;
+                    db.set_network(id, network).await?;
+                    accelerations.push(acceleration);
+                    merkle_leaves.push(MerkleLeaf {
+                        network_id: id,
+                        block_hash: ptr.hash,
+                        block_number: ptr.number,
+                    });
+                }
+
+                let root = merkle_root(&merkle_leaves);
+
+                compressed.push(CompressedMessage::SetBlockNumbersForNextEpoch(
+                    CompressedSetBlockNumbersForNextEpoch::NonEmpty {
+                        accelerations,
+                        root,
+                    },
+                ));
+            }
         }
 
         _ => todo!(),

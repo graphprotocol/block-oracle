@@ -23,11 +23,19 @@ pub enum Message {
 }
 
 #[derive(Debug)]
-pub enum CompressedMessage {
-    SetBlockNumbersForNextEpoch {
-        accelerations: Vec<i64>,
-        root: Option<Bytes32>,
+pub enum CompressedSetBlockNumbersForNextEpoch {
+    Empty {
+        count: u64,
     },
+    NonEmpty {
+        accelerations: Vec<i64>,
+        root: Bytes32,
+    },
+}
+
+#[derive(Debug)]
+pub enum CompressedMessage {
+    SetBlockNumbersForNextEpoch(CompressedSetBlockNumbersForNextEpoch),
     CorrectEpochs,
     RegisterNetworks {
         // Remove is by index
