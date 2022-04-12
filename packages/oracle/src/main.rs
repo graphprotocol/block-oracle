@@ -1,8 +1,10 @@
 mod config;
+mod event_source;
 mod store;
 
 use async_trait::async_trait;
 use epoch_encoding::{self, Blockchain, Transaction};
+use event_source::EventSource;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::io;
@@ -15,10 +17,6 @@ pub use store::Store;
 lazy_static! {
     pub static ref CONFIG: config::Config = config::Config::parse();
 }
-
-/// Actively listens for new blocks and reorgs from registered blockchains. Also, it checks the
-/// number of confirmations for transactions sent to the DataEdge contract.
-type EventSource = ();
 
 /// Responsible for receiving the encodede payload, constructing and signing the transactions to
 /// Ethereum Mainnet.

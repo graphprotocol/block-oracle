@@ -5,6 +5,7 @@ pub type EncodingVersion = u32;
 pub type BlockNumber = u64;
 pub type Timestamp = chrono::DateTime<chrono::Utc>;
 
+#[derive(PartialEq, Eq, Hash)]
 pub struct Caip2ChainId {
     chain_id: String,
 }
