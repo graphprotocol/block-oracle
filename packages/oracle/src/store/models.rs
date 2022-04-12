@@ -1,4 +1,5 @@
-use sqlx::types::chrono::{self};
+use sqlx::types::chrono;
+use std::str::FromStr;
 
 pub type Id = i64;
 pub type EncodingVersion = u32;
@@ -13,8 +14,24 @@ pub struct Caip2ChainId {
 impl Caip2ChainId {
     const SEPARATOR: char = ':';
 
-    pub fn parse(&self, chain_id: &str) -> Option<Self> {
-        let split = self.chain_id.split(Self::SEPARATOR).collect::<Vec<&str>>();
+    pub fn as_str(&self) -> &str {
+        &self.chain_id
+    }
+
+    pub fn namespace_part(&self) -> &str {
+        self.chain_id.split_once(':').unwrap().0
+    }
+
+    pub fn reference_part(&self) -> &str {
+        self.chain_id.split_once(':').unwrap().1
+    }
+}
+
+impl FromStr for Caip2ChainId {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let split = s.split(Self::SEPARATOR).collect::<Vec<&str>>();
 
         let is_ascii_alphanumberic_or_hyphen =
             |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
@@ -27,24 +44,12 @@ impl Caip2ChainId {
             && split[1].len() <= 32
             && is_ascii_alphanumberic_or_hyphen(split[1])
         {
-            Some(Self {
-                chain_id: chain_id.to_string(),
+            Ok(Self {
+                chain_id: s.to_string(),
             })
         } else {
-            None
+            Err(())
         }
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.chain_id
-    }
-
-    pub fn namespace_part(&self) -> &str {
-        self.chain_id.split_once(':').unwrap().0
-    }
-
-    pub fn reference_part(&self) -> &str {
-        self.chain_id.split_once(':').unwrap().1
     }
 }
 
