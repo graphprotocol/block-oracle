@@ -88,10 +88,21 @@ impl Blockchain for Web3JsonRpc {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("Database error: {0}")]
+    Sqlx(#[from] sqlx::Error),
+}
+
 #[tokio::main]
-async fn main() -> io::Result<()> {
+async fn main() -> Result<(), Error> {
     // Immediately dereference `CONFIG` to trigger `lazy_static` initialization.
     let _ = &*CONFIG;
+
+    let store = Store::new(CONFIG.database_url.as_str()).await?;
+    let networks = store.networks().await?;
+
     let json_rpc = Web3JsonRpc::new(Http::new("http://localhost:8545").unwrap());
+
     Ok(())
 }

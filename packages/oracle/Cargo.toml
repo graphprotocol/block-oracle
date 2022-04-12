@@ -11,5 +11,6 @@ epoch-encoding = { path = "../encoding" }
 lazy_static = "1"
 secp256k1 = "*"
 sqlx = { version = "0.5", features = ["runtime-tokio-rustls", "postgres", "migrate", "chrono"] }
+thiserror = "1"
 tokio = { version = "1", features = ["rt", "macros"] }
 web3 = { version = "0.17.0", features = ["signing"] }

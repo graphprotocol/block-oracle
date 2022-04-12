@@ -12,8 +12,8 @@ pub struct Caip2ChainId {
 impl Caip2ChainId {
     const SEPARATOR: char = ':';
 
-    pub fn parse(&self, chain_id: &str) -> Option<Self> {
-        let split = self.chain_id.split(Self::SEPARATOR).collect::<Vec<&str>>();
+    pub fn parse(chain_id: &str) -> Option<Self> {
+        let split = chain_id.split(Self::SEPARATOR).collect::<Vec<&str>>();
 
         let is_ascii_alphanumberic_or_hyphen =
             |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');

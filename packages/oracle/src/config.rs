@@ -7,6 +7,7 @@ pub struct Config {
     pub owner_address: H160,
     pub owner_private_key: SecretKey,
     pub contract_address: H160,
+    pub database_url: String,
 }
 
 impl Config {
@@ -16,6 +17,7 @@ impl Config {
             owner_address: clap.owner_address.parse().unwrap(),
             owner_private_key: SecretKey::from_str(clap.owner_private_key.as_str()).unwrap(),
             contract_address: clap.contract_address.parse().unwrap(),
+            database_url: clap.database_url,
         }
     }
 }
@@ -34,4 +36,7 @@ struct Clap {
     /// The Ethereum address of the Data Edge smart contract.
     #[clap(long)]
     contract_address: String,
+    /// The Ethereum address of the Data Edge smart contract.
+    #[clap(long)]
+    database_url: String,
 }

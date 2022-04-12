@@ -67,6 +67,22 @@ RETURNING id"#,
         Ok(row.0)
     }
 
+    pub async fn networks(&self) -> sqlx::Result<Vec<models::Caip2ChainId>> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            r#"
+SELECT (chain_id)
+FROM networks
+ORDER BY chain_id ASC"#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows
+            .iter()
+            .map(|id| models::Caip2ChainId::parse(id.0.as_str()).unwrap())
+            .collect())
+    }
+
     pub async fn insert_data_edge_call(
         &self,
         call: models::DataEdgeCall,
