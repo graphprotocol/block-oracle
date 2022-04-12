@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::io;
 use store::models::Caip2ChainId;
 use web3::transports::Http;
-use web3::types::{TransactionParameters, U256};
+use web3::types::{Bytes, TransactionParameters, U256};
 
 pub use store::Store;
 
@@ -65,7 +65,9 @@ impl Blockchain for Web3JsonRpc {
     async fn submit_oracle_messages(&mut self, transaction: Transaction) -> Result<(), Self::Err> {
         let tx_object = TransactionParameters {
             to: Some(CONFIG.contract_address.clone()),
-            value: U256::exp10(17), // 0.1 ETH
+            value: U256::zero(),
+            nonce: Some(transaction.nonce.into()),
+            data: Bytes::from(transaction.payload),
             ..Default::default()
         };
         let private_key = CONFIG.owner_private_key.clone();
@@ -88,7 +90,8 @@ impl Blockchain for Web3JsonRpc {
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
-    &*CONFIG;
+    // Immediately dereference `CONFIG` to trigger `lazy_static` initialization.
+    let _ = &*CONFIG;
     let json_rpc = Web3JsonRpc::new(Http::new("http://localhost:8545").unwrap());
     Ok(())
 }
