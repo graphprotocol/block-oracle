@@ -12,6 +12,30 @@ export function getGlobalState(): GlobalState {
   return state;
 }
 
+export function getAuxGlobalState(): GlobalState {
+  let state = GlobalState.load("1");
+  if (state == null) {
+    state = new GlobalState("1");
+    state.save();
+  }
+  return state;
+}
+
+export function commitToGlobalState(state: GlobalState): void {
+  let realGlobalState = getGlobalState();
+  realGlobalState.networkCount = state.networkCount
+  realGlobalState.activeNetworkCount = state.activeNetworkCount
+  realGlobalState.save()
+  state.save()
+}
+
+export function rollbackToGlobalState(state: GlobalState): void {
+  let realGlobalState = getGlobalState();
+  state.networkCount = realGlobalState.networkCount
+  state.activeNetworkCount = realGlobalState.activeNetworkCount
+  state.save()
+}
+
 export function getTags(preamble: Bytes): Array<i32> {
   let tags = new Array<i32>();
   for (let i = 0; i < PREAMBLE_BIT_LENGTH / TAG_BIT_LENGTH; i++) {
@@ -32,12 +56,12 @@ export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): Array<i64> {
   let result: i64 = 0;
 
   // First we need to decode the raw bytes into a u64 and check that it didn't error out
-  let zigZagDecodeInput = decodePrefixVarIntU64(bytes, offset)
-  if(zigZagDecodeInput[1] != 0) {
+  let zigZagDecodeInput = decodePrefixVarIntU64(bytes, offset);
+  if (zigZagDecodeInput[1] != 0) {
     // Then we need to decode the U64 with ZigZag
-    result = zigZagDecode(zigZagDecodeInput[0])
+    result = zigZagDecode(zigZagDecodeInput[0]);
   }
-  return [result, zigZagDecodeInput[1]]
+  return [result, zigZagDecodeInput[1]];
 }
 
 // Returns the decoded u64 and the amount of bytes read. [0,0] -> Error
@@ -116,5 +140,14 @@ export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): Array<u64> {
 }
 
 export function zigZagDecode(input: u64): i64 {
-  return ((input >> 1) ^ -(input & 1)) as i64
+  return ((input >> 1) ^ -(input & 1)) as i64;
+}
+
+export function getStringFromBytes(
+  bytes: Bytes,
+  offset: u32,
+  stringLength: u32
+): String {
+  let slicedBytes = changetype<Bytes>(bytes.slice(offset, offset + stringLength))
+  return slicedBytes.toString();
 }

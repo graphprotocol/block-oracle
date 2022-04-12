@@ -182,7 +182,7 @@ test("ZigZag Decoding 4294967294", () => {
 });
 
 test("ZigZag Decoding 4294967295", () => {
-  // 4294967295 should decode to
+  // 4294967295 should decode to -2147483648
   let encoded = 4294967295 as u64;
   let decoded = zigZagDecode(encoded);
 
@@ -190,8 +190,4 @@ test("ZigZag Decoding 4294967295", () => {
     BigInt.fromI64(decoded),
     BigInt.fromI64(-2147483648 as i64)
   );
-});
-
-test("I64 Decoding (U64 + ZigZag)", () => {
-  //...
 });

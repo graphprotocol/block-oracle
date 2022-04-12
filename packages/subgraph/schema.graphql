@@ -28,6 +28,8 @@ type SetBlockNumbersForEpochMessage implements Message @entity {
   id: ID!
   block: MessageBlock!
   data: Bytes
+  merkleRoot: Bytes
+  accelerations: [BigInt!]
 }
 
 type CorrectEpochsMessage implements Message @entity {
@@ -45,14 +47,22 @@ type UpdateVersionsMessage implements Message @entity {
 type RegisterNetworksMessage implements Message @entity {
   id: ID!
   block: MessageBlock!
-  data: Bytes!
+  data: Bytes
+  removeCount: BigInt!
+  addCount: BigInt!
+  networksRemoved: [Network!]! @derivedFrom(field: "removedAt")
+  networksAdded: [Network!]! @derivedFrom(field: "addedAt")
 }
 
 type Network @entity {
   id: ID!
+  chainID: String!
+  addedAt: RegisterNetworksMessage!
+  removedAt: RegisterNetworksMessage
 }
 
 type GlobalState @entity {
   id: ID!
-  networkCount: BigInt!
+  networkCount: Int!
+  activeNetworkCount: Int!
 }

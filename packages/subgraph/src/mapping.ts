@@ -1,5 +1,5 @@
 import { CrossChainEpochOracleCall } from "../generated/DataEdge/DataEdge";
-import { Bytes, BigInt } from "@graphprotocol/graph-ts";
+import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
 import {
   DataEdge,
   SetBlockNumbersForEpochMessage,
@@ -8,13 +8,18 @@ import {
   RegisterNetworksMessage,
   MessageBlock,
   Payload,
-  GlobalState
+  GlobalState,
+  Network
 } from "../generated/schema";
 import {
   getGlobalState,
   getTags,
   decodePrefixVarIntU64,
-  decodePrefixVarIntI64
+  decodePrefixVarIntI64,
+  getStringFromBytes,
+  getAuxGlobalState,
+  commitToGlobalState,
+  rollbackToGlobalState
 } from "./helpers";
 import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH } from "./constants";
 
@@ -26,8 +31,8 @@ export function handleCrossChainEpochOracle(
   let payloadBytes = call.inputs._payload;
   let txHash = call.transaction.hash.toHexString();
 
-  // Load GlobalState
-  let globalState = getGlobalState();
+  // Load auxiliary GlobalState for rollback capabilities
+  let globalState = getAuxGlobalState();
 
   // Save raw payload
   let payload = new Payload(txHash);
@@ -40,6 +45,7 @@ export function handleCrossChainEpochOracle(
   let messageBlockCounter = 0;
 
   while (rawPayloadData.length > 0) {
+    log.warning("NEW MESSAGE BLOCK {}", [messageBlockCounter.toString()]);
     // Save raw message
     let messageBlock = new MessageBlock(
       [txHash, BigInt.fromI32(messageBlockCounter).toString()].join("-")
@@ -49,9 +55,20 @@ export function handleCrossChainEpochOracle(
       changetype<Bytes>(rawPayloadData.slice(0, PREAMBLE_BIT_LENGTH / 8))
     );
 
-    rawPayloadData = rawPayloadData.slice(PREAMBLE_BIT_LENGTH / 8);
+    rawPayloadData = changetype<Bytes>(
+      rawPayloadData.slice(PREAMBLE_BIT_LENGTH / 8)
+    );
 
     for (let i = 0; i < tags.length; i++) {
+      log.warning("NEW LOOP", []);
+      log.warning("Payload size now {}", [rawPayloadData.length.toString()]);
+
+      if (rawPayloadData.length == 0) {
+        //rollbackToGlobalState(globalState);
+        //return;
+        break;
+      }
+
       let bytesRead = executeMessage(
         tags[i],
         i,
@@ -59,15 +76,17 @@ export function handleCrossChainEpochOracle(
         messageBlock.id,
         rawPayloadData
       );
-      rawPayloadData = rawPayloadData.slice(bytesRead);
+      rawPayloadData = changetype<Bytes>(rawPayloadData.slice(bytesRead));
+      log.warning("Bytes read: {}", [bytesRead.toString()]);
     }
 
     messageBlock.data = rawPayloadData; // cut it to the amount actually read
     messageBlock.save();
+    log.warning("END OF MESSAGE BLOCK {}", [messageBlockCounter.toString()]);
     messageBlockCounter++;
   }
 
-  globalState.save();
+  commitToGlobalState(globalState);
 }
 
 // Executes the message and returns the amount of bytes read
@@ -86,24 +105,28 @@ function executeMessage(
   message.block = messageBlockID;
 
   if (tag == 0) {
+    log.warning("EXECUTING SetBlockNumbersForEpochMessage", []);
     bytesRead = executeSetBlockNumbersForEpochMessage(
       message,
       globalState,
       data
     );
   } else if (tag == 1) {
+    log.warning("EXECUTING CorrectEpochsMessage", []);
     bytesRead = executeCorrectEpochsMessage(
       changetype<CorrectEpochsMessage>(message),
       globalState,
       data
     );
   } else if (tag == 2) {
+    log.warning("EXECUTING UpdateVersionsMessage", []);
     bytesRead = executeUpdateVersionsMessage(
       changetype<UpdateVersionsMessage>(message),
       globalState,
       data
     );
   } else if (tag == 3) {
+    log.warning("EXECUTING RegisterNetworksMessage", []);
     bytesRead = executeRegisterNetworksMessage(
       changetype<RegisterNetworksMessage>(message),
       globalState,
@@ -120,8 +143,19 @@ function executeSetBlockNumbersForEpochMessage(
   data: Bytes
 ): i32 {
   let bytesRead = 0;
-  if (globalState.networkCount != 0) {
-    // To Do
+  if (globalState.activeNetworkCount != 0) {
+    message.merkleRoot = changetype<Bytes>(
+      data.slice(bytesRead, bytesRead + 32)
+    );
+    bytesRead += 32;
+    let accelerations: Array<BigInt> = [];
+    for (let i = 0; i < globalState.activeNetworkCount; i++) {
+      let readAcceleration = decodePrefixVarIntI64(data, bytesRead); // we should check for errors here
+      bytesRead += readAcceleration[1] as i32;
+      accelerations.push(BigInt.fromI64(readAcceleration[0]));
+    }
+
+    message.data = changetype<Bytes>(data.slice(0, bytesRead));
     message.save();
   } else {
     message.save();
@@ -155,6 +189,43 @@ function executeRegisterNetworksMessage(
   data: Bytes
 ): i32 {
   let bytesRead = 0;
-  // To Do
+  // get remove length
+  let readRemoveLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
+  bytesRead += readRemoveLength[1] as i32;
+
+  // now get all the removed network ids
+  for (let i = 0; i < (readRemoveLength[0] as i32); i++) {
+    let readRemove = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
+    bytesRead += readRemove[1] as i32;
+    // remove networks to do
+    globalState.activeNetworkCount -= 1;
+  }
+
+  let readAddLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
+  bytesRead += readAddLength[1] as i32;
+
+  // now get all the add network strings
+  for (let i = 0; i < (readAddLength[0] as i32); i++) {
+    let readStrLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
+    bytesRead += readStrLength[1] as i32;
+
+    let chainID = getStringFromBytes(data, bytesRead, readStrLength[0] as u32);
+    bytesRead += readStrLength[0] as i32;
+
+    // ID used here might need to change depending on what we get passed in the removes
+    let network = new Network(globalState.networkCount.toString());
+    network.chainID = chainID;
+    network.addedAt = message.id;
+    network.save();
+
+    globalState.networkCount += 1;
+    globalState.activeNetworkCount += 1;
+  }
+
+  message.data = changetype<Bytes>(data.slice(0, bytesRead));
+  message.removeCount = BigInt.fromU64(readRemoveLength[0]);
+  message.addCount = BigInt.fromU64(readAddLength[0]);
+  message.save();
+
   return bytesRead;
 }
