@@ -6,7 +6,10 @@ mod varint;
 
 use async_trait::async_trait;
 use merkle::{merkle_root, MerkleLeaf};
-use {database::*, encoding::*, messages::*};
+use {encoding::*, messages::*};
+
+pub use database::{Connection, Database, Network};
+pub use messages::Transaction;
 
 type Bytes32 = [u8; 32];
 

@@ -1,3 +1,10 @@
+use sqlx::types::chrono::{self};
+
+pub type Id = i64;
+pub type EncodingVersion = u32;
+pub type BlockNumber = u64;
+pub type Timestamp = chrono::DateTime<chrono::Utc>;
+
 pub struct Caip2ChainId {
     chain_id: String,
 }
@@ -42,4 +49,14 @@ impl Caip2ChainId {
 
 pub struct Network {
     chain_id: Caip2ChainId,
+}
+
+pub struct DataEdgeCall {
+    pub tx_hash: Vec<u8>,
+    pub nonce: u64,
+    pub num_confirmations: u64,
+    pub num_confirmations_last_checked_at: Timestamp,
+    pub block_number: BlockNumber,
+    pub block_hash: Vec<u8>,
+    pub payload: Vec<u8>,
 }

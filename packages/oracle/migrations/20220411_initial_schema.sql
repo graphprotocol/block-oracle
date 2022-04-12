@@ -1,7 +1,7 @@
 CREATE TABLE data_edge_calls (
 	id serial PRIMARY KEY,
 	tx_hash bytea NOT NULL,
-	nonce serial NOT NULL,
+	nonce serial NOT NULL UNIQUE,
 	num_confirmations integer,
 	num_confirmations_last_checked_at timestamp,
 	block_number integer NOT NULL,
