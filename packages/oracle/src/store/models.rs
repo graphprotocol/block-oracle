@@ -13,7 +13,9 @@ pub struct WithId<T, I = Id> {
     pub data: T,
 }
 
-#[derive(PartialEq, Eq, Hash)]
+/// See https://github.com/ChainAgnostic/CAIPs/blob/master/CAIPs/caip-2.md.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[repr(transparent)]
 pub struct Caip2ChainId {
     chain_id: String,
 }
@@ -30,11 +32,11 @@ impl Caip2ChainId {
     }
 
     pub fn namespace_part(&self) -> &str {
-        self.chain_id.split_once(':').unwrap().0
+        self.chain_id.split_once(Self::SEPARATOR).unwrap().0
     }
 
     pub fn reference_part(&self) -> &str {
-        self.chain_id.split_once(':').unwrap().1
+        self.chain_id.split_once(Self::SEPARATOR).unwrap().1
     }
 }
 
@@ -64,6 +66,7 @@ impl FromStr for Caip2ChainId {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Network {
     pub name: Caip2ChainId,
     pub latest_block_number: Option<u64>,
@@ -72,6 +75,7 @@ pub struct Network {
     pub introduced_with: Id,
 }
 
+#[derive(Debug, Clone)]
 pub struct DataEdgeCall {
     pub tx_hash: Vec<u8>,
     pub nonce: u64,

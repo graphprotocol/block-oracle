@@ -27,7 +27,7 @@ impl EventSource {
         Self { jrpc_providers }
     }
 
-    async fn get_latest_blocks(
+    pub async fn get_latest_blocks(
         &mut self,
     ) -> Result<HashMap<&Caip2ChainId, BlockNumber>, EventSourceError> {
         let mut block_number_per_chain: HashMap<&Caip2ChainId, BlockNumber> = HashMap::new();

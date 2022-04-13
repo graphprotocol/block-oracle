@@ -7,6 +7,7 @@ use std::{
     fs::read_to_string,
     path::{Path, PathBuf},
     str::FromStr,
+    time::Duration,
 };
 use thiserror::Error;
 use url::Url;
@@ -25,6 +26,7 @@ pub struct Config {
     pub owner_private_key: SecretKey,
     pub contract_address: H160,
     pub database_url: String,
+    pub json_rpc_polling_interval: Duration,
     pub jrpc_providers: HashMap<Caip2ChainId, Url>,
 }
 
@@ -39,6 +41,9 @@ impl Config {
             owner_private_key: SecretKey::from_str(clap.owner_private_key.as_str()).unwrap(),
             contract_address: clap.contract_address.parse().unwrap(),
             database_url: clap.database_url,
+            json_rpc_polling_interval: Duration::from_secs(
+                clap.json_rpc_polling_interval_in_seconds,
+            ),
             jrpc_providers: config_file.jrpc_providers,
         }
     }
@@ -61,6 +66,14 @@ struct Clap {
     /// The Ethereum address of the Data Edge smart contract.
     #[clap(long)]
     database_url: String,
+    /// The epoch length of the oracle, expressed in blocks.
+    #[clap(long, default_value = "6646")]
+    epoch_duration: u64,
+    /// Approximate waiting period between two consecutive polls to the same
+    /// JSON-RPC provider.
+    #[clap(long, default_value = "120")]
+    json_rpc_polling_interval_in_seconds: u64,
+    /// The filepath of the TOML JSON-RPC configuration file.
     #[clap(default_value = "config.toml", parse(from_os_str))]
     config_file: PathBuf,
 }

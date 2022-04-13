@@ -92,6 +92,23 @@ RETURNING id"#,
         Ok(row.0.try_into().unwrap())
     }
 
+    pub async fn update_latest_blocks(
+        &self,
+        latest_blocks: HashMap<&models::Caip2ChainId, u64>,
+    ) -> sqlx::Result<()> {
+        sqlx::query(
+            r#"
+UPDATE networks as n
+SET latest_block_number = n2.latest_block_number
+FROM (values
+  (1, 'hollis@weimann.biz', 'Hollis', 'Connell'),
+  (2, 'robert@duncan.info', 'Robert', 'Duncan')
+) as u2(id, email, first_name, last_name)
+where u2.id = u.id;
+        "#,
+        )
+    }
+
     pub async fn update_network_block_info(
         &self,
         id: models::Id,
