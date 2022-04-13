@@ -1,6 +1,6 @@
 mod config;
+mod emitter;
 mod encoder;
-mod ethereum_client;
 mod event_source;
 mod metrics;
 mod store;
@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use store::models::Caip2ChainId;
 
 pub use config::Config;
+pub use emitter::Emitter;
 pub use encoder::Encoder;
-pub use ethereum_client::EthereumClient;
 pub use metrics::Metrics;
 pub use store::Store;
 
@@ -34,7 +34,7 @@ struct Oracle {
     store: Store,
     event_source: EventSource,
     encoder: Encoder,
-    ethereum_client: EthereumClient,
+    ethereum_client: Emitter,
     epoch_tracker: EpochTracker,
 
     // -- data --
@@ -59,13 +59,13 @@ async fn main() -> Result<(), Error> {
     let store = Store::new(CONFIG.database_url.as_str()).await?;
     let networks = store.networks().await?;
 
-    let (tx, mut rx) = tokio::sync::watch::channel(todo!());
     let mut event_source = EventSource::new(todo!());
 
     loop {
         let latest_blocks = event_source.get_latest_blocks().await?;
+
         for (chain, latest_block) in latest_blocks.iter() {
-            tx.send((chain, latest_block)).unwrap();
+            //
         }
 
         tokio::time::sleep(CONFIG.json_rpc_polling_interval).await;

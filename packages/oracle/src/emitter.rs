@@ -8,11 +8,11 @@ use web3::{
 
 /// Responsible for receiving the encodede payload, constructing and signing the
 /// transactions to Ethereum Mainnet.
-pub struct EthereumClient {
+pub struct Emitter {
     client: web3::Web3<Http>,
 }
 
-impl EthereumClient {
+impl Emitter {
     pub fn new(transport: web3::transports::Http) -> Self {
         let client = web3::Web3::new(transport);
         Self { client }
@@ -20,7 +20,7 @@ impl EthereumClient {
 }
 
 #[async_trait]
-impl Blockchain for EthereumClient {
+impl Blockchain for Emitter {
     type Err = String;
 
     async fn submit_oracle_messages(&mut self, transaction: Transaction) -> Result<(), Self::Err> {
