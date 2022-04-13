@@ -154,7 +154,7 @@ function executeSetBlockNumbersForEpochMessage(
       bytesRead += readAcceleration[1] as i32;
       accelerations.push(BigInt.fromI64(readAcceleration[0]));
     }
-
+    message.accelerations = accelerations
     message.data = changetype<Bytes>(data.slice(0, bytesRead));
     message.save();
   } else {
