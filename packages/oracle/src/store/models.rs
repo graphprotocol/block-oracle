@@ -85,3 +85,43 @@ pub struct DataEdgeCall {
     pub block_hash: Vec<u8>,
     pub payload: Vec<u8>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn caip2_chain_id_valid_test_cases() {
+        let valid_caip2 = vec![
+            "ethereum:eip155-1",
+            "bip122:000000000019d6689c085ae165831e93",
+            "bip122:12a765e31ffd4059bada1e25190f6e98",
+            "bip122:fdbe99b90c90bae7505796461471d89a",
+            "cosmos:cosmoshub-2",
+            "cosmos:cosmoshub-3",
+            "cosmos:Binance-Chain-Tigris",
+            "cosmos:iov-mainnet",
+            "lip9:9ee11e9df416b18b",
+            "chainstd:8c3444cf8970a9e41a706fab93e7a6c4",
+        ];
+        for s in valid_caip2 {
+            assert!(Caip2ChainId::from_str(s).is_ok());
+        }
+    }
+
+    #[test]
+    fn caip2_chain_id_empty() {
+        assert!(Caip2ChainId::from_str("").is_err());
+    }
+
+    #[test]
+    fn caip2_chain_id_no_colons() {
+        assert!(Caip2ChainId::from_str("foobar").is_err());
+    }
+
+    #[test]
+    fn caip2_chain_id_too_long() {
+        assert!(Caip2ChainId::from_str("chainstd:8c3444cf8970a9e41a706fab93e7a6c40").is_err());
+        assert!(Caip2ChainId::from_str("chainstda:8c3444cf8970a9e41a706fab93e7a6c4").is_err());
+    }
+}
