@@ -8,9 +8,13 @@ async-trait = "0.1.52"
 clap = { version = "3.0.0", features = ["derive"] }
 envconfig = "0.10.0"
 epoch-encoding = { path = "../encoding" }
+futures = "0.3.21"
 lazy_static = "1"
-secp256k1 = "*"
+secp256k1 = "0.21"
+serde = { version = "1.0.136", features = ["derive"] }
 sqlx = { version = "0.5", features = ["runtime-tokio-rustls", "postgres", "migrate", "chrono"] }
-thiserror = "1"
+thiserror = "1.0.30"
 tokio = { version = "1", features = ["rt", "macros"] }
-web3 = { version = "0.17.0", features = ["signing"] }
+toml = "0.5.8"
+url = { version = "2.2.2", features = ["serde"] }
+web3 = { version = "0.18.0", features = ["signing"] }

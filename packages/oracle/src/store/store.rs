@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use epoch_encoding as ee;
 use models::WithId;
 use sqlx::postgres::PgPoolOptions;
-use std::collections::HashMap;
+use std::{collections::HashMap, str::FromStr};
 
 type PgPool = sqlx::Pool<sqlx::Postgres>;
 type NetworkRow = (i64, String, Option<i64>, Option<Vec<u8>>, Option<i64>, i64);
@@ -20,7 +20,7 @@ fn network_row_to_model(row: NetworkRow) -> WithId<models::Network> {
     WithId {
         id: models::Id::try_from(id).unwrap(),
         data: models::Network {
-            name: models::Caip2ChainId::parse(chain_name.as_str()).unwrap(),
+            name: models::Caip2ChainId::from_str(chain_name.as_str()).unwrap(),
             latest_block_number: latest_block_number.map(|x| x.try_into().unwrap()),
             latest_block_hash,
             latest_block_delta: latest_block_delta.map(|x| x.try_into().unwrap()),
@@ -243,7 +243,7 @@ impl epoch_encoding::Database for Store {
             let network = WithId {
                 id,
                 data: models::Network {
-                    name: models::Caip2ChainId::parse(name.as_str()).unwrap(),
+                    name: models::Caip2ChainId::from_str(name.as_str()).unwrap(),
                     introduced_with: 0,
                     latest_block_hash: None,
                     latest_block_number: None,

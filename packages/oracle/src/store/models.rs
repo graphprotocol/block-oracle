@@ -1,4 +1,5 @@
 use sqlx::types::chrono;
+use std::str::FromStr;
 
 pub type Id = u64;
 pub type EncodingVersion = u64;
@@ -6,12 +7,13 @@ pub type BlockNumber = u64;
 pub type Timestamp = chrono::DateTime<chrono::Utc>;
 pub type Nonce = u64;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WithId<T, I = Id> {
     pub id: I,
     pub data: T,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(PartialEq, Eq, Hash)]
 pub struct Caip2ChainId {
     chain_id: String,
 }
@@ -19,8 +21,28 @@ pub struct Caip2ChainId {
 impl Caip2ChainId {
     const SEPARATOR: char = ':';
 
-    pub fn parse(chain_id: &str) -> Option<Self> {
-        let split = chain_id.split(Self::SEPARATOR).collect::<Vec<&str>>();
+    pub fn as_str(&self) -> &str {
+        &self.chain_id
+    }
+
+    pub fn into_string(self) -> String {
+        self.chain_id
+    }
+
+    pub fn namespace_part(&self) -> &str {
+        self.chain_id.split_once(':').unwrap().0
+    }
+
+    pub fn reference_part(&self) -> &str {
+        self.chain_id.split_once(':').unwrap().1
+    }
+}
+
+impl FromStr for Caip2ChainId {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let split = s.split(Self::SEPARATOR).collect::<Vec<&str>>();
 
         let is_ascii_alphanumberic_or_hyphen =
             |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
@@ -33,28 +55,12 @@ impl Caip2ChainId {
             && split[1].len() <= 32
             && is_ascii_alphanumberic_or_hyphen(split[1])
         {
-            Some(Self {
-                chain_id: chain_id.to_string(),
+            Ok(Self {
+                chain_id: s.to_string(),
             })
         } else {
-            None
+            Err(())
         }
-    }
-
-    pub fn into_string(self) -> String {
-        self.chain_id
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.chain_id
-    }
-
-    pub fn namespace_part(&self) -> &str {
-        self.chain_id.split_once(Self::SEPARATOR).unwrap().0
-    }
-
-    pub fn reference_part(&self) -> &str {
-        self.chain_id.split_once(Self::SEPARATOR).unwrap().1
     }
 }
 
