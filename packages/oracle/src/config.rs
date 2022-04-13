@@ -26,6 +26,7 @@ pub struct Config {
     pub owner_private_key: SecretKey,
     pub contract_address: H160,
     pub database_url: String,
+    pub epoch_duration: u64,
     pub json_rpc_polling_interval: Duration,
     pub jrpc_providers: HashMap<Caip2ChainId, Url>,
 }
@@ -41,6 +42,7 @@ impl Config {
             owner_private_key: SecretKey::from_str(clap.owner_private_key.as_str()).unwrap(),
             contract_address: clap.contract_address.parse().unwrap(),
             database_url: clap.database_url,
+            epoch_duration: clap.epoch_duration,
             json_rpc_polling_interval: Duration::from_secs(
                 clap.json_rpc_polling_interval_in_seconds,
             ),
