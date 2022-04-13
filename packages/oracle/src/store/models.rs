@@ -1,10 +1,17 @@
-use sqlx::types::chrono::{self};
+use sqlx::types::chrono;
 
-pub type Id = i64;
-pub type EncodingVersion = u32;
+pub type Id = u64;
+pub type EncodingVersion = u64;
 pub type BlockNumber = u64;
 pub type Timestamp = chrono::DateTime<chrono::Utc>;
+pub type Nonce = u64;
 
+pub struct WithId<T, I = Id> {
+    pub id: I,
+    pub data: T,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Caip2ChainId {
     chain_id: String,
 }
@@ -34,21 +41,29 @@ impl Caip2ChainId {
         }
     }
 
+    pub fn into_string(self) -> String {
+        self.chain_id
+    }
+
     pub fn as_str(&self) -> &str {
         &self.chain_id
     }
 
     pub fn namespace_part(&self) -> &str {
-        self.chain_id.split_once(':').unwrap().0
+        self.chain_id.split_once(Self::SEPARATOR).unwrap().0
     }
 
     pub fn reference_part(&self) -> &str {
-        self.chain_id.split_once(':').unwrap().1
+        self.chain_id.split_once(Self::SEPARATOR).unwrap().1
     }
 }
 
 pub struct Network {
-    chain_id: Caip2ChainId,
+    pub name: Caip2ChainId,
+    pub latest_block_number: Option<u64>,
+    pub latest_block_hash: Option<Vec<u8>>,
+    pub latest_block_delta: Option<i64>,
+    pub introduced_with: Id,
 }
 
 pub struct DataEdgeCall {

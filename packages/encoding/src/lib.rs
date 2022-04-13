@@ -9,7 +9,7 @@ use merkle::{merkle_root, MerkleLeaf};
 use {encoding::*, messages::*};
 
 pub use database::{Connection, Database, Network};
-pub use messages::Transaction;
+pub use messages::{CompressedMessage, Message, Transaction};
 
 type Bytes32 = [u8; 32];
 
@@ -18,7 +18,7 @@ type ConnResult<Ok, Conn> = DbResult<Ok, <Conn as Connection>::Database>;
 type DbResult<Ok, DB> =
     std::result::Result<std::result::Result<Ok, ValidationError>, <DB as Database>::Error>;
 
-type NetworkId = u64;
+pub type NetworkId = u64;
 
 #[async_trait]
 pub trait Blockchain {

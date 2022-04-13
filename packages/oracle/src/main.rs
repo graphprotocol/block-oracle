@@ -1,15 +1,16 @@
 mod config;
+mod encoder;
 mod store;
 
 use async_trait::async_trait;
 use epoch_encoding::{self, Blockchain, Transaction};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::io;
 use store::models::Caip2ChainId;
 use web3::transports::Http;
 use web3::types::{Bytes, TransactionParameters, U256};
 
+pub use encoder::Encoder;
 pub use store::Store;
 
 lazy_static! {
@@ -23,9 +24,6 @@ type EventSource = ();
 /// Responsible for receiving the encodede payload, constructing and signing the transactions to
 /// Ethereum Mainnet.
 type EthereumClient = ();
-
-/// Encodes and compresses messages.
-type Encoder = ();
 
 /// Tracks current Ethereum mainnet epoch.
 type EpochTracker = ();
