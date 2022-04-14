@@ -88,12 +88,27 @@ RETURNING id"#,
     ) -> sqlx::Result<models::Id> {
         let row: (i32,) = sqlx::query_as(
             r#"
-INSERT INTO networks (id, caip2_chain_id, introduced_with)
-VALUES ($1, $2, $3)
+INSERT INTO networks (
+    id,
+    caip2_chain_id,
+    latest_block_number,
+    latest_block_hash,
+    latest_block_delta,
+    introduced_with
+)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id"#,
         )
         .bind(i32::try_from(network.id).unwrap())
         .bind(network.data.name.as_str())
+        .bind(
+            network
+                .data
+                .latest_block_number
+                .map(|x| i64::try_from(x).unwrap()),
+        )
+        .bind(network.data.latest_block_hash)
+        .bind(network.data.latest_block_delta)
         .bind(i32::try_from(network.data.introduced_with).unwrap())
         .fetch_one(&self.pool)
         .await?;

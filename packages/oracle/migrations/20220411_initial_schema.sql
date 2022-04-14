@@ -2,9 +2,9 @@ CREATE TABLE data_edge_calls (
     id serial PRIMARY KEY,
     tx_hash bytea NOT NULL UNIQUE,
     nonce serial NOT NULL UNIQUE,
-    num_confirmations integer,
+    num_confirmations bigint,
     num_confirmations_last_checked_at timestamp,
-    block_number integer NOT NULL,
+    block_number bigint NOT NULL,
     block_hash bytea NOT NULL,
     payload bytea NOT NULL,
     created_at timestamp NOT NULL DEFAULT NOW(),
@@ -15,7 +15,7 @@ CREATE TABLE data_edge_calls (
 CREATE TABLE networks (
     id serial PRIMARY KEY,
     caip2_chain_id varchar(41) NOT NULL UNIQUE,
-    latest_block_number integer,
+    latest_block_number bigint,
     latest_block_hash bytea,
     latest_block_delta integer,
     introduced_with integer NOT NULL REFERENCES data_edge_calls (id) ON DELETE CASCADE
