@@ -19,9 +19,16 @@ import {
   getStringFromBytes,
   getAuxGlobalState,
   commitToGlobalState,
-  rollbackToGlobalState
+  rollbackToGlobalState,
+  getOrCreateEpoch,
+  createOrUpdateNetworkEpochBlockNumber
 } from "./helpers";
-import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH } from "./constants";
+import {
+  PREAMBLE_BIT_LENGTH,
+  TAG_BIT_LENGTH,
+  BIGINT_ZERO,
+  BIGINT_ONE
+} from "./constants";
 
 export function handleCrossChainEpochOracle(
   call: CrossChainEpochOracleCall
@@ -143,7 +150,15 @@ function executeSetBlockNumbersForEpochMessage(
   data: Bytes
 ): i32 {
   let bytesRead = 0;
+
   if (globalState.activeNetworkCount != 0) {
+    let newEpoch = getOrCreateEpoch(
+      (globalState.latestValidEpoch != null
+        ? BigInt.fromString(globalState.latestValidEpoch!)
+        : BIGINT_ZERO) + BIGINT_ONE
+    );
+    globalState.latestValidEpoch = newEpoch.id;
+
     message.merkleRoot = changetype<Bytes>(
       data.slice(bytesRead, bytesRead + 32)
     );
@@ -153,8 +168,16 @@ function executeSetBlockNumbersForEpochMessage(
       let readAcceleration = decodePrefixVarIntI64(data, bytesRead); // we should check for errors here
       bytesRead += readAcceleration[1] as i32;
       accelerations.push(BigInt.fromI64(readAcceleration[0]));
+
+      // Create new NetworkEpochBlockNumber
+      createOrUpdateNetworkEpochBlockNumber(
+        i.toString(),
+        newEpoch.epochNumber,
+        BigInt.fromI64(readAcceleration[0])
+      );
     }
-    message.accelerations = accelerations
+
+    message.accelerations = accelerations;
     message.data = changetype<Bytes>(data.slice(0, bytesRead));
     message.save();
   } else {

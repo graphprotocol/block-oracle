@@ -1,6 +1,10 @@
 import { Bytes, BigInt } from "@graphprotocol/graph-ts";
-import { GlobalState } from "../generated/schema";
-import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH } from "./constants";
+import {
+  GlobalState,
+  Epoch,
+  NetworkEpochBlockNumber
+} from "../generated/schema";
+import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH, BIGINT_ONE } from "./constants";
 import { log } from "@graphprotocol/graph-ts";
 
 export function getGlobalState(): GlobalState {
@@ -23,17 +27,68 @@ export function getAuxGlobalState(): GlobalState {
 
 export function commitToGlobalState(state: GlobalState): void {
   let realGlobalState = getGlobalState();
-  realGlobalState.networkCount = state.networkCount
-  realGlobalState.activeNetworkCount = state.activeNetworkCount
-  realGlobalState.save()
-  state.save()
+  realGlobalState.networkCount = state.networkCount;
+  realGlobalState.activeNetworkCount = state.activeNetworkCount;
+  realGlobalState.latestValidEpoch = state.latestValidEpoch;
+  realGlobalState.save();
+  state.save();
 }
 
 export function rollbackToGlobalState(state: GlobalState): void {
   let realGlobalState = getGlobalState();
-  state.networkCount = realGlobalState.networkCount
-  state.activeNetworkCount = realGlobalState.activeNetworkCount
-  state.save()
+  state.networkCount = realGlobalState.networkCount;
+  state.activeNetworkCount = realGlobalState.activeNetworkCount;
+  state.latestValidEpoch = realGlobalState.latestValidEpoch;
+  state.save();
+}
+
+export function getOrCreateEpoch(epochId: BigInt): Epoch {
+  let epoch = Epoch.load(epochId.toString());
+  if (epoch == null) {
+    epoch = new Epoch(epochId.toString());
+    epoch.epochNumber = epochId;
+    epoch.save();
+  }
+  return epoch;
+}
+
+export function createOrUpdateNetworkEpochBlockNumber(
+  networkId: String,
+  epochId: BigInt,
+  acceleration: BigInt
+): NetworkEpochBlockNumber {
+  let id = [epochId.toString(), networkId].join("-");
+  let previousId = [(epochId - BIGINT_ONE).toString(), networkId].join("-");
+
+  let networkEpochBlockNumber = NetworkEpochBlockNumber.load(id);
+  if (networkEpochBlockNumber == null) {
+    networkEpochBlockNumber = new NetworkEpochBlockNumber(id);
+    networkEpochBlockNumber.network = networkId;
+    networkEpochBlockNumber.epoch = epochId.toString();
+  }
+  networkEpochBlockNumber.acceleration = acceleration;
+
+  let previousNetworkEpochBlockNumber = NetworkEpochBlockNumber.load(
+    previousId
+  );
+  if (previousNetworkEpochBlockNumber != null) {
+    networkEpochBlockNumber.delta = previousNetworkEpochBlockNumber.delta.plus(
+      acceleration
+    );
+    networkEpochBlockNumber.blockNumber = previousNetworkEpochBlockNumber.blockNumber.plus(
+      networkEpochBlockNumber.delta
+    );
+  } else {
+    // If there's no previous entity then we consider the previous delta 0
+    // There might be an edge case if the previous entity isn't 1 epoch behind
+    // in case where a network is removed and then re-added
+    // (^ Should we retain the progress of the network if it's removed?)
+    networkEpochBlockNumber.delta = acceleration;
+    networkEpochBlockNumber.blockNumber = networkEpochBlockNumber.delta;
+  }
+  networkEpochBlockNumber.save();
+
+  return networkEpochBlockNumber;
 }
 
 export function getTags(preamble: Bytes): Array<i32> {
@@ -148,6 +203,8 @@ export function getStringFromBytes(
   offset: u32,
   stringLength: u32
 ): String {
-  let slicedBytes = changetype<Bytes>(bytes.slice(offset, offset + stringLength))
+  let slicedBytes = changetype<Bytes>(
+    bytes.slice(offset, offset + stringLength)
+  );
   return slicedBytes.toString();
 }
