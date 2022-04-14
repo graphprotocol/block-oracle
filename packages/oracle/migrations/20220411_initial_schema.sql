@@ -10,7 +10,7 @@ CREATE TABLE data_edge_calls (
 	created_at timestamp NOT NULL DEFAULT NOW(),
 
 	CONSTRAINT nonce_nonnegative check (nonce >= 0),
-	CONSTRAINT num_confirmations_nonnegative check (num_confirmations >= 0),
+	CONSTRAINT num_confirmations_nonnegative check (num_confirmations >= 0)
 );
 
 CREATE TABLE networks (
@@ -19,14 +19,14 @@ CREATE TABLE networks (
 	latest_block_number integer,
 	latest_block_hash bytea,
 	latest_block_delta integer,
-	introduced_with integer NOT NULL REFERENCES data_edge_calls (id) ON DELETE CASCADE,
+	introduced_with integer NOT NULL REFERENCES data_edge_calls (id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_networks_caip2_chain_id ON networks(caip2_chain_id);
 
 CREATE TABLE encoding_versions (
 	id integer PRIMARY KEY,
-	introduced_with integer NOT NULL REFERENCES data_edge_calls (id) ON DELETE CASCADE,
+	introduced_with integer NOT NULL REFERENCES data_edge_calls (id) ON DELETE CASCADE
 );
 
 CREATE TABLE message_types (
@@ -39,6 +39,6 @@ CREATE TABLE message_types (
 
 CREATE TABLE messages (
 	id serial PRIMARY KEY,
-	tx_id integer NOT NULL REFERENCES data_edge_call (id) ON DELETE CASCADE,
-	message_type_id integer NOT NULL REFERENCES message_types (id) ON DELETE CASCADE,
+	tx_id integer NOT NULL REFERENCES data_edge_calls (id) ON DELETE CASCADE,
+	message_type_id integer NOT NULL REFERENCES message_types (id) ON DELETE CASCADE
 );

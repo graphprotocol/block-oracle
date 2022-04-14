@@ -1,8 +1,7 @@
 use sqlx::types::chrono;
 use std::str::FromStr;
 
-pub type Id = u64;
-pub type EncodingVersion = u64;
+pub type Id = u32;
 pub type BlockNumber = u64;
 pub type Timestamp = chrono::DateTime<chrono::Utc>;
 pub type Nonce = u64;
@@ -25,6 +24,10 @@ impl Caip2ChainId {
 
     pub fn as_str(&self) -> &str {
         &self.chain_id
+    }
+
+    pub fn ethereum_mainnet() -> Self {
+        Self::from_str("ethereum:eip155-1").unwrap()
     }
 
     pub fn into_string(self) -> String {

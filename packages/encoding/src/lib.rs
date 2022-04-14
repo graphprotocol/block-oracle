@@ -1,7 +1,7 @@
 mod database;
 mod encoding;
 mod merkle;
-mod messages;
+pub mod messages;
 mod varint;
 
 use async_trait::async_trait;

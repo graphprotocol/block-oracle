@@ -10,6 +10,13 @@ use web3::{api::Web3, transports::http::Http as HttpTransport, types::U64};
 type BlockNumber = U64;
 type Client = Web3<HttpTransport>;
 
+pub enum Event {
+    NewBlock {
+        chain: Caip2ChainId,
+        block_number: u64,
+    },
+}
+
 #[derive(Error, Debug)]
 pub enum EventSourceError {
     #[error("Ethereum client error")]

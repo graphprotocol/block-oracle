@@ -5,7 +5,7 @@ mod event_source;
 mod metrics;
 mod store;
 
-use event_source::EventSource;
+use event_source::{Event, EventSource};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use store::models::Caip2ChainId;
@@ -62,13 +62,15 @@ async fn main() -> Result<(), Error> {
     let mut event_source = EventSource::new(todo!());
 
     loop {
-        let latest_blocks = event_source.get_latest_blocks().await?;
-
-        for (chain, latest_block) in latest_blocks.iter() {
-            //
-        }
-
-        tokio::time::sleep(CONFIG.json_rpc_polling_interval).await;
+        //let event = event_source.latest_event().await?;
+        //match event {
+        //    Event::NewBlock {
+        //        chain,
+        //        block_number,
+        //    } => {
+        //        store.update_network_block_info(&chain, block_number).await;
+        //    }
+        //}
     }
 
     Ok(())

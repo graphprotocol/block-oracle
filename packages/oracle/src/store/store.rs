@@ -6,7 +6,7 @@ use sqlx::postgres::PgPoolOptions;
 use std::{collections::HashMap, str::FromStr};
 
 type PgPool = sqlx::Pool<sqlx::Postgres>;
-type NetworkRow = (i64, String, Option<i64>, Option<Vec<u8>>, Option<i64>, i64);
+type NetworkRow = (i32, String, Option<i64>, Option<Vec<u8>>, Option<i64>, i32);
 
 fn network_row_to_model(row: NetworkRow) -> WithId<models::Network> {
     let (
@@ -40,8 +40,17 @@ impl Store {
         Ok(Self { pool })
     }
 
-    pub async fn last_encoding_version(&self) -> sqlx::Result<Option<models::EncodingVersion>> {
-        let row: Option<(i64,)> = sqlx::query_as(
+    #[cfg(test)]
+    pub async fn new_clean(db_url: &str) -> sqlx::Result<Self> {
+        let store = Self::new(db_url).await?;
+        sqlx::query("DELETE FROM data_edge_calls;")
+            .execute(&store.pool)
+            .await?;
+        Ok(store)
+    }
+
+    pub async fn last_encoding_version(&self) -> sqlx::Result<Option<models::Id>> {
+        let row: Option<(i32,)> = sqlx::query_as(
             r#"
 SELECT id,
 FROM encoding_versions
@@ -51,22 +60,22 @@ LIMIT 1"#,
         .fetch_optional(&self.pool)
         .await?;
 
-        Ok(row.map(|r| r.0 as models::EncodingVersion))
+        Ok(row.map(|r| models::Id::try_from(r.0).unwrap()))
     }
 
     pub async fn insert_encoding_version(
         &self,
-        version: models::EncodingVersion,
+        version: models::Id,
         data_edge_call_id: models::Id,
     ) -> sqlx::Result<models::Id> {
-        let row: (i64,) = sqlx::query_as(
+        let row: (i32,) = sqlx::query_as(
             r#"
-INSERT INTO encoding_versions (chain_id, introduced_with)
+INSERT INTO encoding_versions (caip2_chain_id, introduced_with)
 VALUES ($1, $2)
 RETURNING id"#,
         )
-        .bind(i64::try_from(version).unwrap())
-        .bind(i64::try_from(data_edge_call_id).unwrap())
+        .bind(i32::try_from(version).unwrap())
+        .bind(i32::try_from(data_edge_call_id).unwrap())
         .fetch_one(&self.pool)
         .await?;
 
@@ -77,36 +86,53 @@ RETURNING id"#,
         &self,
         network: WithId<models::Network>,
     ) -> sqlx::Result<models::Id> {
-        let row: (i64,) = sqlx::query_as(
+        let row: (i32,) = sqlx::query_as(
             r#"
-INSERT INTO networks (id, chain_id, introduced_with)
+INSERT INTO networks (id, caip2_chain_id, introduced_with)
 VALUES ($1, $2, $3)
 RETURNING id"#,
         )
-        .bind(i64::try_from(network.id).unwrap())
+        .bind(i32::try_from(network.id).unwrap())
         .bind(network.data.name.as_str())
-        .bind(i64::try_from(network.data.introduced_with).unwrap())
+        .bind(i32::try_from(network.data.introduced_with).unwrap())
         .fetch_one(&self.pool)
         .await?;
 
         Ok(row.0.try_into().unwrap())
     }
 
-    pub async fn update_network_block_info(
+    pub async fn update_network_block_info_by_id(
         &self,
         id: models::Id,
         latest_block_number: u64,
-        latest_block_delta: i64,
     ) -> sqlx::Result<()> {
         sqlx::query(
             r#"
 UPDATE networks
-SET latest_block_number = $1, latest_block_delta = $2
-where id = $3"#,
+SET latest_block_number = $1, latest_block_delta = $1 - latest_block_number
+where id = $2"#,
         )
-        .bind(i64::try_from(latest_block_number).unwrap())
-        .bind(latest_block_delta)
-        .bind(i64::try_from(id).unwrap())
+        .bind(i32::try_from(latest_block_number).unwrap())
+        .bind(i32::try_from(id).unwrap())
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    pub async fn update_network_block_info(
+        &self,
+        caip2: &models::Caip2ChainId,
+        latest_block_number: u64,
+    ) -> sqlx::Result<()> {
+        sqlx::query(
+            r#"
+UPDATE networks
+SET latest_block_number = $1, latest_block_delta = $1 - latest_block_number
+where caip2_chain_id = $2"#,
+        )
+        .bind(i32::try_from(latest_block_number).unwrap())
+        .bind(caip2.as_str())
         .fetch_one(&self.pool)
         .await?;
 
@@ -119,11 +145,11 @@ where id = $3"#,
     ) -> sqlx::Result<Option<WithId<models::Network>>> {
         let row: Option<NetworkRow> = sqlx::query_as(
             r#"
-SELECT (id, chain_id, latest_block_number, latest_block_hash, latest_block_delta, introduced_with)
+SELECT id, caip2_chain_id, latest_block_number, latest_block_hash, latest_block_delta, introduced_with
 FROM networks
 WHERE id = $1"#,
         )
-        .bind(i64::try_from(id).unwrap())
+        .bind(i32::try_from(id).unwrap())
         .fetch_optional(&self.pool)
         .await?;
         Ok(row.map(network_row_to_model))
@@ -132,7 +158,7 @@ WHERE id = $1"#,
     pub async fn networks(&self) -> sqlx::Result<Vec<WithId<models::Network>>> {
         let rows: Vec<NetworkRow> = sqlx::query_as(
             r#"
-SELECT (id, chain_id, latest_block_number, latest_block_hash, latest_block_delta, introduced_with)
+SELECT id, caip2_chain_id, latest_block_number, latest_block_hash, latest_block_delta, introduced_with
 FROM networks
 ORDER BY id ASC"#,
         )
@@ -146,7 +172,7 @@ ORDER BY id ASC"#,
         &self,
         call: models::DataEdgeCall,
     ) -> sqlx::Result<models::Id> {
-        let row: (i64,) = sqlx::query_as(
+        let row: (i32,) = sqlx::query_as(
             r#"
 INSERT INTO data_edge_calls (
     tx_hash,
@@ -160,10 +186,10 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id"#,
         )
         .bind(call.tx_hash)
-        .bind(i64::try_from(call.nonce).unwrap())
-        .bind(i64::try_from(call.num_confirmations).unwrap())
+        .bind(i32::try_from(call.nonce).unwrap())
+        .bind(i32::try_from(call.num_confirmations).unwrap())
         .bind(call.num_confirmations_last_checked_at)
-        .bind(i64::try_from(call.block_number).unwrap())
+        .bind(i32::try_from(call.block_number).unwrap())
         .bind(call.block_hash)
         .bind(call.payload)
         .fetch_one(&self.pool)
@@ -177,8 +203,8 @@ RETURNING id"#,
         call_id: models::Id,
         num_confirmations: u64,
     ) -> sqlx::Result<()> {
-        let call_id = i64::try_from(call_id).unwrap();
-        let num_confirmations = i64::try_from(num_confirmations).unwrap();
+        let call_id = i32::try_from(call_id).unwrap();
+        let num_confirmations = i32::try_from(num_confirmations).unwrap();
         let now = sqlx::types::chrono::Utc::now();
 
         sqlx::query(
@@ -199,7 +225,7 @@ WHERE id = $3
     }
 
     pub async fn last_nonce(&self) -> sqlx::Result<models::Nonce> {
-        let row: (i64,) = sqlx::query_as(
+        let row: (i32,) = sqlx::query_as(
             r#"
 SELECT nonce
 FROM data_edge_calls
@@ -241,7 +267,7 @@ impl epoch_encoding::Database for Store {
     ) -> Result<(), Self::Error> {
         for (name, id) in ids {
             let network = WithId {
-                id,
+                id: id as models::Id,
                 data: models::Network {
                     name: models::Caip2ChainId::from_str(name.as_str()).unwrap(),
                     introduced_with: 0,
@@ -256,7 +282,7 @@ impl epoch_encoding::Database for Store {
     }
 
     async fn get_network(&self, id: ee::NetworkId) -> Result<Option<ee::Network>, Self::Error> {
-        if let Some(network) = self.network_by_id(id).await? {
+        if let Some(network) = self.network_by_id(id as models::Id).await? {
             match (
                 network.data.latest_block_delta,
                 network.data.latest_block_number,
@@ -277,8 +303,65 @@ impl epoch_encoding::Database for Store {
         id: ee::NetworkId,
         network: ee::Network,
     ) -> Result<(), Self::Error> {
-        self.update_network_block_info(id, network.block_number, network.block_delta)
+        self.update_network_block_info_by_id(id as models::Id, network.block_number)
             .await?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use models::DataEdgeCall;
+    use sqlx::{types::chrono::DateTime, Postgres, Transaction};
+
+    async fn test_store() -> Store {
+        let db_url = std::env::var("BLOCK_ORACLE_TEST_DATABASE_URL").unwrap();
+        Store::new_clean(&db_url).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn test_connect() {
+        test_store().await;
+    }
+
+    #[tokio::test]
+    async fn test_insert_network() {
+        let store = test_store().await;
+        let call_id = store
+            .insert_data_edge_call(DataEdgeCall {
+                tx_hash: "0x0".into(),
+                nonce: 0,
+                num_confirmations: 0,
+                num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
+                block_number: 0,
+                block_hash: "0x0".into(),
+                payload: "0x0".into(),
+            })
+            .await
+            .unwrap();
+        store
+            .insert_network(WithId {
+                id: 1,
+                data: models::Network {
+                    name: models::Caip2ChainId::ethereum_mainnet(),
+                    introduced_with: call_id,
+                    latest_block_hash: None,
+                    latest_block_number: Some(1337),
+                    latest_block_delta: None,
+                },
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            store
+                .network_by_id(1)
+                .await
+                .unwrap()
+                .unwrap()
+                .data
+                .latest_block_number,
+            Some(1337)
+        );
     }
 }
