@@ -119,7 +119,7 @@ where id = $3"#,
     ) -> sqlx::Result<Option<WithId<models::Network>>> {
         let row: Option<NetworkRow> = sqlx::query_as(
             r#"
-SELECT (id, chain_id, latest_block_number, latest_block_hash, latest_block_delta, introduced_with)
+SELECT (id, caip2_chain_id, latest_block_number, latest_block_hash, latest_block_delta, introduced_with)
 FROM networks
 WHERE id = $1"#,
         )
@@ -132,7 +132,7 @@ WHERE id = $1"#,
     pub async fn networks(&self) -> sqlx::Result<Vec<WithId<models::Network>>> {
         let rows: Vec<NetworkRow> = sqlx::query_as(
             r#"
-SELECT (id, chain_id, latest_block_number, latest_block_hash, latest_block_delta, introduced_with)
+SELECT (id, caip2_chain_id, latest_block_number, latest_block_hash, latest_block_delta, introduced_with)
 FROM networks
 ORDER BY id ASC"#,
         )
