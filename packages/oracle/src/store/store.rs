@@ -1,9 +1,12 @@
 use super::models;
 use async_trait::async_trait;
 use epoch_encoding as ee;
-use models::WithId;
+use models::{Caip2ChainId, WithId};
 use sqlx::postgres::PgPoolOptions;
-use std::{collections::HashMap, str::FromStr};
+use std::{
+    collections::{HashMap, HashSet},
+    str::FromStr,
+};
 
 type PgPool = sqlx::Pool<sqlx::Postgres>;
 type NetworkRow = (i32, String, Option<i64>, Option<Vec<u8>>, Option<i64>, i32);
@@ -20,7 +23,7 @@ fn network_row_to_model(row: NetworkRow) -> WithId<models::Network> {
     WithId {
         id: models::Id::try_from(id).unwrap(),
         data: models::Network {
-            name: models::Caip2ChainId::from_str(chain_name.as_str()).unwrap(),
+            name: Caip2ChainId::from_str(chain_name.as_str()).unwrap(),
             latest_block_number: latest_block_number.map(|x| x.try_into().unwrap()),
             latest_block_hash,
             latest_block_delta: latest_block_delta.map(|x| x.try_into().unwrap()),
@@ -29,6 +32,7 @@ fn network_row_to_model(row: NetworkRow) -> WithId<models::Network> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct Store {
     pool: PgPool,
 }
@@ -80,6 +84,29 @@ RETURNING id"#,
         .await?;
 
         Ok(row.0.try_into().unwrap())
+    }
+
+    pub async fn sync_networks(&self, networks: Vec<Caip2ChainId>) -> sqlx::Result<()> {
+        let networks: HashSet<Caip2ChainId> = networks.into_iter().collect();
+        let current_networks: HashMap<Caip2ChainId, models::Id> = self
+            .networks()
+            .await?
+            .into_iter()
+            .map(|n| (n.data.name, n.id))
+            .collect();
+
+        let networks_to_delete: Vec<Caip2ChainId> = current_networks
+            .iter()
+            .filter(|n| !networks.contains(&n.0))
+            .map(|x| x.0.clone())
+            .collect();
+        let networks_to_insert: Vec<Caip2ChainId> = networks
+            .iter()
+            .filter(|chain_id| !current_networks.contains_key(*chain_id))
+            .cloned()
+            .collect();
+
+        Ok(())
     }
 
     pub async fn insert_network(
@@ -137,7 +164,7 @@ where id = $2"#,
 
     pub async fn update_network_block_info(
         &self,
-        caip2: &models::Caip2ChainId,
+        caip2: &Caip2ChainId,
         latest_block_number: u64,
     ) -> sqlx::Result<()> {
         sqlx::query(
@@ -239,6 +266,20 @@ WHERE id = $3
         Ok(())
     }
 
+    pub async fn block_number_of_last_tx(&self) -> sqlx::Result<u64> {
+        let row: (i64,) = sqlx::query_as(
+            r#"
+SELECT block_number
+FROM data_edge_calls
+ORDER BY id DESC
+LIMIT 1"#,
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.0.try_into().unwrap())
+    }
+
     pub async fn last_nonce(&self) -> sqlx::Result<models::Nonce> {
         let row: (i32,) = sqlx::query_as(
             r#"
@@ -284,7 +325,7 @@ impl epoch_encoding::Database for Store {
             let network = WithId {
                 id: id as models::Id,
                 data: models::Network {
-                    name: models::Caip2ChainId::from_str(name.as_str()).unwrap(),
+                    name: Caip2ChainId::from_str(name.as_str()).unwrap(),
                     introduced_with: 0,
                     latest_block_hash: None,
                     latest_block_number: None,
@@ -359,7 +400,7 @@ mod tests {
             .insert_network(WithId {
                 id: 1,
                 data: models::Network {
-                    name: models::Caip2ChainId::ethereum_mainnet(),
+                    name: Caip2ChainId::ethereum_mainnet(),
                     introduced_with: call_id,
                     latest_block_hash: None,
                     latest_block_number: Some(1337),

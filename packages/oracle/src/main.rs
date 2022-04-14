@@ -1,18 +1,23 @@
 mod config;
 mod emitter;
 mod encoder;
+mod epoch_tracker;
 mod event_source;
 mod metrics;
 mod store;
 
 use event_source::{Event, EventSource};
 use lazy_static::lazy_static;
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{atomic::AtomicBool, Arc},
+};
 use store::models::Caip2ChainId;
 
 pub use config::Config;
 pub use emitter::Emitter;
 pub use encoder::Encoder;
+pub use epoch_tracker::EpochTracker;
 pub use metrics::Metrics;
 pub use store::Store;
 
@@ -20,9 +25,6 @@ lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
     pub static ref METRICS: Metrics = Metrics::default();
 }
-
-/// Tracks current Ethereum mainnet epoch.
-type EpochTracker = ();
 
 // -------------
 
@@ -47,6 +49,8 @@ pub enum Error {
     Sqlx(#[from] sqlx::Error),
     #[error("Error fetching blockchain data: {0}")]
     EventSource(#[from] event_source::EventSourceError),
+    #[error("Can't publish events to Ethereum mainnet: {0}")]
+    Web3(#[from] web3::Error),
 }
 
 #[tokio::main]
@@ -56,38 +60,62 @@ async fn main() -> Result<(), Error> {
     let _ = &*CONFIG;
     let _ = &*METRICS;
 
+    // Gracefully stop the program if CTRL-C is detected.
+    let ctrlc = Arc::new(AtomicBool::new(false));
+    let ctrlc_clone = ctrlc.clone();
+    ctrlc::set_handler(move || {
+        println!("\nCTRL-C detected. Stopping... please wait.\n");
+        ctrlc_clone.store(true, std::sync::atomic::Ordering::Relaxed);
+    })
+    .expect("Error setting CTRL-C handler.");
+
     let store = Store::new(CONFIG.database_url.as_str()).await?;
-    let networks = store.networks().await?;
-
+    let epoch_tracker = EpochTracker::new(&store, &*CONFIG);
+    let mut emitter = Emitter::new(&*CONFIG)?;
     let (event_source, mut receiver) = EventSource::new(&CONFIG.jrpc_providers);
+    // Start EventSource main loop.
+    let _event_source_task = tokio::spawn(async move { event_source.work().await });
 
-    // start EventSource main loop
-    let event_source_task = tokio::spawn(async move { event_source.work().await });
-
+    let mut latest_block_by_network = HashMap::with_capacity(CONFIG.networks().len());
     loop {
-        while let Some(event) = receiver.recv().await {
-            use crate::event_source::Event::*;
-            match event {
-                Ok(event) => match event {
-                    NewBlock {
-                        chain_id,
-                        block_number,
-                    } => {
-                        dbg!(chain_id, block_number);
-                        // TODO: continue from here
-                    }
-                },
-                Err(event_source_error) => {
-                    // Handle event source internal errors
-                    use event_source::EventSourceError::*;
-                    match event_source_error {
-                        Web3(_) => todo!("decide how should we handle JRPC errors"),
-                    }
+        if ctrlc.load(std::sync::atomic::Ordering::Relaxed) {
+            break;
+        }
+
+        match receiver.recv().await {
+            Some(Ok(Event::NewBlock {
+                chain_id,
+                block_number,
+            })) => {
+                dbg!(&chain_id, block_number);
+
+                if chain_id == Caip2ChainId::ethereum_mainnet()
+                    && epoch_tracker.is_new_epoch(block_number.as_u64()).await?
+                {
+                    // FIXME
+                    //epoch_encoding::publish(&store, messages, &mut emitter)
+                    //    .await
+                    //    .unwrap();
+                }
+
+                latest_block_by_network
+                    .entry(chain_id)
+                    .or_insert(block_number);
+
+                // TODO: continue from here
+            }
+            Some(Err(event_source_error)) => {
+                // Handle event source internal errors
+                use event_source::EventSourceError::*;
+                match event_source_error {
+                    Web3(_) => todo!("decide how should we handle JRPC errors"),
                 }
             }
+            None => {
+                // If whe exit the previous loop, then it means that the channel's sender was dropped.
+                return Err(todo!("define a new error variant for this case"));
+            }
         }
-        // If whe exit the previous loop, then it means that the channel's sender was dropped.
-        return Err(todo!("define a new error variant for this case"));
     }
     Ok(())
 }

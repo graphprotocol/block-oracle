@@ -7,6 +7,7 @@ edition = "2021"
 actix-web = "4"
 async-trait = "0.1.52"
 clap = { version = "3.0.0", features = ["derive"] }
+ctrlc = "3.2.1"
 envconfig = "0.10.0"
 epoch-encoding = { path = "../encoding" }
 futures = "0.3.21"

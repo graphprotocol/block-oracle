@@ -49,6 +49,10 @@ impl Config {
             jrpc_providers: config_file.jrpc_providers,
         }
     }
+
+    pub fn networks(&self) -> Vec<Caip2ChainId> {
+        self.jrpc_providers.keys().into_iter().cloned().collect()
+    }
 }
 
 #[derive(Parser, Debug, Clone)]
