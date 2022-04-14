@@ -80,7 +80,7 @@ struct Clap {
     #[clap(long, default_value = "120")]
     json_rpc_polling_interval_in_seconds: u64,
     /// The filepath of the TOML JSON-RPC configuration file.
-    #[clap(default_value = "config.toml", parse(from_os_str))]
+    #[clap(long, default_value = "config.toml", parse(from_os_str))]
     config_file: PathBuf,
 }
 

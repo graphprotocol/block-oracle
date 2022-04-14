@@ -28,7 +28,9 @@ lazy_static! {
 
 // -------------
 
-type BlockChainState = ();
+struct BlockChainState {
+    latest_block_number: u64,
+}
 
 /// The main application in-memory state
 struct Oracle {
@@ -76,7 +78,7 @@ async fn main() -> Result<(), Error> {
     // Start EventSource main loop.
     let _event_source_task = tokio::spawn(async move { event_source.work().await });
 
-    let mut latest_block_by_network = HashMap::with_capacity(CONFIG.networks().len());
+    let mut state_by_blockchain = HashMap::with_capacity(CONFIG.networks().len());
     loop {
         if ctrlc.load(std::sync::atomic::Ordering::Relaxed) {
             break;
@@ -98,9 +100,12 @@ async fn main() -> Result<(), Error> {
                     //    .unwrap();
                 }
 
-                latest_block_by_network
+                state_by_blockchain
                     .entry(chain_id)
-                    .or_insert(block_number);
+                    .or_insert(BlockChainState {
+                        latest_block_number: 0,
+                    })
+                    .latest_block_number = block_number.as_u64();
 
                 // TODO: continue from here
             }

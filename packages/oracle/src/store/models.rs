@@ -27,7 +27,7 @@ impl Caip2ChainId {
     }
 
     pub fn ethereum_mainnet() -> Self {
-        Self::from_str("ethereum:eip155-1").unwrap()
+        Self::from_str("eip155:1").unwrap()
     }
 
     pub fn into_string(self) -> String {
