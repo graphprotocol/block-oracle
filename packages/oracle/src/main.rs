@@ -59,19 +59,35 @@ async fn main() -> Result<(), Error> {
     let store = Store::new(CONFIG.database_url.as_str()).await?;
     let networks = store.networks().await?;
 
-    let mut event_source = EventSource::new(todo!());
+    let (event_source, mut receiver) = EventSource::new(&CONFIG.jrpc_providers);
+
+    // start EventSource main loop
+    let event_source_task = tokio::spawn(async move { event_source.work().await });
 
     loop {
-        //let event = event_source.latest_event().await?;
-        //match event {
-        //    Event::NewBlock {
-        //        chain,
-        //        block_number,
-        //    } => {
-        //        store.update_network_block_info(&chain, block_number).await;
-        //    }
-        //}
+        while let Some(event) = receiver.recv().await {
+            use crate::event_source::Event::*;
+            match event {
+                Ok(event) => match event {
+                    NewBlock {
+                        chain_id,
+                        block_number,
+                    } => {
+                        dbg!(chain_id, block_number);
+                        // TODO: continue from here
+                    }
+                },
+                Err(event_source_error) => {
+                    // Handle event source internal errors
+                    use event_source::EventSourceError::*;
+                    match event_source_error {
+                        Web3(_) => todo!("decide how should we handle JRPC errors"),
+                    }
+                }
+            }
+        }
+        // If whe exit the previous loop, then it means that the channel's sender was dropped.
+        return Err(todo!("define a new error variant for this case"));
     }
-
     Ok(())
 }
