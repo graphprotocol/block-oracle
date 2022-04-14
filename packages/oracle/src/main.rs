@@ -72,7 +72,10 @@ async fn main() -> Result<(), Error> {
                     NewBlock {
                         chain_id,
                         block_number,
-                    } => todo!(),
+                    } => {
+                        dbg!(chain_id, block_number);
+                        // TODO: continue from here
+                    }
                 },
                 Err(event_source_error) => {
                     // Handle event source internal errors
