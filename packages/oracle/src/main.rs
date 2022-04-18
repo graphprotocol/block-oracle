@@ -6,6 +6,10 @@ mod event_source;
 mod metrics;
 mod store;
 
+use epoch_encoding::{
+    compress_messages, encode_messages, messages::BlockPtr, Blockchain, Database, Message,
+    Transaction,
+};
 use event_source::{Event, EventSource};
 use lazy_static::lazy_static;
 use std::{
@@ -71,14 +75,15 @@ async fn main() -> Result<(), Error> {
     })
     .expect("Error setting CTRL-C handler.");
 
-    let store = Store::new(CONFIG.database_url.as_str()).await?;
-    let epoch_tracker = EpochTracker::new(&store, &*CONFIG);
+    let mut store = Store::new(CONFIG.database_url.as_str()).await?;
     let mut emitter = Emitter::new(&*CONFIG)?;
+    let mut state_by_blockchain = HashMap::with_capacity(CONFIG.networks().len());
+    let epoch_tracker = EpochTracker::new(&store, &*CONFIG);
+
     let (event_source, mut receiver) = EventSource::new(&CONFIG.jrpc_providers);
     // Start EventSource main loop.
     let _event_source_task = tokio::spawn(async move { event_source.work().await });
 
-    let mut state_by_blockchain = HashMap::with_capacity(CONFIG.networks().len());
     loop {
         if ctrlc.load(std::sync::atomic::Ordering::Relaxed) {
             break;
@@ -94,10 +99,35 @@ async fn main() -> Result<(), Error> {
                 if chain_id == Caip2ChainId::ethereum_mainnet()
                     && epoch_tracker.is_new_epoch(block_number.as_u64()).await?
                 {
-                    // FIXME
-                    //epoch_encoding::publish(&store, messages, &mut emitter)
-                    //    .await
-                    //    .unwrap();
+                    let message = Message::SetBlockNumbersForNextEpoch(
+                        state_by_blockchain
+                            .iter()
+                            .map(|(chain_id, state): (&Caip2ChainId, &BlockChainState)| {
+                                (
+                                    chain_id.as_str().to_owned(),
+                                    BlockPtr {
+                                        number: state.latest_block_number,
+                                        hash: [0u8; 32], // FIXME
+                                    },
+                                )
+                            })
+                            .collect(),
+                    );
+                    let compressed = match compress_messages(&mut store, &[message]).await? {
+                        Ok(compressed) => compressed,
+                        Err(e) => todo!(),
+                    };
+                    let encoded = encode_messages(&compressed);
+
+                    let nonce = store.get_next_nonce().await?;
+                    store.set_next_nonce(nonce).await?;
+
+                    let transaction = Transaction {
+                        nonce,
+                        payload: encoded,
+                    };
+
+                    emitter.submit_oracle_messages(transaction).await.unwrap();
                 }
 
                 state_by_blockchain

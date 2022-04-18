@@ -6,9 +6,10 @@ mod varint;
 
 use async_trait::async_trait;
 use merkle::{merkle_root, MerkleLeaf};
-use {encoding::*, messages::*};
+use messages::*;
 
 pub use database::{Connection, Database, Network};
+pub use encoding::encode_messages;
 pub use messages::{CompressedMessage, Message, Transaction};
 
 type Bytes32 = [u8; 32];
@@ -208,7 +209,7 @@ where
     Ok(Ok(()))
 }
 
-async fn compress_messages<Db>(
+pub async fn compress_messages<Db>(
     db: &mut Db,
     messages: &[Message],
 ) -> DbResult<Vec<CompressedMessage>, Db>

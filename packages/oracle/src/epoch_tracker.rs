@@ -1,4 +1,4 @@
-use crate::{Config, Store};
+use crate::{store::store::Store, Config};
 
 /// Tracks current Ethereum mainnet epoch.
 pub struct EpochTracker {
