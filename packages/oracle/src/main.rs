@@ -1,4 +1,5 @@
 mod config;
+mod ctrlc;
 mod emitter;
 mod encoder;
 mod epoch_tracker;
@@ -6,16 +7,14 @@ mod event_source;
 mod metrics;
 mod store;
 
+use crate::ctrlc::CtrlcHandler;
 use epoch_encoding::{
     compress_messages, encode_messages, messages::BlockPtr, Blockchain, Database, Message,
     Transaction,
 };
 use event_source::{Event, EventSource};
 use lazy_static::lazy_static;
-use std::{
-    collections::HashMap,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::collections::HashMap;
 use store::models::Caip2ChainId;
 
 pub use config::Config;
@@ -28,6 +27,7 @@ pub use store::Store;
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
     pub static ref METRICS: Metrics = Metrics::default();
+    pub static ref CTRLC: CtrlcHandler = CtrlcHandler::init();
 }
 
 // -------------
@@ -65,15 +65,9 @@ async fn main() -> Result<(), Error> {
     // initialization.
     let _ = &*CONFIG;
     let _ = &*METRICS;
+    let _ = &*CTRLC;
 
     // Gracefully stop the program if CTRL-C is detected.
-    let ctrlc = Arc::new(AtomicBool::new(false));
-    let ctrlc_clone = ctrlc.clone();
-    ctrlc::set_handler(move || {
-        println!("\nCTRL-C detected. Stopping... please wait.\n");
-        ctrlc_clone.store(true, std::sync::atomic::Ordering::Relaxed);
-    })
-    .expect("Error setting CTRL-C handler.");
 
     let mut store = Store::new(CONFIG.database_url.as_str()).await?;
     let mut emitter = Emitter::new(&*CONFIG)?;
@@ -85,7 +79,7 @@ async fn main() -> Result<(), Error> {
     let _event_source_task = tokio::spawn(async move { event_source.work().await });
 
     loop {
-        if ctrlc.load(std::sync::atomic::Ordering::Relaxed) {
+        if CTRLC.poll_ctrlc() {
             break;
         }
 
