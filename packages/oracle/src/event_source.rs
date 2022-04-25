@@ -32,6 +32,7 @@ type EventSourceResult = Result<Event, EventSourceError>;
 
 /// Actively listens for new blocks and reorgs from registered blockchains. Also, it checks the
 /// number of confirmations for transactions sent to the DataEdge contract.
+#[derive(Debug, Clone)]
 pub struct EventSource {
     jrpc_providers: HashMap<Caip2ChainId, Client>,
     sender: UnboundedSender<EventSourceResult>,
