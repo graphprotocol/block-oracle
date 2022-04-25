@@ -1,0 +1,7 @@
+[protocol_chain]
+name = "eip155:1"  # the CAIP2 network identifier for this chain
+jrpc= "http://127.0.0.1:8545/"  # The URL to he JSON RPC for this network
+
+[indexed_chains]
+"eip155:77"  = "https://sokol-archive.blockscout.com/" # POA Network Sokol
+"eip155:99"  = "https://core-archive.blockscout.com/"  # POA Network Core

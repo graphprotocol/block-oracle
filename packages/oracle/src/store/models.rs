@@ -1,5 +1,5 @@
 use sqlx::types::chrono;
-use std::str::FromStr;
+use std::{fmt::Display, str::FromStr};
 
 pub type Id = u32;
 pub type BlockNumber = u64;
@@ -28,10 +28,6 @@ impl Caip2ChainId {
 
     pub fn ethereum_mainnet() -> Self {
         Self::from_str("eip155:1").unwrap()
-    }
-
-    pub fn into_string(self) -> String {
-        self.chain_id
     }
 
     pub fn namespace_part(&self) -> &str {
@@ -69,6 +65,12 @@ impl FromStr for Caip2ChainId {
     }
 }
 
+impl Display for Caip2ChainId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Network {
     pub name: Caip2ChainId,
@@ -79,14 +81,34 @@ pub struct Network {
 }
 
 #[derive(Debug, Clone)]
-pub struct DataEdgeCall {
-    pub tx_hash: Vec<u8>,
+pub struct DataEdgeCall<'a> {
+    pub tx_hash: &'a [u8],
     pub nonce: u64,
     pub num_confirmations: u64,
     pub num_confirmations_last_checked_at: Timestamp,
     pub block_number: BlockNumber,
-    pub block_hash: Vec<u8>,
+    pub block_hash: &'a [u8],
     pub payload: Vec<u8>,
+}
+
+impl<'a> DataEdgeCall<'a> {
+    pub fn new(
+        tx_hash: &'a [u8],
+        nonce: u64,
+        block_number: BlockNumber,
+        block_hash: &'a [u8],
+        payload: Vec<u8>,
+    ) -> Self {
+        Self {
+            tx_hash,
+            nonce,
+            num_confirmations: 0,
+            num_confirmations_last_checked_at: chrono::Utc::now(),
+            block_number,
+            block_hash,
+            payload,
+        }
+    }
 }
 
 #[cfg(test)]

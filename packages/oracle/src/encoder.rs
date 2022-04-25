@@ -1,10 +1,5 @@
 use super::store::Network;
-use std::collections::HashMap;
-
-use epoch_encoding::messages::*;
 use epoch_encoding::{CompressedMessage, Message};
-
-use crate::store::Caip2ChainId;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CompressionState {

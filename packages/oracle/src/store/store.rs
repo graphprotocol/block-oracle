@@ -5,6 +5,7 @@ use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
 };
+use tracing::warn;
 
 type PgPool = sqlx::Pool<sqlx::Postgres>;
 type NetworkRow = (i32, String, Option<i64>, Option<Vec<u8>>, Option<i64>, i32);
@@ -208,9 +209,9 @@ ORDER BY id ASC"#,
         Ok(networks)
     }
 
-    pub async fn insert_data_edge_call(
+    pub async fn insert_data_edge_call<'a>(
         &self,
-        call: models::DataEdgeCall,
+        call: models::DataEdgeCall<'a>,
     ) -> sqlx::Result<models::Id> {
         let row: (i32,) = sqlx::query_as(
             r#"
@@ -264,18 +265,30 @@ WHERE id = $3
         Ok(())
     }
 
-    pub async fn block_number_of_last_tx(&self) -> sqlx::Result<u64> {
-        let row: (i64,) = sqlx::query_as(
+    pub async fn block_number_of_last_epoch(&self) -> sqlx::Result<Option<u64>> {
+        let row: Option<(i64,)> = sqlx::query_as(
             r#"
 SELECT block_number
 FROM data_edge_calls
-ORDER BY id DESC
-LIMIT 1"#,
+WHERE id = (
+SELECT tx_id
+    FROM messages
+    WHERE message_type_id = (
+         SELECT id
+         FROM message_types
+         WHERE name = 'SetBlockNumbersForEpoch'
+    ORDER BY id DESC
+    LIMIT 1
+    )
+)"#,
         )
-        .fetch_one(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
 
-        Ok(row.0.try_into().unwrap())
+        match row {
+            Some((block_number,)) => Ok(Some(block_number.try_into().unwrap())),
+            None => Ok(None),
+        }
     }
 
     pub async fn last_nonce(&self) -> sqlx::Result<Option<models::Nonce>> {
@@ -323,12 +336,12 @@ mod tests {
         let store = test_store().await;
         let call_id = store
             .insert_data_edge_call(DataEdgeCall {
-                tx_hash: "0x0".into(),
+                tx_hash: &[],
                 nonce: 0,
                 num_confirmations: 0,
                 num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
                 block_number: 0,
-                block_hash: "0x0".into(),
+                block_hash: &[],
                 payload: "0x0".into(),
             })
             .await

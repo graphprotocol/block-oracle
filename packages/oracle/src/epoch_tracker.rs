@@ -1,4 +1,13 @@
-use crate::{store::store::Store, Config};
+use crate::{Config, Store};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum EpochTrackerError {
+    #[error("Store error: {0}")]
+    Sqlx(#[from] sqlx::error::Error),
+    #[error("Failed to determine current epoch. No previous epoch was found in local storage.")]
+    PreviousEpochNotFound,
+}
 
 /// Tracks current Ethereum mainnet epoch.
 pub struct EpochTracker {
@@ -14,8 +23,11 @@ impl EpochTracker {
         }
     }
 
-    pub async fn is_new_epoch(&self, block_number: u64) -> sqlx::Result<bool> {
-        let block_number_of_last_tx = self.store.block_number_of_last_tx().await?;
-        Ok(block_number - block_number_of_last_tx >= self.epoch_duration)
+    pub async fn is_new_epoch(&self, block_number: u64) -> Result<bool, EpochTrackerError> {
+        if let Some(block_number_of_last_tx) = self.store.block_number_of_last_epoch().await? {
+            Ok(block_number - block_number_of_last_tx >= self.epoch_duration)
+        } else {
+            Err(EpochTrackerError::PreviousEpochNotFound)
+        }
     }
 }
