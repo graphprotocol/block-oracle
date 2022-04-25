@@ -1,6 +1,4 @@
 use super::models;
-use async_trait::async_trait;
-use epoch_encoding as ee;
 use models::{Caip2ChainId, WithId};
 use sqlx::postgres::PgPoolOptions;
 use std::{
@@ -280,88 +278,27 @@ LIMIT 1"#,
         Ok(row.0.try_into().unwrap())
     }
 
-    pub async fn last_nonce(&self) -> sqlx::Result<models::Nonce> {
-        let row: (i32,) = sqlx::query_as(
+    pub async fn last_nonce(&self) -> sqlx::Result<Option<models::Nonce>> {
+        let row: Option<(i32,)> = sqlx::query_as(
             r#"
 SELECT nonce
 FROM data_edge_calls
 ORDER BY id DESC
 LIMIT 1"#,
         )
-        .fetch_one(&self.pool)
+        .fetch_optional(&self.pool)
         .await?;
 
-        Ok(row.0.try_into().unwrap())
-    }
-}
-
-#[async_trait]
-impl epoch_encoding::Database for Store {
-    type Error = sqlx::Error;
-
-    async fn get_next_nonce(&self) -> Result<u64, Self::Error> {
-        self.last_nonce().await.map(|nonce| nonce as u64 + 1)
+        Ok(row.map(|x| x.0.try_into().unwrap()))
     }
 
-    async fn set_next_nonce(&mut self, nonce: u64) -> Result<(), Self::Error> {
-        let last_nonce = self.last_nonce().await?;
-        assert_eq!(nonce, last_nonce + 1);
-        Ok(())
-    }
-
-    async fn get_network_ids(&self) -> Result<HashMap<String, ee::NetworkId>, Self::Error> {
-        let networks = self.networks().await?;
-        Ok(networks
-            .into_iter()
-            .map(|n| (n.data.name.into_string(), n.id.try_into().unwrap()))
-            .collect())
-    }
-
-    async fn set_network_ids(
-        &mut self,
-        ids: HashMap<String, ee::NetworkId>,
-    ) -> Result<(), Self::Error> {
-        for (name, id) in ids {
-            let network = WithId {
-                id: id as models::Id,
-                data: models::Network {
-                    name: Caip2ChainId::from_str(name.as_str()).unwrap(),
-                    introduced_with: 0,
-                    latest_block_hash: None,
-                    latest_block_number: None,
-                    latest_block_delta: None,
-                },
-            };
-            self.insert_network(network).await?;
-        }
-        Ok(())
-    }
-
-    async fn get_network(&self, id: ee::NetworkId) -> Result<Option<ee::Network>, Self::Error> {
-        if let Some(network) = self.network_by_id(id as models::Id).await? {
-            match (
-                network.data.latest_block_delta,
-                network.data.latest_block_number,
-            ) {
-                (Some(delta), Some(num)) => Ok(Some(ee::Network {
-                    block_delta: delta,
-                    block_number: num,
-                })),
-                _ => Ok(None),
-            }
-        } else {
-            Ok(None)
-        }
-    }
-
-    async fn set_network(
-        &mut self,
-        id: ee::NetworkId,
-        network: ee::Network,
-    ) -> Result<(), Self::Error> {
-        self.update_network_block_info_by_id(id as models::Id, network.block_number)
-            .await?;
-        Ok(())
+    pub async fn next_nonce(&self) -> sqlx::Result<models::Nonce> {
+        let initial_nonce = 0;
+        Ok(self
+            .last_nonce()
+            .await?
+            .map(|nonce| nonce + 1)
+            .unwrap_or(initial_nonce))
     }
 }
 

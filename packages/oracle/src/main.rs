@@ -5,13 +5,11 @@ mod encoder;
 mod epoch_tracker;
 mod event_source;
 mod metrics;
+mod networks_diff;
 mod store;
 
 use crate::ctrlc::CtrlcHandler;
-use epoch_encoding::{
-    compress_messages, encode_messages, messages::BlockPtr, Blockchain, Database, Message,
-    Transaction,
-};
+use epoch_encoding::{encode_messages, messages::BlockPtr, CompressionEngine, Message};
 use event_source::{Event, EventSource};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
@@ -27,7 +25,7 @@ pub use store::Store;
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
     pub static ref METRICS: Metrics = Metrics::default();
-    pub static ref CTRLC: CtrlcHandler = CtrlcHandler::init();
+    pub static ref CTRLC_HANDLER: CtrlcHandler = CtrlcHandler::init();
 }
 
 // -------------
@@ -65,9 +63,7 @@ async fn main() -> Result<(), Error> {
     // initialization.
     let _ = &*CONFIG;
     let _ = &*METRICS;
-    let _ = &*CTRLC;
-
-    // Gracefully stop the program if CTRL-C is detected.
+    let _ = &*CTRLC_HANDLER;
 
     let mut store = Store::new(CONFIG.database_url.as_str()).await?;
     let mut emitter = Emitter::new(&*CONFIG)?;
@@ -79,7 +75,7 @@ async fn main() -> Result<(), Error> {
     let _event_source_task = tokio::spawn(async move { event_source.work().await });
 
     loop {
-        if CTRLC.poll_ctrlc() {
+        if CTRLC_HANDLER.poll_ctrlc() {
             break;
         }
 
@@ -90,9 +86,10 @@ async fn main() -> Result<(), Error> {
             })) => {
                 dbg!(&chain_id, block_number);
 
-                if chain_id == Caip2ChainId::ethereum_mainnet()
-                    && epoch_tracker.is_new_epoch(block_number.as_u64()).await?
-                {
+                let is_new_epoch = chain_id == Caip2ChainId::ethereum_mainnet()
+                    && epoch_tracker.is_new_epoch(block_number.as_u64()).await?;
+                if is_new_epoch {
+                    let mut compression_engine = CompressionEngine::new(networks);
                     let message = Message::SetBlockNumbersForNextEpoch(
                         state_by_blockchain
                             .iter()
@@ -107,31 +104,19 @@ async fn main() -> Result<(), Error> {
                             })
                             .collect(),
                     );
-                    let compressed = match compress_messages(&mut store, &[message]).await? {
-                        Ok(compressed) => compressed,
-                        Err(e) => todo!(),
-                    };
-                    let encoded = encode_messages(&compressed);
+                    compression_engine.compress_messages(&[message]);
+                    let encoded = encode_messages(&compression_engine.compressed);
 
-                    let nonce = store.get_next_nonce().await?;
-                    store.set_next_nonce(nonce).await?;
-
-                    let transaction = Transaction {
-                        nonce,
-                        payload: encoded,
-                    };
-
-                    emitter.submit_oracle_messages(transaction).await.unwrap();
+                    let nonce = store.next_nonce().await?;
+                    emitter.submit_oracle_messages(nonce, encoded).await?;
+                } else {
+                    state_by_blockchain
+                        .entry(chain_id)
+                        .or_insert(BlockChainState {
+                            latest_block_number: 0,
+                        })
+                        .latest_block_number = block_number.as_u64();
                 }
-
-                state_by_blockchain
-                    .entry(chain_id)
-                    .or_insert(BlockChainState {
-                        latest_block_number: 0,
-                    })
-                    .latest_block_number = block_number.as_u64();
-
-                // TODO: continue from here
             }
             Some(Err(event_source_error)) => {
                 // Handle event source internal errors

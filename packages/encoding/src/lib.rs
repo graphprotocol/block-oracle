@@ -1,229 +1,128 @@
-mod database;
 mod encoding;
 mod merkle;
 pub mod messages;
-mod varint;
 
-use async_trait::async_trait;
+use std::collections::HashMap;
+
 use merkle::{merkle_root, MerkleLeaf};
 use messages::*;
 
-pub use database::{Connection, Database, Network};
 pub use encoding::encode_messages;
-pub use messages::{CompressedMessage, Message, Transaction};
-
-type Bytes32 = [u8; 32];
-
-type ConnResult<Ok, Conn> = DbResult<Ok, <Conn as Connection>::Database>;
-
-type DbResult<Ok, DB> =
-    std::result::Result<std::result::Result<Ok, ValidationError>, <DB as Database>::Error>;
+pub use messages::{CompressedMessage, Message};
 
 pub type NetworkId = u64;
 
-#[async_trait]
-pub trait Blockchain {
-    type Err;
-    async fn submit_oracle_messages(&mut self, transaction: Transaction) -> Result<(), Self::Err>;
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Network {
+    pub block_number: u64,
+    pub block_delta: i64,
 }
 
 #[derive(Debug)]
-pub enum ValidationError {
-    NetworkMismatch,
+#[non_exhaustive]
+pub struct CompressionEngine {
+    network_data: Vec<(String, Network)>,
+    network_ids_by_name: HashMap<String, NetworkId>,
+
+    pub network_data_updates: HashMap<NetworkId, Network>,
+    pub compressed: Vec<CompressedMessage>,
 }
 
-// Publishes the latest epoch oracle messages.
-// First, compresses the message using the latest database state.
-// Then, encode the message to a (blockchain) transaction
-// Publish that transaction, and if successful, finally commit the update
-// to the database within a (db) transaction.
-pub async fn publish<'a, Conn, Chain>(
-    db: &Conn,
-    messages: &[Message],
-    chain: &mut Chain,
-) -> ConnResult<(), Conn>
-where
-    Conn: Connection,
-    <Conn as Connection>::Database: Send + Sync,
-    Chain: Blockchain + Send + Sync,
-    <<Conn as Connection>::Database as Database>::Error: From<<Chain as Blockchain>::Err>,
-{
-    db.transaction(|mut db| async move {
-        let compressed = match compress_messages(&mut db, messages).await? {
-            Ok(compressed) => compressed,
-            Err(e) => return Ok(Err(e)),
-        };
-        let encoded = encode_messages(&compressed);
+impl CompressionEngine {
+    pub fn new(available_networks: Vec<(String, Network)>) -> Self {
+        let mut network_ids_by_name = HashMap::with_capacity(available_networks.len());
+        let mut network_data = Vec::with_capacity(available_networks.len());
 
-        let nonce = db.get_next_nonce().await?;
-        db.set_next_nonce(nonce).await?;
+        for (i, (name, network)) in available_networks.into_iter().enumerate() {
+            network_ids_by_name.insert(name.clone(), i as NetworkId);
+            network_data.push((name, network));
+        }
 
-        let transaction = Transaction {
-            nonce,
-            payload: encoded,
-        };
+        Self {
+            network_data,
+            network_ids_by_name,
+            network_data_updates: HashMap::new(),
+            compressed: Vec::new(),
+        }
+    }
 
-        chain.submit_oracle_messages(transaction).await?;
+    pub fn compress_messages(&mut self, messages: &[Message]) {
+        for message in messages {
+            self.compress_message(message);
+        }
+    }
 
-        Ok(Ok(()))
-    })
-    .await
-}
-
-async fn compress_message<Db>(
-    db: &mut Db,
-    message: &Message,
-    compressed: &mut Vec<CompressedMessage>,
-) -> DbResult<(), Db>
-where
-    Db: Database,
-{
-    match message {
-        Message::SetBlockNumbersForNextEpoch(block_ptrs) => {
-            //////////////////////////////////
-            // Synchronize the network list //
-            //////////////////////////////////
-            let mut networks = db.get_network_ids().await?;
-            let mut add_networks = Vec::new();
-            let mut remove_networks = Vec::new();
-
-            // Removes are processed first. In this way we can re-use ids.
-            // Would have been nice to use drain_filter here but it's not
-            // stable Rust yet.
-            networks.retain(|k, v| {
-                if !block_ptrs.contains_key(k) {
-                    remove_networks.push(*v);
-                    false
+    fn compress_message(&mut self, message: &Message) {
+        match message {
+            Message::SetBlockNumbersForNextEpoch(block_ptrs) => {
+                // There are separate cases for empty sets and non-empty sets.
+                if block_ptrs.is_empty() {
+                    self.compress_empty_block_ptrs();
                 } else {
-                    true
+                    self.compress_block_ptrs(block_ptrs);
                 }
+            }
+            _ => todo!(),
+        }
+    }
+
+    fn compress_block_ptrs(&mut self, block_ptrs: &HashMap<String, BlockPtr>) {
+        // Sort the block pointers by network id.
+        let block_ptrs_by_id: HashMap<NetworkId, BlockPtr> = block_ptrs
+            .iter()
+            .map(|(network_name, block_ptr)| {
+                let network_id = self.network_ids_by_name[network_name];
+                (network_id, *block_ptr)
+            })
+            .collect();
+
+        // Get accelerations and merkle leaves based on previous deltas.
+        let mut accelerations = Vec::with_capacity(block_ptrs.len());
+        let mut merkle_leaves = Vec::with_capacity(block_ptrs.len());
+        for (id, ptr) in block_ptrs_by_id.into_iter() {
+            let network_data = &self.network_data[id as usize].1;
+            let delta = (ptr.number - network_data.block_number) as i64;
+            let acceleration = delta - network_data.block_delta;
+
+            let new_network_data = Network {
+                block_number: ptr.number,
+                block_delta: delta,
+            };
+            self.network_data_updates.insert(id, new_network_data);
+
+            accelerations.push(acceleration);
+            merkle_leaves.push(MerkleLeaf {
+                network_id: id,
+                block_hash: ptr.hash,
+                block_number: ptr.number,
             });
+        }
 
-            // Process added networks
-            for k in block_ptrs.keys() {
-                if networks.contains_key(k) {
-                    continue;
-                }
-                add_networks.push(k.to_owned());
+        let root = merkle_root(&merkle_leaves);
 
-                // TODO: Performance: Silly O(N^2) algorithm used here
-                // Could use a freelist instead
-                let mut unused = 0;
-                loop {
-                    if !networks.values().any(|&v| v == unused) {
-                        break;
-                    }
-                    unused += 1;
-                }
+        self.compressed
+            .push(CompressedMessage::SetBlockNumbersForNextEpoch(
+                CompressedSetBlockNumbersForNextEpoch::NonEmpty {
+                    accelerations,
+                    root,
+                },
+            ));
+    }
 
-                let prev = networks.insert(k.to_owned(), unused);
-                debug_assert!(prev == None);
-                db.set_network(
-                    unused,
-                    Network {
-                        block_delta: 0,
-                        block_number: 0,
-                    },
-                )
-                .await?;
-            }
-
-            if add_networks.len() != 0 || remove_networks.len() != 0 {
-                compressed.push(CompressedMessage::RegisterNetworks {
-                    add: add_networks,
-                    remove: remove_networks,
-                });
-
-                db.set_network_ids(networks.clone()).await?;
-            }
-
-            ///////////////////////
-            // Set Block Numbers //
-            ///////////////////////
-
-            // There are separate cases for empty sets and non-empty sets.
-            // If we have an empty set we may need to extend the last message.
-            if block_ptrs.len() == 0 {
-                let count = loop {
-                    match compressed.last_mut() {
-                        Some(CompressedMessage::SetBlockNumbersForNextEpoch(
-                            CompressedSetBlockNumbersForNextEpoch::Empty { count },
-                        )) => break count,
-                        _ => {
-                            compressed.push(CompressedMessage::SetBlockNumbersForNextEpoch(
-                                CompressedSetBlockNumbersForNextEpoch::Empty { count: 0 },
-                            ));
-                        }
-                    }
-                };
-                *count += 1;
-            } else {
-                // Sort the block pointers by network id.
-                let mut by_id = Vec::new();
-                for block_ptr in block_ptrs {
-                    let id = if let Some(id) = networks.get(block_ptr.0) {
-                        id
-                    } else {
-                        return Ok(Err(ValidationError::NetworkMismatch));
-                    };
-                    by_id.push((*id, block_ptr.1));
-                }
-                by_id.sort_unstable_by_key(|i| i.0);
-
-                // Get accelerations and merkle leaves based on previous deltas.
-                let mut accelerations = Vec::with_capacity(by_id.len());
-                let mut merkle_leaves = Vec::with_capacity(by_id.len());
-                for (id, ptr) in by_id.into_iter() {
-                    let mut network = if let Some(network) = db.get_network(id).await? {
-                        network
-                    } else {
-                        return Ok(Err(ValidationError::NetworkMismatch));
-                    };
-                    let delta = (ptr.number - network.block_number) as i64;
-                    let acceleration = delta - network.block_delta;
-                    network.block_number = ptr.number;
-                    network.block_delta = delta;
-                    db.set_network(id, network).await?;
-                    accelerations.push(acceleration);
-                    merkle_leaves.push(MerkleLeaf {
-                        network_id: id,
-                        block_hash: ptr.hash,
-                        block_number: ptr.number,
-                    });
-                }
-
-                let root = merkle_root(&merkle_leaves);
-
-                compressed.push(CompressedMessage::SetBlockNumbersForNextEpoch(
-                    CompressedSetBlockNumbersForNextEpoch::NonEmpty {
-                        accelerations,
-                        root,
-                    },
+    fn compress_empty_block_ptrs(&mut self) {
+        // If we have an empty set we may need to extend the last message.
+        if let Some(CompressedMessage::SetBlockNumbersForNextEpoch(
+            CompressedSetBlockNumbersForNextEpoch::Empty { count },
+        )) = self.compressed.last_mut()
+        {
+            *count += 1
+        } else {
+            self.compressed
+                .push(CompressedMessage::SetBlockNumbersForNextEpoch(
+                    CompressedSetBlockNumbersForNextEpoch::Empty { count: 1 },
                 ));
-            }
-        }
-
-        _ => todo!(),
-    }
-
-    Ok(Ok(()))
-}
-
-pub async fn compress_messages<Db>(
-    db: &mut Db,
-    messages: &[Message],
-) -> DbResult<Vec<CompressedMessage>, Db>
-where
-    Db: Database,
-{
-    let mut result = Vec::new();
-    for message in messages {
-        match compress_message(db, message, &mut result).await? {
-            Ok(()) => {}
-            Err(e) => return Ok(Err(e)),
         }
     }
-    Ok(Ok(result))
 }
 
 #[cfg(test)]

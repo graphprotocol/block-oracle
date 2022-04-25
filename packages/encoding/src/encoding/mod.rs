@@ -1,3 +1,5 @@
+mod varint;
+
 use crate::{messages::*, NetworkId};
 
 pub fn decode_messages(bytes: &[u8]) -> Vec<CompressedMessage> {
@@ -124,7 +126,7 @@ fn encode_str(value: &str, bytes: &mut Vec<u8>) {
 }
 
 fn decode_u64(bytes: &[u8], offset: &mut usize) -> Option<u64> {
-    crate::varint::decode_prefix_varint(bytes, offset)
+    varint::decode_prefix_varint(bytes, offset)
 }
 
 fn decode_str<'a>(bytes: &'a [u8], offset: &mut usize) -> Option<&'a str> {
@@ -133,7 +135,7 @@ fn decode_str<'a>(bytes: &'a [u8], offset: &mut usize) -> Option<&'a str> {
 }
 
 fn encode_u64(value: u64, bytes: &mut Vec<u8>) {
-    crate::varint::encode_prefix_varint(value, bytes);
+    varint::encode_prefix_varint(value, bytes);
 }
 
 fn encode_i64(value: i64, bytes: &mut Vec<u8>) {
