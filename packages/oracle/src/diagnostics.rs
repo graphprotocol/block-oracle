@@ -5,9 +5,9 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-pub fn init_logging() {
+pub fn init_logging(log_level: LevelFilter) {
     let filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
+        .with_default_directive(log_level.into())
         .from_env_lossy();
 
     let stdout = fmt::layer()

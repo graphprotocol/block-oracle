@@ -11,22 +11,22 @@ mod protocol_chain;
 mod store;
 
 use crate::ctrlc::CtrlcHandler;
-use crate::{epoch_tracker::EpochTrackerError, store::DataEdgeCall};
-pub use config::Config;
 use diagnostics::init_logging;
-use ee::CompressionEngine;
-pub use emitter::Emitter;
-pub use encoder::Encoder;
-use epoch_encoding::{self as ee, encode_messages, messages::BlockPtr, Message};
-pub use epoch_tracker::EpochTracker;
+use epoch_encoding::{self as ee, encode_messages, messages::BlockPtr, CompressionEngine, Message};
+use epoch_tracker::EpochTrackerError;
 use event_source::{Event, EventSource, EventSourceError};
 use lazy_static::lazy_static;
-pub use metrics::Metrics;
 use std::collections::HashMap;
-use store::models::Caip2ChainId;
-pub use store::Store;
+use store::{Caip2ChainId, DataEdgeCall};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{debug, info, warn};
+
+pub use config::Config;
+pub use emitter::Emitter;
+pub use encoder::Encoder;
+pub use epoch_tracker::EpochTracker;
+pub use metrics::Metrics;
+pub use store::Store;
 
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
@@ -60,7 +60,7 @@ async fn main() -> Result<(), Error> {
     let _ = &*METRICS;
     let _ = &*CTRLC_HANDLER;
 
-    init_logging();
+    init_logging(CONFIG.log_level);
     info!("Program started");
 
     let store = Store::new(CONFIG.database_url.as_str()).await?;
@@ -74,13 +74,15 @@ async fn main() -> Result<(), Error> {
 
 /// The main application in-memory state
 struct Oracle<'a> {
+    config: &'a Config,
     store: Store,
-    event_source: EventSource,
     //encoder: Encoder,
     emitter: Emitter<'a>,
     epoch_tracker: EpochTracker,
     state_by_blockchain: HashMap<Caip2ChainId, BlockChainState>,
     event_receiver: UnboundedReceiver<Result<Event, EventSourceError>>,
+
+    _event_source: EventSource,
 }
 
 impl<'a> Oracle<'a> {
@@ -88,7 +90,7 @@ impl<'a> Oracle<'a> {
         let (event_source, receiver) = EventSource::new(&config);
 
         let emitter = Emitter::new(config);
-        let state_by_blockchain = HashMap::with_capacity(CONFIG.networks().len());
+        let state_by_blockchain = HashMap::with_capacity(CONFIG.indexed_chains.len());
         let epoch_tracker = EpochTracker::new(&store, &*CONFIG);
 
         // Start EventSource main loop.
@@ -96,8 +98,9 @@ impl<'a> Oracle<'a> {
         let _event_source_task = tokio::spawn(async move { event_source_cloned.work().await });
 
         Ok(Self {
+            config,
             store,
-            event_source,
+            _event_source: event_source,
             emitter,
             epoch_tracker,
             state_by_blockchain,
@@ -149,96 +152,105 @@ impl<'a> Oracle<'a> {
                     "Received NewBlock event"
                 );
 
-                let is_new_epoch =
-                    match self.epoch_tracker.is_new_epoch(block_number.as_u64()).await {
-                        Ok(boolean) => boolean,
-                        Err(EpochTrackerError::PreviousEpochNotFound) => {
-                            // FIXME: At the moment, we are unable to determine the latest epoch from an
-                            // empty state. Until the Oracle is capable of reacting upon that, we will
-                            // consider that we have reached a new epoch in such cases.
-                            warn!("Failed to determine the previous epoch.");
-                            true
-                        }
-                        Err(other_error) => return Err(other_error.into()),
-                    };
-
-                // TODO: Maybe we want to check if this chain_id is from the ProtocolChain, instead
-                // of directly comparing against Ethereum Mainnet.
-                if chain_id == Caip2ChainId::ethereum_mainnet() && is_new_epoch {
-                    info!("A new epoch started in the protocol chain");
-                    let message = Message::SetBlockNumbersForNextEpoch(
-                        self.state_by_blockchain
-                            .iter()
-                            .map(|(chain_id, state): (&Caip2ChainId, &BlockChainState)| {
-                                (
-                                    chain_id.as_str().to_owned(),
-                                    BlockPtr {
-                                        number: state.latest_block_number,
-                                        hash: [0u8; 32], // FIXME
-                                    },
-                                )
-                            })
-                            .collect(),
-                    );
-                    let networks = self.networks().await?;
-                    dbg!();
-                    let mut compression_engine = CompressionEngine::new(networks);
-                    compression_engine.compress_messages(&[message]);
-                    dbg!();
-                    let encoded = encode_messages(&compression_engine.compressed);
-                    let nonce = self.store.next_nonce().await?;
-
-                    match self
-                        .emitter
-                        .submit_oracle_messages(nonce, encoded.clone())
-                        .await
-                    {
-                        Ok(receipt) => {
-                            // TODO: After broadcasting a transaction to eip155:1 and getting a
-                            // transaction receipt, we should monitor it until it get enough
-                            // confirmations. It's unclear which component should do this task.
-
-                            // Record the DataEdge call
-                            let data_edge_call: DataEdgeCall = {
-                                // FIXME: The only purpose of this scope is to transform a
-                                // transaction receipt and an encoded payload into a DataEdgeCall
-                                // value. We could refactor it into a dedicated function.
-                                let web3::types::TransactionReceipt {
-                                    transaction_hash,
-                                    block_hash,
-                                    block_number,
-                                    ..
-                                } = &receipt;
-                                if let (Some(block_hash), Some(block_number)) =
-                                    (block_hash, block_number)
-                                {
-                                    DataEdgeCall::new(
-                                        transaction_hash.as_bytes(),
-                                        nonce,
-                                        block_number.as_u64(),
-                                        block_hash.as_bytes(),
-                                        encoded,
-                                    )
-                                } else {
-                                    todo!(
-                                        "The expected block number and hash were not present, \
-                                         despite having the transaction receipt at hand. \
-                                         We should make an new Error variant out of this."
-                                    )
-                                }
-                            };
-
-                            self.store.insert_data_edge_call(data_edge_call).await?;
-                        }
-                        Err(other) => return Err(other.into()),
-                    };
+                if self.is_new_epoch(&chain_id, block_number.as_u64()).await? {
+                    self.handle_new_epoch().await?;
                 }
-                // ^^^^^
-                // TODO: End of scope for handling SetBlockNumbersForNextEpoch message. We should
-                // consider placing this inside a function.
 
                 Ok(())
             }
         }
+    }
+
+    async fn handle_new_epoch(&mut self) -> Result<(), Error> {
+        info!("A new epoch started in the protocol chain");
+        let message = Message::SetBlockNumbersForNextEpoch(
+            self.state_by_blockchain
+                .iter()
+                .map(|(chain_id, state): (&Caip2ChainId, &BlockChainState)| {
+                    (
+                        chain_id.as_str().to_owned(),
+                        BlockPtr {
+                            number: state.latest_block_number,
+                            hash: [0u8; 32], // FIXME
+                        },
+                    )
+                })
+                .collect(),
+        );
+        let networks = self.networks().await?;
+        dbg!();
+        let mut compression_engine = CompressionEngine::new(networks);
+        compression_engine.compress_messages(&[message]);
+        debug!("Compressed messages");
+        dbg!();
+        let encoded = encode_messages(&compression_engine.compressed);
+        let nonce = self.store.next_nonce().await?;
+
+        match self
+            .emitter
+            .submit_oracle_messages(nonce, encoded.clone())
+            .await
+        {
+            Ok(receipt) => {
+                // TODO: After broadcasting a transaction to eip155:1 and getting a
+                // transaction receipt, we should monitor it until it get enough
+                // confirmations. It's unclear which component should do this task.
+
+                // Record the DataEdge call
+                let data_edge_call: DataEdgeCall = {
+                    // FIXME: The only purpose of this scope is to transform a
+                    // transaction receipt and an encoded payload into a DataEdgeCall
+                    // value. We could refactor it into a dedicated function.
+                    let web3::types::TransactionReceipt {
+                        transaction_hash,
+                        block_hash,
+                        block_number,
+                        ..
+                    } = &receipt;
+                    if let (Some(block_hash), Some(block_number)) = (block_hash, block_number) {
+                        DataEdgeCall::new(
+                            transaction_hash.as_bytes(),
+                            nonce,
+                            block_number.as_u64(),
+                            block_hash.as_bytes(),
+                            encoded,
+                        )
+                    } else {
+                        todo!(
+                            "The expected block number and hash were not present, \
+                                         despite having the transaction receipt at hand. \
+                                         We should make an new Error variant out of this."
+                        )
+                    }
+                };
+
+                self.store.insert_data_edge_call(data_edge_call).await?;
+            }
+            Err(other) => return Err(other.into()),
+        }
+
+        Ok(())
+    }
+
+    async fn is_new_epoch(
+        &self,
+        chain_id: &Caip2ChainId,
+        block_number: u64,
+    ) -> Result<bool, Error> {
+        let is_protocol_chain = chain_id == self.config.protocol_chain_client.id();
+
+        let is_new_epoch = match self.epoch_tracker.is_new_epoch(block_number).await {
+            Ok(boolean) => boolean,
+            Err(EpochTrackerError::PreviousEpochNotFound) => {
+                // FIXME: At the moment, we are unable to determine the latest epoch from an
+                // empty state. Until the Oracle is capable of reacting upon that, we will
+                // consider that we have reached a new epoch in such cases.
+                warn!("Failed to determine the previous epoch.");
+                true
+            }
+            Err(other_error) => return Err(other_error.into()),
+        };
+
+        Ok(is_protocol_chain && is_new_epoch)
     }
 }

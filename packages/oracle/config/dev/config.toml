@@ -1,0 +1,10 @@
+owner_address = "0xc10031a50E1B68Fb170A81159cd9d8543D6563dF"
+contract_address = "0x8BDB21e9E8164539b062D3c09e9effCAe64f1253"
+
+[protocol_chain]
+name = "eip155:1"               # the CAIP2 network identifier for this chain
+jrpc = "http://127.0.0.1:8545/" # The URL to the JSON RPC for this network. Using Ganache in this example.
+
+[indexed_chains]
+"eip155:77" = "https://sokol-archive.blockscout.com/" # POA Network Sokol
+"eip155:99" = "https://core-archive.blockscout.com/"  # POA Network Core

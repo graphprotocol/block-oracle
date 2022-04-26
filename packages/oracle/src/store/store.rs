@@ -5,7 +5,6 @@ use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
 };
-use tracing::warn;
 
 type PgPool = sqlx::Pool<sqlx::Postgres>;
 type NetworkRow = (i32, String, Option<i64>, Option<Vec<u8>>, Option<i64>, i32);

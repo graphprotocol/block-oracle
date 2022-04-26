@@ -1,3 +1,4 @@
+use serde_with::DeserializeFromStr;
 use sqlx::types::chrono;
 use std::{fmt::Display, str::FromStr};
 
@@ -13,7 +14,7 @@ pub struct WithId<T, I = Id> {
 }
 
 /// See https://github.com/ChainAgnostic/CAIPs/blob/master/CAIPs/caip-2.md.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, DeserializeFromStr)]
 #[repr(transparent)]
 pub struct Caip2ChainId {
     chain_id: String,
@@ -40,7 +41,7 @@ impl Caip2ChainId {
 }
 
 impl FromStr for Caip2ChainId {
-    type Err = ();
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let split = s.split(Self::SEPARATOR).collect::<Vec<&str>>();
@@ -60,7 +61,7 @@ impl FromStr for Caip2ChainId {
                 chain_id: s.to_string(),
             })
         } else {
-            Err(())
+            Err("Invalid chain id".to_string())
         }
     }
 }
