@@ -1,13 +1,14 @@
 use super::models;
 use models::{Caip2ChainId, WithId};
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
 use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
 };
 
-type PgPool = sqlx::Pool<sqlx::Postgres>;
 type NetworkRow = (i32, String, Option<i64>, Option<Vec<u8>>, Option<i64>, i32);
+
+const INITIAL_NONCE: u64 = 0;
 
 fn network_row_to_model(row: NetworkRow) -> WithId<models::Network> {
     let (
@@ -32,23 +33,14 @@ fn network_row_to_model(row: NetworkRow) -> WithId<models::Network> {
 
 #[derive(Debug, Clone)]
 pub struct Store {
-    pool: PgPool,
+    pool: SqlitePool,
 }
 
 impl Store {
     pub async fn new(db_url: &str) -> sqlx::Result<Self> {
-        let pool = PgPoolOptions::new().connect(db_url).await?;
+        let pool = SqlitePoolOptions::new().connect(db_url).await?;
         sqlx::migrate!().run(&pool).await?;
         Ok(Self { pool })
-    }
-
-    #[cfg(test)]
-    pub async fn new_clean(db_url: &str) -> sqlx::Result<Self> {
-        let store = Self::new(db_url).await?;
-        sqlx::query("DELETE FROM data_edge_calls;")
-            .execute(&store.pool)
-            .await?;
-        Ok(store)
     }
 
     pub async fn last_encoding_version(&self) -> sqlx::Result<Option<models::Id>> {
@@ -69,19 +61,18 @@ LIMIT 1"#,
         &self,
         version: models::Id,
         data_edge_call_id: models::Id,
-    ) -> sqlx::Result<models::Id> {
-        let row: (i32,) = sqlx::query_as(
+    ) -> sqlx::Result<()> {
+        sqlx::query(
             r#"
-INSERT INTO encoding_versions (caip2_chain_id, introduced_with)
-VALUES ($1, $2)
-RETURNING id"#,
+INSERT INTO encoding_versions (id, introduced_with)
+VALUES (?1, ?2)"#,
         )
         .bind(i32::try_from(version).unwrap())
         .bind(i32::try_from(data_edge_call_id).unwrap())
         .fetch_one(&self.pool)
         .await?;
 
-        Ok(row.0.try_into().unwrap())
+        Ok(())
     }
 
     pub async fn sync_networks(&self, networks: Vec<Caip2ChainId>) -> sqlx::Result<()> {
@@ -121,7 +112,7 @@ INSERT INTO networks (
     latest_block_delta,
     introduced_with
 )
-VALUES ($1, $2, $3, $4, $5, $6)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6)
 RETURNING id"#,
         )
         .bind(i32::try_from(network.id).unwrap())
@@ -149,8 +140,8 @@ RETURNING id"#,
         sqlx::query(
             r#"
 UPDATE networks
-SET latest_block_number = $1, latest_block_delta = $1 - latest_block_number
-where id = $2"#,
+SET latest_block_number = ?1, latest_block_delta = ?1 - latest_block_number
+where id = ?2"#,
         )
         .bind(i32::try_from(latest_block_number).unwrap())
         .bind(i32::try_from(id).unwrap())
@@ -168,8 +159,8 @@ where id = $2"#,
         sqlx::query(
             r#"
 UPDATE networks
-SET latest_block_number = $1, latest_block_delta = $1 - latest_block_number
-where caip2_chain_id = $2"#,
+SET latest_block_number = ?1, latest_block_delta = ?1 - latest_block_number
+where caip2_chain_id = ?2"#,
         )
         .bind(i32::try_from(latest_block_number).unwrap())
         .bind(caip2.as_str())
@@ -187,7 +178,7 @@ where caip2_chain_id = $2"#,
             r#"
 SELECT id, caip2_chain_id, latest_block_number, latest_block_hash, latest_block_delta, introduced_with
 FROM networks
-WHERE id = $1"#,
+WHERE id = ?1"#,
         )
         .bind(i32::try_from(id).unwrap())
         .fetch_optional(&self.pool)
@@ -222,7 +213,7 @@ INSERT INTO data_edge_calls (
     block_number,
     block_hash,
     payload)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
 RETURNING id"#,
         )
         .bind(call.tx_hash)
@@ -251,9 +242,9 @@ RETURNING id"#,
             r#"
 UPDATE data_edge_calls
 SET
-    num_confirmations = $1,
-    num_confirmations_last_checked_at = $2
-WHERE id = $3
+    num_confirmations = ?1,
+    num_confirmations_last_checked_at = ?2
+WHERE id = ?3
             "#,
         )
         .bind(num_confirmations)
@@ -305,7 +296,7 @@ LIMIT 1"#,
     }
 
     pub async fn next_nonce(&self) -> sqlx::Result<models::Nonce> {
-        let initial_nonce = 0;
+        let initial_nonce = INITIAL_NONCE;
         Ok(self
             .last_nonce()
             .await?
@@ -318,11 +309,10 @@ LIMIT 1"#,
 mod tests {
     use super::*;
     use models::DataEdgeCall;
-    use sqlx::{types::chrono::DateTime, Postgres, Transaction};
+    use sqlx::{types::chrono::DateTime, Transaction};
 
     async fn test_store() -> Store {
-        let db_url = std::env::var("BLOCK_ORACLE_TEST_DATABASE_URL").unwrap();
-        Store::new_clean(&db_url).await.unwrap()
+        Store::new(":memory:").await.unwrap()
     }
 
     #[tokio::test]
@@ -331,12 +321,65 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_insert_network() {
+    async fn next_nonce_empty_db() {
+        let store = test_store().await;
+        assert_eq!(store.next_nonce().await.unwrap(), INITIAL_NONCE);
+    }
+
+    #[tokio::test]
+    async fn next_nonce_is_last_plus_one() {
+        let store = test_store().await;
+        store
+            .insert_data_edge_call(DataEdgeCall {
+                tx_hash: &[],
+                nonce: 3,
+                num_confirmations: 0,
+                num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
+                block_number: 0,
+                block_hash: &[],
+                payload: "0x0".into(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(
+            store.next_nonce().await.unwrap(),
+            store.last_nonce().await.unwrap().unwrap() + 1
+        );
+    }
+
+    #[tokio::test]
+    async fn last_nonce_empty_db() {
+        let store = test_store().await;
+        assert_eq!(store.last_nonce().await.unwrap(), None);
+    }
+
+    #[tokio::test]
+    async fn encoding_version() {
         let store = test_store().await;
         let call_id = store
             .insert_data_edge_call(DataEdgeCall {
-                tx_hash: &[],
-                nonce: 0,
+                tx_hash: &[1],
+                nonce: 3,
+                num_confirmations: 0,
+                num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
+                block_number: 0,
+                block_hash: &[],
+                payload: "0x0".into(),
+            })
+            .await
+            .unwrap();
+        store.insert_encoding_version(4, call_id).await.unwrap();
+        let encoding_version_id = store.last_encoding_version().await.unwrap().unwrap();
+        assert_eq!(encoding_version_id, 4);
+    }
+
+    #[tokio::test]
+    async fn last_nonce() {
+        let store = test_store().await;
+        store
+            .insert_data_edge_call(DataEdgeCall {
+                tx_hash: &[1],
+                nonce: 3,
                 num_confirmations: 0,
                 num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
                 block_number: 0,
@@ -346,6 +389,37 @@ mod tests {
             .await
             .unwrap();
         store
+            .insert_data_edge_call(DataEdgeCall {
+                tx_hash: &[],
+                nonce: 1,
+                num_confirmations: 0,
+                num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
+                block_number: 0,
+                block_hash: &[1],
+                payload: "0x1".into(),
+            })
+            .await
+            .unwrap();
+        assert_eq!(store.last_nonce().await.unwrap(), Some(1));
+    }
+
+    #[tokio::test]
+    async fn test_insert_network() {
+        let store = test_store().await;
+        let call_id = store
+            .insert_data_edge_call(DataEdgeCall {
+                tx_hash: &[],
+                nonce: 42,
+                num_confirmations: 0,
+                num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
+                block_number: 0,
+                block_hash: &[],
+                payload: "0x0".into(),
+            })
+            .await
+            .unwrap();
+
+        let network_id = store
             .insert_network(WithId {
                 id: 1,
                 data: models::Network {
@@ -358,15 +432,11 @@ mod tests {
             })
             .await
             .unwrap();
-        assert_eq!(
-            store
-                .network_by_id(1)
-                .await
-                .unwrap()
-                .unwrap()
-                .data
-                .latest_block_number,
-            Some(1337)
-        );
+        assert_eq!(network_id, 1);
+
+        let network = store.network_by_id(network_id).await.unwrap().unwrap();
+        assert_eq!(network.id, 1);
+        assert_eq!(network.data.latest_block_number, Some(1337));
+        assert_eq!(network.data.name, Caip2ChainId::ethereum_mainnet());
     }
 }

@@ -125,9 +125,9 @@ struct SerdeProtocolChain {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
-    const SAMPLE_CONFIG: &str = include_str!("../config.sample.toml");
+
+    const SAMPLE_CONFIG: &str = include_str!("../config/dev/config.toml");
 
     #[test]
     fn deserialize_protocol_chain() {
