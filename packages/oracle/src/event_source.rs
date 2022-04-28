@@ -59,14 +59,6 @@ impl EventSource {
     ) -> Result<HashMap<&Caip2ChainId, BlockNumber>, EventSourceError> {
         let mut block_number_per_chain: HashMap<&Caip2ChainId, BlockNumber> = HashMap::new();
 
-        // TODO: Find a way to not block on this.
-        //
-        // Maybe we can use a new trait for abstracting over `get_latest_block` behaviour and use
-        // both `ProtocolChainClient` and `IndexedChain` as trait objects in the `tasks` future
-        // collection below
-        let protocol_chain_latest_block = self.protocol_chain.get_latest_block().await?;
-        block_number_per_chain.insert(self.protocol_chain.id(), protocol_chain_latest_block);
-
         let mut tasks = self
             .indexed_chains
             .iter()
@@ -89,9 +81,7 @@ impl EventSource {
             }
         }
 
-        // Confidence check: Did we get the info we wanted for all our chains?
-        // We add +1 to account for the protocol chain
-        if block_number_per_chain.len() != self.indexed_chains.len() + 1 {
+        if block_number_per_chain.len() != self.indexed_chains.len() {
             todo!("we should log this as a detailed error (missing chains) and continue")
         }
 
