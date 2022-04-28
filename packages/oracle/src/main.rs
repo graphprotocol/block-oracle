@@ -17,6 +17,7 @@ use epoch_tracker::EpochTrackerError;
 use event_source::{Event, EventSource, EventSourceError};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
+use std::env::set_var;
 use store::{Caip2ChainId, DataEdgeCall};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{debug, info, warn};
@@ -54,6 +55,8 @@ pub enum Error {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    set_var("RUST_LOG", "block_oracle=trace");
+
     // Immediately dereference some constants to trigger `lazy_static`
     // initialization.
     let _ = &*CONFIG;
@@ -178,12 +181,13 @@ impl<'a> Oracle<'a> {
                 .collect(),
         );
         let networks = self.networks().await?;
-        dbg!();
+
+        debug!(msg = ?message, msg_count = 1u32, "Compressing message(s)");
         let mut compression_engine = CompressionEngine::new(networks);
         compression_engine.compress_messages(&[message]);
-        debug!("Compressed messages");
-        dbg!();
+        debug!(msg = ?compression_engine.compressed, msg_count = 1u32, "Successfully compressed, now encoding message(s)");
         let encoded = encode_messages(&compression_engine.compressed);
+        debug!(encoded = ?encoded, "Successfully encoded message(s)");
         let nonce = self.store.next_nonce().await?;
 
         match self
