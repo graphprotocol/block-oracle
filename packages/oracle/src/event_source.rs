@@ -8,7 +8,6 @@ use futures::{
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
 use thiserror::Error;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use web3::types::U64;
 
 type BlockNumber = U64;
@@ -36,20 +35,14 @@ type EventSourceResult = Result<Event, EventSourceError>;
 pub struct EventSource {
     protocol_chain: Arc<ProtocolChain>,
     indexed_chains: Arc<Vec<IndexedChain>>,
-    sender: UnboundedSender<EventSourceResult>,
 }
 
 impl EventSource {
-    /// Creates an [`EventSource`]. Returns a tuple with the event source and the receiver end of a
-    /// channel, which will be used to pass [`Events`] through.
-    pub fn new(config: &Config) -> (Self, UnboundedReceiver<EventSourceResult>) {
-        let (sender, receiver) = unbounded_channel();
-        let event_source = Self {
+    pub fn new(config: &Config) -> Self {
+        Self {
             protocol_chain: config.protocol_chain_client.clone(),
             indexed_chains: config.indexed_chains.clone(),
-            sender,
-        };
-        (event_source, receiver)
+        }
     }
 
     pub async fn get_latest_blocks(
@@ -86,27 +79,13 @@ impl EventSource {
         Ok(block_number_per_chain)
     }
 
-    /// Pools the latest block from the protocol chain and sends it over a channel, in a loop.
-    pub async fn work(&self) {
-        loop {
-            match self.protocol_chain.get_latest_block().await {
-                Ok(block_number) => {
-                    let event = Event::NewBlock {
-                        chain_id: self.protocol_chain.id().clone(),
-                        block_number,
-                    };
-                    self.sender
-                        .send(Ok(event))
-                        .expect("failed to send an Event through channel");
-                }
-
-                // Let the receiver deal with internal errors
-                Err(error) => self
-                    .sender
-                    .send(Err(error.into()))
-                    .expect("failed to send Error through channel"),
-            }
-            tokio::time::sleep(CONFIG.json_rpc_polling_interval).await;
-        }
+    /// Pools the latest block from the protocol chain.
+    pub async fn get_latest_protocol_chain_block(&self) -> Result<Event, EventSourceError> {
+        let block_number = self.protocol_chain.get_latest_block().await?;
+        let event = Event::NewBlock {
+            chain_id: self.protocol_chain.id().clone(),
+            block_number,
+        };
+        Ok(event)
     }
 }

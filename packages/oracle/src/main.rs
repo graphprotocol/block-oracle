@@ -15,11 +15,10 @@ use crate::ctrlc::CtrlcHandler;
 use diagnostics::init_logging;
 use epoch_encoding::{self as ee, encode_messages, messages::BlockPtr, CompressionEngine, Message};
 use epoch_tracker::EpochTrackerError;
-use event_source::{Event, EventSource, EventSourceError};
+use event_source::{Event, EventSource};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use store::{Caip2ChainId, DataEdgeCall};
-use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{debug, info, warn};
 
 pub use config::Config;
@@ -70,6 +69,7 @@ async fn main() -> Result<(), Error> {
     let mut oracle = Oracle::new(store, &*CONFIG)?;
     while !CTRLC_HANDLER.poll_ctrlc() {
         oracle.wait_and_process_next_event().await?;
+        tokio::time::sleep(CONFIG.json_rpc_polling_interval).await;
     }
 
     Ok(())
@@ -83,22 +83,15 @@ struct Oracle<'a> {
     emitter: Emitter<'a>,
     epoch_tracker: EpochTracker,
     state_by_blockchain: HashMap<Caip2ChainId, BlockChainState>,
-    event_receiver: UnboundedReceiver<Result<Event, EventSourceError>>,
-
     event_source: EventSource,
 }
 
 impl<'a> Oracle<'a> {
     pub fn new(store: Store, config: &'a Config) -> Result<Self, Error> {
-        let (event_source, receiver) = EventSource::new(&config);
-
+        let event_source = EventSource::new(config);
         let emitter = Emitter::new(config);
         let state_by_blockchain = HashMap::with_capacity(CONFIG.indexed_chains.len());
         let epoch_tracker = EpochTracker::new(&store, &*CONFIG);
-
-        // Start EventSource main loop.
-        let event_source_cloned = event_source.clone();
-        let _event_source_task = tokio::spawn(async move { event_source_cloned.work().await });
 
         Ok(Self {
             config,
@@ -107,13 +100,11 @@ impl<'a> Oracle<'a> {
             emitter,
             epoch_tracker,
             state_by_blockchain,
-            event_receiver: receiver,
         })
     }
 
     pub async fn wait_and_process_next_event(&mut self) -> Result<(), Error> {
-        let event_res = self.event_receiver.recv().await.expect("This means the channel's sender was dropped, which shouldn't be possible because we still have ownership over it.");
-
+        let event_res = self.event_source.get_latest_protocol_chain_block().await;
         match event_res {
             Ok(event) => self.handle_event(event).await,
             Err(err) => {
