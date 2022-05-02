@@ -85,7 +85,7 @@ struct Oracle<'a> {
     state_by_blockchain: HashMap<Caip2ChainId, BlockChainState>,
     event_receiver: UnboundedReceiver<Result<Event, EventSourceError>>,
 
-    _event_source: EventSource,
+    event_source: EventSource,
 }
 
 impl<'a> Oracle<'a> {
@@ -103,7 +103,7 @@ impl<'a> Oracle<'a> {
         Ok(Self {
             config,
             store,
-            _event_source: event_source,
+            event_source,
             emitter,
             epoch_tracker,
             state_by_blockchain,
@@ -166,14 +166,18 @@ impl<'a> Oracle<'a> {
 
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
         info!("A new epoch started in the protocol chain");
+
+        // Get indexed chains' latest blocks
+        let latest_blocks = self.event_source.get_latest_blocks().await?;
+
         let message = Message::SetBlockNumbersForNextEpoch(
-            self.state_by_blockchain
+            latest_blocks
                 .iter()
-                .map(|(chain_id, state): (&Caip2ChainId, &BlockChainState)| {
+                .map(|(chain_id, block_number)| {
                     (
                         chain_id.as_str().to_owned(),
                         BlockPtr {
-                            number: state.latest_block_number,
+                            number: block_number.as_u64(),
                             hash: [0u8; 32], // FIXME
                         },
                     )
