@@ -7,6 +7,7 @@ mod epoch_tracker;
 mod event_source;
 mod indexed_chain;
 mod metrics;
+mod networks_diff;
 mod protocol_chain;
 mod store;
 
@@ -17,7 +18,6 @@ use epoch_tracker::EpochTrackerError;
 use event_source::{Event, EventSource, EventSourceError};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::env::set_var;
 use store::{Caip2ChainId, DataEdgeCall};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tracing::{debug, info, warn};
@@ -27,6 +27,7 @@ pub use emitter::Emitter;
 pub use encoder::Encoder;
 pub use epoch_tracker::EpochTracker;
 pub use metrics::Metrics;
+pub use networks_diff::NetworksDiff;
 pub use store::Store;
 
 lazy_static! {
@@ -55,8 +56,6 @@ pub enum Error {
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    set_var("RUST_LOG", "block_oracle=trace");
-
     // Immediately dereference some constants to trigger `lazy_static`
     // initialization.
     let _ = &*CONFIG;
@@ -64,9 +63,10 @@ async fn main() -> Result<(), Error> {
     let _ = &*CTRLC_HANDLER;
 
     init_logging(CONFIG.log_level);
-    info!("Program started");
+    info!(log_level = %CONFIG.log_level, "Block oracle starting up.");
 
     let store = Store::new(CONFIG.database_url.as_str()).await?;
+
     let mut oracle = Oracle::new(store, &*CONFIG)?;
     while !CTRLC_HANDLER.poll_ctrlc() {
         oracle.wait_and_process_next_event().await?;
@@ -152,7 +152,7 @@ impl<'a> Oracle<'a> {
                 debug!(
                     network = %chain_id,
                     block = %block_number,
-                    "Received NewBlock event"
+                    "Received NewBlock event."
                 );
 
                 if self.is_new_epoch(&chain_id, block_number.as_u64()).await? {
@@ -165,38 +165,47 @@ impl<'a> Oracle<'a> {
     }
 
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
-        info!("A new epoch started in the protocol chain");
+        info!("A new epoch started in the protocol chain.");
+        let mut messages = vec![];
 
-        // Get indexed chains' latest blocks
-        let latest_blocks = self.event_source.get_latest_blocks().await?;
-
-        let message = Message::SetBlockNumbersForNextEpoch(
-            latest_blocks
-                .iter()
-                .map(|(chain_id, block_number)| {
-                    (
-                        chain_id.as_str().to_owned(),
-                        BlockPtr {
-                            number: block_number.as_u64(),
-                            hash: [0u8; 32], // FIXME
-                        },
-                    )
-                })
-                .collect(),
+        let networks_diff = NetworksDiff::calculate(&self.store, &CONFIG).await?;
+        info!(
+            created = networks_diff.insertions.len(),
+            deleted = networks_diff.deletions.len(),
+            "Performed indexed chain diffing."
         );
-        let networks = self.networks().await?;
+        if let Some(msg) = networks_diff_to_message(networks_diff) {
+            messages.push(msg);
+        }
 
-        debug!(msg = ?message, msg_count = 1u32, "Compressing message(s)");
+        // Get indexed chains' latest blocks.
+        let latest_blocks = self.event_source.get_latest_blocks().await?;
+        messages.push(latest_blocks_to_message(latest_blocks));
+
+        let networks = self.networks().await?;
+        debug!(
+            messages = ?messages,
+            messages_count = messages.len(),
+            networks_count = networks.len(),
+            "Compressing message(s)."
+        );
         let mut compression_engine = CompressionEngine::new(networks);
-        compression_engine.compress_messages(&[message]);
-        debug!(msg = ?compression_engine.compressed, msg_count = 1u32, "Successfully compressed, now encoding message(s)");
+        let messages = vec![];
+
+        compression_engine.compress_messages(&messages[..]);
+        debug!(msg = ?compression_engine.compressed, msg_count = 1u32, "Successfully compressed, now encoding message(s).");
         let encoded = encode_messages(&compression_engine.compressed);
-        debug!(encoded = ?encoded, "Successfully encoded message(s)");
+        debug!(encoded = ?encoded, "Successfully encoded message(s).");
         let nonce = self.store.next_nonce().await?;
 
+        self.submit_oracle_messages(nonce, encoded).await?;
+        Ok(())
+    }
+
+    async fn submit_oracle_messages(&mut self, nonce: u64, calldata: Vec<u8>) -> Result<(), Error> {
         match self
             .emitter
-            .submit_oracle_messages(nonce, encoded.clone())
+            .submit_oracle_messages(nonce, calldata.clone())
             .await
         {
             Ok(receipt) => {
@@ -221,7 +230,7 @@ impl<'a> Oracle<'a> {
                             nonce,
                             block_number.as_u64(),
                             block_hash.as_bytes(),
-                            encoded,
+                            calldata,
                         )
                     } else {
                         todo!(
@@ -260,5 +269,39 @@ impl<'a> Oracle<'a> {
         };
 
         Ok(is_protocol_chain && is_new_epoch)
+    }
+}
+
+fn latest_blocks_to_message(
+    latest_blocks: HashMap<&Caip2ChainId, web3::types::U64>,
+) -> ee::Message {
+    Message::SetBlockNumbersForNextEpoch(
+        latest_blocks
+            .iter()
+            .map(|(chain_id, block_number)| {
+                (
+                    chain_id.as_str().to_owned(),
+                    BlockPtr {
+                        number: block_number.as_u64(),
+                        hash: [0u8; 32], // FIXME
+                    },
+                )
+            })
+            .collect(),
+    )
+}
+
+fn networks_diff_to_message(diff: NetworksDiff) -> Option<ee::Message> {
+    if diff.deletions.is_empty() && diff.insertions.is_empty() {
+        None
+    } else {
+        Some(ee::Message::RegisterNetworks {
+            remove: diff.deletions.into_iter().map(|x| x.1 as u64).collect(),
+            add: diff
+                .insertions
+                .into_iter()
+                .map(|x| x.0.as_str().to_string())
+                .collect(),
+        })
     }
 }

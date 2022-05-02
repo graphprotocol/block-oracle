@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct NetworksDiff {
-    pub deletions: Vec<Caip2ChainId>,
+    pub deletions: HashMap<Caip2ChainId, u32>,
     pub insertions: HashMap<Caip2ChainId, u32>,
 }
 
@@ -15,7 +15,11 @@ impl NetworksDiff {
             .into_iter()
             .map(|n| (n.data.name, n.id))
             .collect();
-        let new = config.networks();
+        let new = config
+            .indexed_chains
+            .iter()
+            .map(|c| c.id().clone())
+            .collect();
 
         Ok(Self::diff(old, new))
     }
@@ -25,12 +29,11 @@ impl NetworksDiff {
         // items.
         let new: HashSet<Caip2ChainId> = new.into_iter().collect();
 
-        // Removes are processed first. In this way we can re-use IDs.
-        let mut deletions = vec![];
+        let mut deletions = HashMap::new();
         let mut deleted_ids = HashSet::new();
         for (network_name, id) in old.iter() {
             if !new.contains(network_name) {
-                deletions.push(network_name.clone());
+                deletions.insert(network_name.clone(), *id);
                 deleted_ids.insert(*id);
             }
         }
