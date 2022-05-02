@@ -1,5 +1,9 @@
-owner_address = "0xc10031a50E1B68Fb170A81159cd9d8543D6563dF"
-contract_address = "0x8BDB21e9E8164539b062D3c09e9effCAe64f1253"
+# Hardhat's first account.
+owner_address = "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1"
+# Deployed in the first block.
+contract_address = "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab"
+
+json_rpc_polling_interval_in_seconds = 5
 
 [protocol_chain]
 name = "eip155:1"               # the CAIP2 network identifier for this chain

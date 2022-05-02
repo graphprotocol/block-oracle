@@ -1,5 +1,4 @@
-use crate::{config::Config, indexed_chain::IndexedChain, store::Caip2ChainId};
-use prometheus::ProtobufEncoder;
+use crate::store::Caip2ChainId;
 use secp256k1::SecretKey;
 use std::time::Duration;
 use url::Url;
@@ -19,6 +18,7 @@ impl ProtocolChain {
         // Unwrap: we already validated that config will always have valid URLs
         let transport = Http::new(jrpc_provider.as_str()).unwrap();
         let inner = Web3::new(transport);
+
         Self { chain_id, inner }
     }
 

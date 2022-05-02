@@ -1,3 +1,4 @@
+use crate::NetworkId;
 use std::collections::HashMap;
 
 pub type Bytes32 = [u8; 32];
@@ -12,6 +13,12 @@ pub struct BlockPtr {
 pub enum Message {
     // TODO: Consider specifying epoch number here?
     SetBlockNumbersForNextEpoch(HashMap<String, BlockPtr>),
+    RegisterNetworks {
+        // Remove is by index
+        remove: Vec<NetworkId>,
+        // Add is by name
+        add: Vec<String>,
+    },
     // TODO: include hash, count, and (if count is nonzero) merkle root
     CorrectEpochs,
     UpdateVersion,
@@ -21,12 +28,7 @@ pub enum Message {
 pub enum CompressedMessage {
     SetBlockNumbersForNextEpoch(CompressedSetBlockNumbersForNextEpoch),
     CorrectEpochs,
-    RegisterNetworks {
-        // Remove is by index
-        remove: Vec<u64>,
-        // Add is by name
-        add: Vec<String>,
-    },
+    RegisterNetworks { remove: Vec<u64>, add: Vec<String> },
     UpdateVersion,
 }
 

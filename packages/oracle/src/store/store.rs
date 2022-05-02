@@ -8,7 +8,7 @@ use std::{
 
 type NetworkRow = (i32, String, Option<i64>, Option<Vec<u8>>, Option<i64>, i32);
 
-const INITIAL_NONCE: u64 = 0;
+const INITIAL_NONCE: u64 = 1;
 
 fn network_row_to_model(row: NetworkRow) -> WithId<models::Network> {
     let (

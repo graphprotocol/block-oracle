@@ -1,3 +1,4 @@
+use std::env::set_var;
 use tracing_subscriber::{
     filter::{EnvFilter, LevelFilter},
     fmt,
@@ -6,6 +7,8 @@ use tracing_subscriber::{
 };
 
 pub fn init_logging(log_level: LevelFilter) {
+    set_var("RUST_LOG", "block_oracle=trace");
+
     let filter = EnvFilter::builder()
         .with_default_directive(log_level.into())
         .from_env_lossy();

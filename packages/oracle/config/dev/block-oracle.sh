@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 
+cd ../contracts
+yarn hardhat run --network localhost scripts/deploy.ts
+cd ../oracle
+
 cargo run -- \
 	--config-file=config/dev/config.toml \
 	--database-url=:memory: \
-	--owner-private-key=75dc16000b877ea0d4f764281c4c3fb8a047a7a0219361ac0bc82f325bc6ef1d
+	--owner-private-key=4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d
