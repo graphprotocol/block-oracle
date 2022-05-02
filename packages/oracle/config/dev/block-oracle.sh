@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+cd ../contracts
+yarn hardhat run --network localhost scripts/deploy.ts
+cd ../oracle
+
 cargo run -- \
 	--config-file=config/dev/config.toml \
 	--database-url=:memory: \

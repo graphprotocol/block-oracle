@@ -1,4 +1,4 @@
-use crate::indexed_chain::{self, IndexedChain};
+use crate::indexed_chain::IndexedChain;
 use crate::{protocol_chain::ProtocolChain, store::Caip2ChainId};
 use crate::{Config, CONFIG};
 use futures::{
@@ -9,11 +9,9 @@ use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use url::Url;
-use web3::{api::Web3, transports::http::Http, types::U64};
+use web3::types::U64;
 
 type BlockNumber = U64;
-type Client = Web3<Http>;
 
 #[derive(Error, Debug)]
 pub enum EventSourceError {
