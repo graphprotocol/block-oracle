@@ -1,6 +1,6 @@
 use super::models;
 use models::{Caip2ChainId, WithId};
-use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
+use sqlx::{sqlite::SqlitePoolOptions, Row, SqlitePool};
 use std::{
     collections::{HashMap, HashSet},
     str::FromStr,
@@ -46,7 +46,7 @@ impl Store {
     pub async fn last_encoding_version(&self) -> sqlx::Result<Option<models::Id>> {
         let row: Option<(i32,)> = sqlx::query_as(
             r#"
-SELECT id,
+SELECT id
 FROM encoding_versions
 ORDER BY id DESC
 LIMIT 1"#,
@@ -61,18 +61,18 @@ LIMIT 1"#,
         &self,
         version: models::Id,
         data_edge_call_id: models::Id,
-    ) -> sqlx::Result<()> {
+    ) -> sqlx::Result<models::Id> {
         sqlx::query(
             r#"
 INSERT INTO encoding_versions (id, introduced_with)
-VALUES (?1, ?2)"#,
+VALUES (?1, ?2)
+RETURNING id"#,
         )
         .bind(i32::try_from(version).unwrap())
         .bind(i32::try_from(data_edge_call_id).unwrap())
         .fetch_one(&self.pool)
-        .await?;
-
-        Ok(())
+        .await
+        .map(|row| row.get::<models::Id, _>(0))
     }
 
     pub async fn sync_networks(&self, networks: Vec<Caip2ChainId>) -> sqlx::Result<()> {
@@ -225,7 +225,6 @@ RETURNING id"#,
         .bind(call.payload)
         .fetch_one(&self.pool)
         .await?;
-
         Ok(row.0.try_into().unwrap())
     }
 
@@ -301,7 +300,6 @@ LIMIT 1"#,
 mod tests {
     use super::*;
     use models::DataEdgeCall;
-    use sqlx::{types::chrono::DateTime, Transaction};
 
     async fn test_store() -> Store {
         Store::new(":memory:").await.unwrap()

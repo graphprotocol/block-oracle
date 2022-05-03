@@ -28,12 +28,12 @@ CREATE TABLE encoding_versions (
 
 CREATE TABLE message_types (
     id integer PRIMARY KEY,
-    name varchar(63) NOT NULL UNIQUE,
-    introduced_with integer NOT NULL REFERENCES encoding_versions (id) ON DELETE CASCADE
+    name varchar(63) NOT NULL UNIQUE
 );
 
 CREATE TABLE messages (
     id integer PRIMARY KEY,
     tx_id integer NOT NULL REFERENCES data_edge_calls (id) ON DELETE CASCADE,
-    message_type_id integer NOT NULL REFERENCES message_types (id) ON DELETE CASCADE
+    message_type_id integer NOT NULL REFERENCES message_types (id) ON DELETE CASCADE,
+    envoding_version_id integer NOT NULL REFERENCES encoding_versions (id) ON DELETE CASCADE
 );
