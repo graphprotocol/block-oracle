@@ -43,6 +43,9 @@ impl Config {
         let config_file =
             ConfigFile::from_file(&clap.config_file).expect("Failed to read config file.");
 
+        let retry_strategy_max_wait_time =
+            Duration::from_secs(config_file.retry_strategy_max_wait_time_in_seconds);
+
         Self {
             log_level: clap.log_level,
             owner_address: config_file.owner_address.parse().unwrap(),
@@ -57,12 +60,15 @@ impl Config {
                 config_file
                     .indexed_chains
                     .into_iter()
-                    .map(|(chain_id, url)| IndexedChain::new(chain_id, url))
+                    .map(|(chain_id, url)| {
+                        IndexedChain::new(chain_id, url, retry_strategy_max_wait_time)
+                    })
                     .collect(),
             ),
             protocol_chain_client: Arc::new(ProtocolChain::new(
                 config_file.protocol_chain.name,
                 config_file.protocol_chain.jrpc,
+                retry_strategy_max_wait_time,
             )),
         }
     }
@@ -99,6 +105,8 @@ struct ConfigFile {
     epoch_duration: u64,
     #[serde(default = "ConfigFile::default_json_rpc_polling_interval_in_seconds")]
     json_rpc_polling_interval_in_seconds: u64,
+    #[serde(default = "ConfigFile::default_retry_strategy_max_wait_time_in_seconds")]
+    retry_strategy_max_wait_time_in_seconds: u64,
 }
 
 impl ConfigFile {
@@ -114,6 +122,10 @@ impl ConfigFile {
 
     fn default_json_rpc_polling_interval_in_seconds() -> u64 {
         120
+    }
+
+    fn default_retry_strategy_max_wait_time_in_seconds() -> u64 {
+        60
     }
 }
 

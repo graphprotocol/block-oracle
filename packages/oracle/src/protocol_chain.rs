@@ -1,35 +1,30 @@
-use crate::store::Caip2ChainId;
+use crate::{store::Caip2ChainId, transport::Transport};
 use secp256k1::SecretKey;
 use std::time::Duration;
 use url::Url;
-use web3::{
-    transports::Http,
-    types::{SignedTransaction, TransactionParameters, TransactionReceipt, U64},
-    Web3,
-};
+use web3::types::{SignedTransaction, TransactionParameters, TransactionReceipt, U64};
 
 #[derive(Debug, Clone)]
 pub struct ProtocolChain {
     chain_id: Caip2ChainId,
-    inner: Web3<Http>,
+    transport: Transport,
 }
 impl ProtocolChain {
-    pub fn new(chain_id: Caip2ChainId, jrpc_provider: Url) -> Self {
-        // Unwrap: we already validated that config will always have valid URLs
-        let transport = Http::new(jrpc_provider.as_str()).unwrap();
-        let inner = Web3::new(transport);
-
-        Self { chain_id, inner }
+    pub fn new(chain_id: Caip2ChainId, jrpc_provider: Url, retry_wait_time: Duration) -> Self {
+        let transport = Transport::new(jrpc_provider, retry_wait_time);
+        Self {
+            chain_id,
+            transport,
+        }
     }
 
     pub async fn sign_transaction(
         &self,
         tx_object: TransactionParameters,
-        private_key: SecretKey,
+        private_key: &SecretKey,
     ) -> Result<SignedTransaction, web3::Error> {
-        self.inner
-            .accounts()
-            .sign_transaction(tx_object, &private_key)
+        self.transport
+            .sign_transaction(tx_object, private_key)
             .await
     }
 
@@ -37,17 +32,11 @@ impl ProtocolChain {
         &self,
         signed_transaction: SignedTransaction,
     ) -> Result<TransactionReceipt, web3::Error> {
-        self.inner
-            .send_raw_transaction_with_confirmation(
-                signed_transaction.raw_transaction,
-                Duration::from_secs(5), // TODO: set this as a configurable value
-                0,                      // TODO: set this as a configurable value
-            )
-            .await
+        self.transport.send_transaction(signed_transaction).await
     }
 
     pub async fn get_latest_block(&self) -> Result<U64, web3::Error> {
-        self.inner.eth().block_number().await
+        self.transport.get_latest_block().await
     }
 
     /// Get a reference to the protocol chain client's chain id.
