@@ -1,78 +1,45 @@
-use backoff::{future::retry, ExponentialBackoff, ExponentialBackoffBuilder};
-use secp256k1::SecretKey;
+use backoff::future::retry;
+use backoff::{ExponentialBackoff, ExponentialBackoffBuilder};
+use futures::TryFutureExt;
+use jsonrpc_core::{Call, Value};
 use std::time::Duration;
+use std::{future::Future, pin::Pin};
 use tracing::trace;
 use url::Url;
-use web3::{
-    transports::Http,
-    types::{SignedTransaction, TransactionParameters, TransactionReceipt, U64},
-    Web3,
-};
+use web3::{transports::Http, RequestId};
 
-/// A wrapper type around [`Web3`] that supports retries with exponential backoff.
 #[derive(Debug, Clone)]
-pub struct Transport {
-    inner: Web3<Http>,
-    retry_strategy: ExponentialBackoff,
+pub struct JsonRpcExponentialBackoff {
+    inner: Http,
+    strategy: ExponentialBackoff,
 }
 
-impl Transport {
-    pub fn new(jrpc_url: Url, max_wait_time: Duration) -> Self {
-        // Unwrap: URLs were already parsed and are valid.
-        let transport = Http::new(jrpc_url.as_str()).expect("failed to create HTTP transport");
-        let inner = Web3::new(transport);
-        let retry_strategy = ExponentialBackoffBuilder::new()
-            .with_max_elapsed_time(Some(max_wait_time))
+impl JsonRpcExponentialBackoff {
+    pub fn new(jrpc_url: Url, max_wait: Duration) -> Self {
+        let strategy = ExponentialBackoffBuilder::new()
+            .with_max_elapsed_time(Some(max_wait))
             .build();
-        Self {
-            inner,
-            retry_strategy,
-        }
+        // Unwrap: URLs were already parsed and are valid.
+        let inner = Http::new(jrpc_url.as_str()).expect("failed to create HTTP transport");
+        Self { inner, strategy }
+    }
+}
+
+impl web3::Transport for JsonRpcExponentialBackoff {
+    type Out = Pin<Box<dyn Future<Output = web3::error::Result<Value>>>>;
+
+    fn prepare(&self, method: &str, params: Vec<Value>) -> (RequestId, Call) {
+        self.inner.prepare(method, params)
     }
 
-    pub async fn get_latest_block(&self) -> Result<U64, web3::Error> {
-        retry(self.retry_strategy.clone(), || async {
-            trace!("Fetching latest blocks");
-            self.inner
-                .eth()
-                .block_number()
-                .await
+    fn send(&self, id: RequestId, request: Call) -> Self::Out {
+        let strategy = self.strategy.clone();
+        let http = self.inner.clone();
+        let op = move || {
+            trace!(?id, ?request, "Sending JRPC call");
+            http.send(id.clone(), request.clone())
                 .map_err(backoff::Error::transient)
-        })
-        .await
-    }
-
-    pub async fn sign_transaction(
-        &self,
-        tx_object: TransactionParameters,
-        private_key: &SecretKey,
-    ) -> Result<SignedTransaction, web3::Error> {
-        retry(self.retry_strategy.clone(), || async {
-            trace!("Signing transaction");
-            self.inner
-                .accounts()
-                .sign_transaction(tx_object.clone(), private_key)
-                .await
-                .map_err(backoff::Error::transient)
-        })
-        .await
-    }
-
-    pub async fn send_transaction(
-        &self,
-        signed_transaction: SignedTransaction,
-    ) -> Result<TransactionReceipt, web3::Error> {
-        retry(self.retry_strategy.clone(), || async {
-            trace!("Sending signed transaction");
-            self.inner
-                .send_raw_transaction_with_confirmation(
-                    signed_transaction.raw_transaction.clone(),
-                    Duration::from_secs(5), // TODO: set this as a configurable value
-                    0,                      // TODO: set this as a configurable value
-                )
-                .await
-                .map_err(backoff::Error::transient)
-        })
-        .await
+        };
+        Box::pin(retry(strategy, op))
     }
 }
