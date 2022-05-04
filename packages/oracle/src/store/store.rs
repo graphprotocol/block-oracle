@@ -269,17 +269,9 @@ WHERE id = ?3
             r#"
 SELECT block_number
 FROM data_edge_calls
-WHERE id = (
-SELECT tx_id
-    FROM messages
-    WHERE message_type_id = (
-         SELECT id
-         FROM message_types
-         WHERE name = 'SetBlockNumbersForEpoch'
-    ORDER BY id DESC
-    LIMIT 1
-    )
-)"#,
+ORDER BY id DESC
+LIMIT 1
+"#,
         )
         .fetch_optional(&self.pool)
         .await?;
