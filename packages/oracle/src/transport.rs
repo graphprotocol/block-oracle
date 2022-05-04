@@ -39,7 +39,7 @@ impl web3::Transport for JsonRpcExponentialBackoff {
         let http = Arc::clone(&self.inner);
         let op = move || {
             trace!(?id, ?request, "Sending JRPC call");
-            http.send(id.clone(), request.clone())
+            http.send(id, request.clone())
                 .map_err(backoff::Error::transient)
         };
         Box::pin(retry(strategy, op))
