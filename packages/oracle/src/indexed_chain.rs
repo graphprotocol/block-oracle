@@ -1,7 +1,6 @@
-use std::time::Duration;
-
 use crate::store::Caip2ChainId;
 use crate::transport::JsonRpcExponentialBackoff;
+use std::time::Duration;
 use url::Url;
 use web3::types::U64;
 use web3::Web3;
