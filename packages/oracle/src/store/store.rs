@@ -98,6 +98,15 @@ VALUES (?1, ?2)"#,
         Ok(())
     }
 
+    pub async fn delete_network(&self, network_id: models::Id) -> sqlx::Result<()> {
+        sqlx::query("DELETE FROM networks WHERE id = ?1")
+            .bind(i32::try_from(network_id).unwrap())
+            .fetch_one(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn insert_network(
         &self,
         network: WithId<models::Network>,
@@ -199,9 +208,9 @@ ORDER BY id ASC"#,
         Ok(networks)
     }
 
-    pub async fn insert_data_edge_call<'a>(
+    pub async fn insert_data_edge_call(
         &self,
-        call: models::DataEdgeCall<'a>,
+        call: models::DataEdgeCall,
     ) -> sqlx::Result<models::Id> {
         let row: (i32,) = sqlx::query_as(
             r#"

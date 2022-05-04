@@ -82,22 +82,22 @@ pub struct Network {
 }
 
 #[derive(Debug, Clone)]
-pub struct DataEdgeCall<'a> {
-    pub tx_hash: &'a [u8],
+pub struct DataEdgeCall {
+    pub tx_hash: Vec<u8>,
     pub nonce: u64,
     pub num_confirmations: u64,
     pub num_confirmations_last_checked_at: Timestamp,
     pub block_number: BlockNumber,
-    pub block_hash: &'a [u8],
+    pub block_hash: Vec<u8>,
     pub payload: Vec<u8>,
 }
 
-impl<'a> DataEdgeCall<'a> {
+impl DataEdgeCall {
     pub fn new(
-        tx_hash: &'a [u8],
+        tx_hash: Vec<u8>,
         nonce: u64,
         block_number: BlockNumber,
-        block_hash: &'a [u8],
+        block_hash: Vec<u8>,
         payload: Vec<u8>,
     ) -> Self {
         Self {
