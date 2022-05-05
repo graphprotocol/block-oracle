@@ -1,10 +1,7 @@
 use super::models;
 use models::{Caip2ChainId, WithId};
 use sqlx::{sqlite::SqlitePoolOptions, SqlitePool};
-use std::{
-    collections::{HashMap, HashSet},
-    str::FromStr,
-};
+use std::str::FromStr;
 
 type NetworkRow = (i32, String, Option<i64>, Option<Vec<u8>>, Option<i64>, i32);
 
@@ -57,6 +54,27 @@ LIMIT 1"#,
         Ok(row.map(|r| models::Id::try_from(r.0).unwrap()))
     }
 
+    pub async fn insert_message(
+        &self,
+        msg_type_name: &str,
+        call_id: models::Id,
+    ) -> sqlx::Result<models::Id> {
+        let row: (i32,) = sqlx::query_as(
+            r#"
+INSERT INTO messages (tx_id, message_type_id)
+SELECT ?1, message_types.id
+FROM message_types
+WHERE message_types.name = ?2
+RETUNING messages.id"#,
+        )
+        .bind(i32::try_from(call_id).unwrap())
+        .bind(msg_type_name)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(models::Id::try_from(row.0).unwrap())
+    }
+
     pub async fn insert_encoding_version(
         &self,
         version: models::Id,
@@ -71,29 +89,6 @@ VALUES (?1, ?2)"#,
         .bind(i32::try_from(data_edge_call_id).unwrap())
         .fetch_one(&self.pool)
         .await?;
-
-        Ok(())
-    }
-
-    pub async fn sync_networks(&self, networks: Vec<Caip2ChainId>) -> sqlx::Result<()> {
-        let networks: HashSet<Caip2ChainId> = networks.into_iter().collect();
-        let current_networks: HashMap<Caip2ChainId, models::Id> = self
-            .networks()
-            .await?
-            .into_iter()
-            .map(|n| (n.data.name, n.id))
-            .collect();
-
-        let networks_to_delete: Vec<Caip2ChainId> = current_networks
-            .iter()
-            .filter(|n| !networks.contains(&n.0))
-            .map(|x| x.0.clone())
-            .collect();
-        let networks_to_insert: Vec<Caip2ChainId> = networks
-            .iter()
-            .filter(|chain_id| !current_networks.contains_key(*chain_id))
-            .cloned()
-            .collect();
 
         Ok(())
     }

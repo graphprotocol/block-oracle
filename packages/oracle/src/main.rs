@@ -181,29 +181,22 @@ impl<'a> Oracle<'a> {
             networks_diff
                 .deletions
                 .into_iter()
-                .map(|(_, id)| self.store.delete_network(id))
-                .collect::<Vec<_>>(),
+                .map(|(_, id)| self.store.delete_network(id)),
         )
         .await?;
         // Persist all newly-created networks.
-        try_join_all(
-            networks_diff
-                .insertions
-                .into_iter()
-                .map(|(name, id)| {
-                    self.store.insert_network(WithId {
-                        id,
-                        data: Network {
-                            name,
-                            latest_block_delta: None,
-                            latest_block_number: None,
-                            latest_block_hash: None,
-                            introduced_with: data_edge_call_id,
-                        },
-                    })
-                })
-                .collect::<Vec<_>>(),
-        )
+        try_join_all(networks_diff.insertions.into_iter().map(|(name, id)| {
+            self.store.insert_network(WithId {
+                id,
+                data: Network {
+                    name,
+                    latest_block_delta: None,
+                    latest_block_number: None,
+                    latest_block_hash: None,
+                    introduced_with: data_edge_call_id,
+                },
+            })
+        }))
         .await?;
         // Finally, update network data with the new block numbers / deltas.
         try_join_all(
@@ -214,10 +207,25 @@ impl<'a> Oracle<'a> {
                     let id = u32::try_from(id).unwrap();
                     self.store
                         .update_network_block_info_by_id(id, update.block_number)
-                })
-                .collect::<Vec<_>>(),
+                }),
         )
         .await?;
+
+        debug!(
+            num_msgs = messages.len(),
+            "Storing messages to the database..."
+        );
+        try_join_all(messages.iter().map(|m| {
+            let msg_type = match m {
+                Message::RegisterNetworks { .. } => "RegisterNetworks",
+                Message::CorrectEpochs { .. } => "CorrectEpochs",
+                Message::UpdateVersion => "UpdateVersion",
+                Message::SetBlockNumbersForNextEpoch { .. } => "SetBlockNumbersForNextEpoch",
+            };
+            self.store.insert_message(msg_type, data_edge_call_id)
+        }))
+        .await?;
+        debug!(num_msgs = messages.len(), "Messages saved to the database.");
 
         Ok(())
     }
