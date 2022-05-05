@@ -27,10 +27,6 @@ impl<'a> Emitter<'a> {
         }
     }
 
-    // FIXME:HACK: We will use this to function instead of `epoch_encoder::Blockchain` for two reasons:
-    // 1. using our own `Emitter::Web3` error type
-    // 2. returning a `TransactionReceipt` value, because we need the block hash & number info.
-    // We can refactor thins once we refine our understanting of the encoding crate's interface.
     pub async fn submit_oracle_messages(
         &mut self,
         nonce: u64,
@@ -47,9 +43,9 @@ impl<'a> Emitter<'a> {
             .client
             .sign_transaction(tx_object, &self.owner_private_key)
             .await?;
-        debug!(hash = ?signed.transaction_hash, nonce = nonce, "signed transaction");
+        debug!(hash = ?signed.transaction_hash, nonce = nonce, "Signed transaction.");
         let receipt = self.client.send_transaction(signed).await?;
-        info!(hash = ?receipt.transaction_hash, nonce = nonce, "sent transaction");
+        info!(hash = ?receipt.transaction_hash, nonce = nonce, "Sent transaction.");
         Ok(receipt)
     }
 }

@@ -8,7 +8,7 @@ use merkle::{merkle_root, MerkleLeaf};
 use messages::*;
 
 pub use encoding::encode_messages;
-pub use messages::{CompressedMessage, Message};
+pub use messages::{BlockPtr, CompressedMessage, Message};
 
 pub type NetworkId = u64;
 
