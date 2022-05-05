@@ -1,20 +1,20 @@
-use url::Url;
-use web3::{transports::Http, types::U64, Web3};
-
 use crate::store::Caip2ChainId;
+use crate::transport::JsonRpcExponentialBackoff;
+use std::time::Duration;
+use url::Url;
+use web3::types::U64;
+use web3::Web3;
 
 #[derive(Debug, Clone)]
 pub struct IndexedChain {
     chain_id: Caip2ChainId,
-    client: Web3<Http>,
+    web3: Web3<JsonRpcExponentialBackoff>,
 }
 
 impl IndexedChain {
-    pub fn new(chain_id: Caip2ChainId, jrpc_url: Url) -> Self {
-        // Unwrap: URLs were already parsed and are valid.
-        let transport = Http::new(jrpc_url.as_str()).expect("failed to create HTTP transport");
-        let client = Web3::new(transport);
-        Self { chain_id, client }
+    pub fn new(chain_id: Caip2ChainId, jrpc_url: Url, retry_wait_time: Duration) -> Self {
+        let web3 = Web3::new(JsonRpcExponentialBackoff::new(jrpc_url, retry_wait_time));
+        Self { chain_id, web3 }
     }
 
     pub fn id(&self) -> &Caip2ChainId {
@@ -22,6 +22,6 @@ impl IndexedChain {
     }
 
     pub async fn get_latest_block(&self) -> Result<U64, web3::Error> {
-        self.client.eth().block_number().await
+        self.web3.eth().block_number().await
     }
 }
