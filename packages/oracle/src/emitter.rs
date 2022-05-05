@@ -41,7 +41,7 @@ impl<'a> Emitter<'a> {
         };
         let signed = self
             .client
-            .sign_transaction(tx_object, self.owner_private_key)
+            .sign_transaction(tx_object, &self.owner_private_key)
             .await?;
         debug!(hash = ?signed.transaction_hash, nonce = nonce, "Signed transaction.");
         let receipt = self.client.send_transaction(signed).await?;

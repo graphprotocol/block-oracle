@@ -10,6 +10,7 @@ mod metrics;
 mod networks_diff;
 mod protocol_chain;
 mod store;
+mod transport;
 
 use crate::{
     ctrlc::CtrlcHandler,

@@ -1,21 +1,20 @@
-use crate::store::Caip2ChainId;
+use crate::{store::Caip2ChainId, transport::JsonRpcExponentialBackoff};
 use epoch_encoding::BlockPtr;
+use std::time::Duration;
 use tracing::error;
 use url::Url;
-use web3::{transports::Http, Web3};
+use web3::Web3;
 
 #[derive(Debug, Clone)]
 pub struct IndexedChain {
     chain_id: Caip2ChainId,
-    client: Web3<Http>,
+    web3: Web3<JsonRpcExponentialBackoff>,
 }
 
 impl IndexedChain {
-    pub fn new(chain_id: Caip2ChainId, jrpc_url: Url) -> Self {
-        // Unwrap: URLs were already parsed and are valid.
-        let transport = Http::new(jrpc_url.as_str()).expect("failed to create HTTP transport");
-        let client = Web3::new(transport);
-        Self { chain_id, client }
+    pub fn new(chain_id: Caip2ChainId, jrpc_url: Url, retry_wait_time: Duration) -> Self {
+        let web3 = Web3::new(JsonRpcExponentialBackoff::new(jrpc_url, retry_wait_time));
+        Self { chain_id, web3 }
     }
 
     pub fn id(&self) -> &Caip2ChainId {
@@ -23,10 +22,10 @@ impl IndexedChain {
     }
 
     pub async fn get_latest_block(&self) -> web3::Result<BlockPtr> {
-        let block_num = self.client.eth().block_number().await?;
+        let block_num = self.web3.eth().block_number().await?;
         let block_id = web3::types::BlockId::Number(block_num.into());
         let block = self
-            .client
+            .web3
             .eth()
             .block(block_id)
             .await?
