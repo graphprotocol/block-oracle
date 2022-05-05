@@ -35,5 +35,5 @@ CREATE TABLE messages (
     id integer PRIMARY KEY,
     tx_id integer NOT NULL REFERENCES data_edge_calls (id) ON DELETE CASCADE,
     message_type_id integer NOT NULL REFERENCES message_types (id) ON DELETE CASCADE,
-    envoding_version_id integer NOT NULL REFERENCES encoding_versions (id) ON DELETE CASCADE
+    encoding_version_id integer NOT NULL REFERENCES encoding_versions (id) ON DELETE CASCADE
 );
