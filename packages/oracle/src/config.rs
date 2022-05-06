@@ -143,7 +143,6 @@ mod tests {
 
     #[test]
     fn deserialize_protocol_chain() {
-        let config: ConfigFile = toml::de::from_str(SAMPLE_CONFIG).unwrap();
-        dbg!(config);
+        toml::de::from_str::<ConfigFile>(SAMPLE_CONFIG).unwrap();
     }
 }
