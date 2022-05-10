@@ -19,17 +19,28 @@ pub enum Message {
         // Add is by name
         add: Vec<String>,
     },
-    // TODO: include hash, count, and (if count is nonzero) merkle root
-    CorrectEpochs,
-    UpdateVersion,
+    CorrectEpochs {
+        // TODO: include hash, count, and (if count is nonzero) merkle root
+        data_by_network_id: HashMap<NetworkId, EpochDetails>,
+    },
+    UpdateVersion {
+        version_number: u64,
+    },
 }
 
 #[derive(Debug)]
 pub enum CompressedMessage {
     SetBlockNumbersForNextEpoch(CompressedSetBlockNumbersForNextEpoch),
-    CorrectEpochs,
-    RegisterNetworks { remove: Vec<u64>, add: Vec<String> },
-    UpdateVersion,
+    CorrectEpochs {
+        data_by_network_id: HashMap<NetworkId, EpochDetails>,
+    },
+    RegisterNetworks {
+        remove: Vec<u64>,
+        add: Vec<String>,
+    },
+    UpdateVersion {
+        version_number: u64,
+    },
 }
 
 #[derive(Debug)]
@@ -41,4 +52,10 @@ pub enum CompressedSetBlockNumbersForNextEpoch {
         accelerations: Vec<i64>,
         root: Bytes32,
     },
+}
+
+#[derive(Debug, Clone)]
+pub struct EpochDetails {
+    tx_hash: Bytes32,
+    merkle_root: Bytes32,
 }
