@@ -77,6 +77,8 @@ impl CompressionEngine {
                 self.compressed.push(CompressedMessage::UpdateVersion {
                     version_number: *version_number,
                 });
+            Message::Reset => {
+                self.compressed.push(CompressedMessage::Reset);
             }
         }
     }

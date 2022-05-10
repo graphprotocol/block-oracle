@@ -26,6 +26,7 @@ pub enum Message {
     UpdateVersion {
         version_number: u64,
     },
+    Reset,
 }
 
 #[derive(Debug)]
@@ -41,6 +42,7 @@ pub enum CompressedMessage {
     UpdateVersion {
         version_number: u64,
     },
+    Reset,
 }
 
 #[derive(Debug)]
