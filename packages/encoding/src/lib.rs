@@ -62,7 +62,22 @@ impl CompressionEngine {
                     self.compress_block_ptrs(block_ptrs);
                 }
             }
-            _ => todo!(),
+            Message::RegisterNetworks { remove, add } => {
+                self.compressed.push(CompressedMessage::RegisterNetworks {
+                    remove: remove.clone(),
+                    add: add.clone(),
+                });
+            }
+            Message::CorrectEpochs { data_by_network_id } => {
+                self.compressed.push(CompressedMessage::CorrectEpochs {
+                    data_by_network_id: data_by_network_id.clone(),
+                });
+            }
+            Message::UpdateVersion { version_number } => {
+                self.compressed.push(CompressedMessage::UpdateVersion {
+                    version_number: *version_number,
+                });
+            }
         }
     }
 
