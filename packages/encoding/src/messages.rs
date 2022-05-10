@@ -22,6 +22,7 @@ pub enum Message {
     // TODO: include hash, count, and (if count is nonzero) merkle root
     CorrectEpochs,
     UpdateVersion,
+    Reset,
 }
 
 #[derive(Debug)]
@@ -30,6 +31,7 @@ pub enum CompressedMessage {
     CorrectEpochs,
     RegisterNetworks { remove: Vec<u64>, add: Vec<String> },
     UpdateVersion,
+    Reset,
 }
 
 #[derive(Debug)]

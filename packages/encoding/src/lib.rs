@@ -62,6 +62,9 @@ impl CompressionEngine {
                     self.compress_block_ptrs(block_ptrs);
                 }
             }
+            Message::Reset => {
+                self.compressed.push(CompressedMessage::Reset);
+            }
             _ => todo!(),
         }
     }

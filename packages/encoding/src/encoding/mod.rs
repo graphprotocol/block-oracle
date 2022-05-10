@@ -43,7 +43,7 @@ pub fn decode_messages(bytes: &[u8]) -> Vec<CompressedMessage> {
 
 pub fn encode_messages(messages: &[CompressedMessage]) -> Vec<u8> {
     let mut bytes = Vec::new();
-    let message_blocks = messages.chunks(4);
+    let message_blocks = messages.chunks(2);
     for message_block in message_blocks {
         encode_preamble(message_block, &mut bytes);
 
@@ -56,7 +56,7 @@ pub fn encode_messages(messages: &[CompressedMessage]) -> Vec<u8> {
 
 fn encode_preamble(messages: &[CompressedMessage], bytes: &mut Vec<u8>) {
     assert!(messages.len() > 0);
-    assert!(messages.len() < 5);
+    assert!(messages.len() < 3);
 
     fn tag(message: &CompressedMessage) -> u8 {
         match message {
@@ -64,12 +64,13 @@ fn encode_preamble(messages: &[CompressedMessage], bytes: &mut Vec<u8>) {
             CompressedMessage::CorrectEpochs => 1,
             CompressedMessage::UpdateVersion => 2,
             CompressedMessage::RegisterNetworks { .. } => 3,
+            CompressedMessage::Reset => 4,
         }
     }
 
     let mut preamble = 0;
     for (i, message) in messages.iter().enumerate() {
-        preamble |= tag(message) << (i * 2);
+        preamble |= tag(message) << (i * 4);
     }
 
     bytes.push(preamble)
