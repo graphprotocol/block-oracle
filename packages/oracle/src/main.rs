@@ -70,7 +70,7 @@ async fn main() -> Result<(), Error> {
     let mut oracle = Oracle::new(store, &*CONFIG)?;
     while !CTRLC_HANDLER.poll_ctrlc() {
         oracle.wait_and_process_next_event().await?;
-        tokio::time::sleep(CONFIG.json_rpc_polling_interval).await;
+        tokio::time::sleep(CONFIG.protocol_chain_polling_interval).await;
     }
 
     Ok(())

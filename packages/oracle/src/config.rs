@@ -25,6 +25,10 @@ pub enum ConfigError {
     Toml(#[from] toml::de::Error),
 }
 
+const DEFAULT_EPOCH_DURATION: u64 = 6_646;
+const DEFAULT_PROTOCOL_CHAIN_POLLING_INTERVAL_IN_SECONDS: u64 = 120;
+const DEFAULT_WEB3_TRANSPORT_RETRY_MAX_WAIT_TIME_IN_SECONDS: u64 = 60;
+
 pub struct Config {
     pub log_level: LevelFilter,
     pub owner_address: H160,
@@ -32,9 +36,9 @@ pub struct Config {
     pub contract_address: H160,
     pub database_url: String,
     pub epoch_duration: u64,
-    pub json_rpc_polling_interval: Duration,
+    pub protocol_chain_polling_interval: Duration,
     pub indexed_chains: Arc<Vec<IndexedChain>>,
-    pub protocol_chain_client: Arc<ProtocolChain>,
+    pub protocol_chain: Arc<ProtocolChain>,
 }
 
 impl Config {
@@ -44,7 +48,7 @@ impl Config {
             ConfigFile::from_file(&clap.config_file).expect("Failed to read config file.");
 
         let retry_strategy_max_wait_time =
-            Duration::from_secs(config_file.retry_strategy_max_wait_time_in_seconds);
+            Duration::from_secs(config_file.web3_transport_retry_max_wait_time_in_seconds);
 
         Self {
             log_level: clap.log_level,
@@ -53,8 +57,8 @@ impl Config {
             contract_address: config_file.contract_address.parse().unwrap(),
             database_url: clap.database_url,
             epoch_duration: config_file.epoch_duration,
-            json_rpc_polling_interval: Duration::from_secs(
-                config_file.json_rpc_polling_interval_in_seconds,
+            protocol_chain_polling_interval: Duration::from_secs(
+                config_file.protocol_chain_polling_interval_in_seconds,
             ),
             indexed_chains: Arc::new(
                 config_file
@@ -65,7 +69,7 @@ impl Config {
                     })
                     .collect(),
             ),
-            protocol_chain_client: Arc::new(ProtocolChain::new(
+            protocol_chain: Arc::new(ProtocolChain::new(
                 config_file.protocol_chain.name,
                 config_file.protocol_chain.jrpc,
                 retry_strategy_max_wait_time,
@@ -103,10 +107,10 @@ struct ConfigFile {
     protocol_chain: SerdeProtocolChain,
     #[serde(default = "ConfigFile::default_epoch_duration")]
     epoch_duration: u64,
-    #[serde(default = "ConfigFile::default_json_rpc_polling_interval_in_seconds")]
-    json_rpc_polling_interval_in_seconds: u64,
-    #[serde(default = "ConfigFile::default_retry_strategy_max_wait_time_in_seconds")]
-    retry_strategy_max_wait_time_in_seconds: u64,
+    #[serde(default = "ConfigFile::default_protocol_chain_polling_interval_in_seconds")]
+    protocol_chain_polling_interval_in_seconds: u64,
+    #[serde(default = "ConfigFile::default_web3_transport_retry_max_wait_time_in_seconds")]
+    web3_transport_retry_max_wait_time_in_seconds: u64,
 }
 
 impl ConfigFile {
@@ -117,15 +121,15 @@ impl ConfigFile {
     }
 
     fn default_epoch_duration() -> u64 {
-        6646
+        DEFAULT_EPOCH_DURATION
     }
 
-    fn default_json_rpc_polling_interval_in_seconds() -> u64 {
-        120
+    fn default_protocol_chain_polling_interval_in_seconds() -> u64 {
+        DEFAULT_PROTOCOL_CHAIN_POLLING_INTERVAL_IN_SECONDS
     }
 
-    fn default_retry_strategy_max_wait_time_in_seconds() -> u64 {
-        60
+    fn default_web3_transport_retry_max_wait_time_in_seconds() -> u64 {
+        DEFAULT_WEB3_TRANSPORT_RETRY_MAX_WAIT_TIME_IN_SECONDS
     }
 }
 
