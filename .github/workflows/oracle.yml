@@ -4,11 +4,11 @@ on:
   push:
     branches: [main, block-oracle]
     paths:
-      - "packages/oracle/*"
+      - "packages/oracle/**"
   pull_request:
     branches: [main, block-oracle]
     paths:
-      - "packages/oracle/*"
+      - "packages/oracle/**"
 
 env:
   CARGO_TERM_COLOR: always
