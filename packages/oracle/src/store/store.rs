@@ -330,12 +330,12 @@ mod tests {
         let store = test_store().await;
         store
             .insert_data_edge_call(DataEdgeCall {
-                tx_hash: &[],
+                tx_hash: vec![],
                 nonce: 3,
                 num_confirmations: 0,
                 num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
                 block_number: 0,
-                block_hash: &[],
+                block_hash: vec![],
                 payload: "0x0".into(),
             })
             .await
@@ -357,12 +357,12 @@ mod tests {
         let store = test_store().await;
         let call_id = store
             .insert_data_edge_call(DataEdgeCall {
-                tx_hash: &[1],
+                tx_hash: vec![1],
                 nonce: 3,
                 num_confirmations: 0,
                 num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
                 block_number: 0,
-                block_hash: &[],
+                block_hash: vec![],
                 payload: "0x0".into(),
             })
             .await
@@ -377,24 +377,24 @@ mod tests {
         let store = test_store().await;
         store
             .insert_data_edge_call(DataEdgeCall {
-                tx_hash: &[1],
+                tx_hash: vec![1],
                 nonce: 3,
                 num_confirmations: 0,
                 num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
                 block_number: 0,
-                block_hash: &[],
+                block_hash: vec![],
                 payload: "0x0".into(),
             })
             .await
             .unwrap();
         store
             .insert_data_edge_call(DataEdgeCall {
-                tx_hash: &[],
+                tx_hash: vec![],
                 nonce: 1,
                 num_confirmations: 0,
                 num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
                 block_number: 0,
-                block_hash: &[1],
+                block_hash: vec![1],
                 payload: "0x1".into(),
             })
             .await
@@ -407,12 +407,12 @@ mod tests {
         let store = test_store().await;
         let call_id = store
             .insert_data_edge_call(DataEdgeCall {
-                tx_hash: &[],
+                tx_hash: vec![],
                 nonce: 42,
                 num_confirmations: 0,
                 num_confirmations_last_checked_at: sqlx::types::chrono::Utc::now(),
                 block_number: 0,
-                block_hash: &[],
+                block_hash: vec![],
                 payload: "0x0".into(),
             })
             .await
