@@ -1,4 +1,4 @@
-use crate::{store::Caip2ChainId, transport::JsonRpcExponentialBackoff};
+use crate::{networks::Caip2ChainId, transport::JsonRpcExponentialBackoff};
 use futures::future::try_join_all;
 use secp256k1::SecretKey;
 use std::time::Duration;

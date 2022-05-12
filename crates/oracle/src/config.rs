@@ -1,6 +1,4 @@
-use crate::{
-    indexed_chain::IndexedChain, protocol_chain::ProtocolChain, store::models::Caip2ChainId,
-};
+use crate::{indexed_chain::IndexedChain, networks::Caip2ChainId, protocol_chain::ProtocolChain};
 use clap::Parser;
 use secp256k1::SecretKey;
 use serde::Deserialize;

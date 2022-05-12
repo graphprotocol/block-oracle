@@ -7,9 +7,9 @@ mod epoch_tracker;
 mod event_source;
 mod indexed_chain;
 mod metrics;
+mod networks;
 mod networks_diff;
 mod protocol_chain;
-mod store;
 mod subgraph;
 mod transport;
 
@@ -19,8 +19,8 @@ use epoch_encoding::{self as ee, encode_messages, BlockPtr, CompressionEngine, M
 use epoch_tracker::EpochTrackerError;
 use event_source::{EventSource, EventSourceError};
 use lazy_static::lazy_static;
+use networks::{Caip2ChainId, DataEdgeCall, Network, WithId};
 use std::collections::HashMap;
-use store::{Caip2ChainId, DataEdgeCall};
 use tracing::{debug, info, warn};
 
 pub use config::Config;
@@ -29,7 +29,6 @@ pub use encoder::Encoder;
 pub use epoch_tracker::EpochTracker;
 pub use metrics::Metrics;
 pub use networks_diff::NetworksDiff;
-pub use store::Store;
 
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
@@ -39,8 +38,6 @@ lazy_static! {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Store error")]
-    Store,
     #[error("Error fetching blockchain data: {0}")]
     EventSource(#[from] event_source::EventSourceError),
     #[error("Can't publish events to Ethereum mainnet: {0}")]
@@ -62,9 +59,7 @@ async fn main() -> Result<(), Error> {
     init_logging(CONFIG.log_level);
     info!(log_level = %CONFIG.log_level, "Block oracle starting up.");
 
-    let store = Store::new();
-
-    let mut oracle = Oracle::new(store, &*CONFIG)?;
+    let mut oracle = Oracle::new(&*CONFIG)?;
     while !CTRLC_HANDLER.poll_ctrlc() {
         oracle.wait_and_process_next_event().await?;
         println!(
@@ -79,20 +74,18 @@ async fn main() -> Result<(), Error> {
 
 /// The main application in-memory state
 struct Oracle<'a> {
-    store: Store,
     emitter: Emitter<'a>,
     epoch_tracker: EpochTracker,
     event_source: EventSource,
 }
 
 impl<'a> Oracle<'a> {
-    pub fn new(store: Store, config: &'a Config) -> Result<Self, Error> {
+    pub fn new(config: &'a Config) -> Result<Self, Error> {
         let event_source = EventSource::new(config);
         let emitter = Emitter::new(config);
-        let epoch_tracker = EpochTracker::new(&store, &*CONFIG);
+        let epoch_tracker = EpochTracker::new(&*CONFIG);
 
         Ok(Self {
-            store,
             event_source,
             emitter,
             epoch_tracker,
@@ -120,7 +113,7 @@ impl<'a> Oracle<'a> {
     }
 
     async fn networks(&self) -> Result<Vec<(String, ee::Network)>, Error> {
-        let networks = self.store.networks().await;
+        let networks: Vec<WithId<Network>> = todo!("obtain a list of current network ids");
         Ok(networks
             .into_iter()
             .map(|n| {
@@ -141,7 +134,9 @@ impl<'a> Oracle<'a> {
 
         // First, we need to make sure that there are no pending
         // `RegisterNetworks` messages.
-        let networks_diff = NetworksDiff::calculate(&self.store, &CONFIG).await?;
+        let networks_diff =
+            NetworksDiff::calculate(todo!("obtain a map of chain names and their ids"), &CONFIG)
+                .await?;
         info!(
             created = networks_diff.insertions.len(),
             deleted = networks_diff.deletions.len(),
@@ -215,7 +210,7 @@ impl<'a> Oracle<'a> {
     async fn is_new_epoch(&self, block_number: u64) -> Result<bool, Error> {
         match self.epoch_tracker.is_new_epoch(block_number).await {
             Ok(b) => Ok(b),
-            Err(EpochTrackerError::PreviousEpochNotFound) => {
+            Err(EpochTrackerError::CantInferPreviousEpoch) => {
                 // FIXME: At the moment, we are unable to determine the latest epoch from an
                 // empty state. Until the Oracle is capable of reacting upon that, we will
                 // consider that we have reached a new epoch in such cases.

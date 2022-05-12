@@ -1,4 +1,4 @@
-use super::store::Network;
+use super::networks::Network;
 use epoch_encoding::{CompressedMessage, Message};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

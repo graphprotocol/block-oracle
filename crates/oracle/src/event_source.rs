@@ -1,6 +1,6 @@
 use crate::indexed_chain::IndexedChain;
 use crate::Config;
-use crate::{protocol_chain::ProtocolChain, store::Caip2ChainId};
+use crate::{networks::Caip2ChainId, protocol_chain::ProtocolChain};
 use epoch_encoding::BlockPtr;
 use futures::{
     stream::{FuturesUnordered, StreamExt},
