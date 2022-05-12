@@ -4,8 +4,8 @@ use std::time::Duration;
 use url::Url;
 use web3::{
     types::{
-        BlockNumber, SignedTransaction, Trace, TraceFilter, TraceFilterBuilder,
-        TransactionParameters, TransactionReceipt, H160, U64,
+        BlockNumber, SignedTransaction, Trace, TraceFilterBuilder,
+        TransactionParameters, TransactionReceipt, H160, U64, U256,
     },
     Web3,
 };
@@ -60,6 +60,10 @@ impl ProtocolChain {
 
     pub async fn get_latest_block(&self) -> Result<U64, web3::Error> {
         self.web3.eth().block_number().await
+    }
+
+    pub async fn get_latest_nonce(&self, address: H160) -> Result<U256, web3::Error> {
+        self.web3.eth().transaction_count(address, None).await
     }
 
     /// Get a reference to the protocol chain client's chain id.

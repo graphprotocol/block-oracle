@@ -16,6 +16,7 @@ pub struct Emitter<'a> {
     client: &'a ProtocolChain,
     contract_address: H160,
     owner_private_key: SecretKey,
+    owner_address: H160,
 }
 
 impl<'a> Emitter<'a> {
@@ -24,14 +25,16 @@ impl<'a> Emitter<'a> {
             client: &config.protocol_chain,
             contract_address: config.contract_address,
             owner_private_key: config.owner_private_key,
+            owner_address: config.owner_address,
         }
     }
 
     pub async fn submit_oracle_messages(
         &mut self,
-        nonce: u64,
         calldata: Vec<u8>,
     ) -> Result<web3::types::TransactionReceipt, EmitterError> {
+        let nonce = self.client.get_latest_nonce(self.owner_address).await? + 1;
+
         let tx_object = TransactionParameters {
             to: Some(self.contract_address),
             value: U256::zero(),
@@ -43,9 +46,9 @@ impl<'a> Emitter<'a> {
             .client
             .sign_transaction(tx_object, &self.owner_private_key)
             .await?;
-        debug!(hash = ?signed.transaction_hash, nonce = nonce, "Signed transaction.");
+        debug!(hash = ?signed.transaction_hash, nonce = %nonce, "Signed transaction.");
         let receipt = self.client.send_transaction(signed).await?;
-        info!(hash = ?receipt.transaction_hash, nonce = nonce, "Sent transaction.");
+        info!(hash = ?receipt.transaction_hash, nonce = %nonce, "Sent transaction.");
         Ok(receipt)
     }
 }

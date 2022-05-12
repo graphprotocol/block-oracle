@@ -168,9 +168,8 @@ impl<'a> Oracle<'a> {
         debug!(msg = ?compression_engine.compressed, msg_count = messages.len(), "Successfully compressed, now encoding message(s).");
         let encoded = encode_messages(&compression_engine.compressed);
         debug!(encoded = ?encoded, "Successfully encoded message(s).");
-        let nonce = self.store.next_nonce().await?;
 
-        let data_edge_call = self.submit_oracle_messages(nonce, encoded).await?;
+        let data_edge_call = self.submit_oracle_messages(encoded).await?;
         let data_edge_call_id = self.store.insert_data_edge_call(data_edge_call).await?;
         debug!(
             row_id = data_edge_call_id,
@@ -225,12 +224,11 @@ impl<'a> Oracle<'a> {
 
     async fn submit_oracle_messages(
         &mut self,
-        nonce: u64,
         calldata: Vec<u8>,
     ) -> Result<DataEdgeCall, Error> {
         let receipt = self
             .emitter
-            .submit_oracle_messages(nonce, calldata.clone())
+            .submit_oracle_messages(calldata.clone())
             .await?;
 
         // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
@@ -244,12 +242,15 @@ impl<'a> Oracle<'a> {
             transaction_hash,
             block_hash,
             block_number,
+            
             ..
         } = &receipt;
         if let (Some(block_hash), Some(block_number)) = (block_hash, block_number) {
             Ok(DataEdgeCall::new(
                 transaction_hash.as_bytes().to_vec(),
-                nonce,
+                // This is a filler value, we don't care anymore about the
+                // nonce stored in the database.
+                0, 
                 block_number.as_u64(),
                 block_hash.as_bytes().to_vec(),
                 calldata,
