@@ -72,10 +72,6 @@ impl Store {
         todo!()
     }
 
-    pub async fn insert_data_edge_call(&self, call: models::DataEdgeCall) -> models::Id {
-        todo!()
-    }
-
     pub async fn write_num_confirmations(&self, call_id: models::Id, num_confirmations: u64) {
         todo!()
     }
