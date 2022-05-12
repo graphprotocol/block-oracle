@@ -11,8 +11,6 @@ use std::sync::Arc;
 use thiserror::Error;
 use web3::types::U64;
 
-type BlockNumber = U64;
-
 #[derive(Error, Debug)]
 pub enum EventSourceError {
     #[error("Ethereum client error")]

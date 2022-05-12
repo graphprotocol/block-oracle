@@ -11,7 +11,7 @@ impl NetworksDiff {
     pub async fn calculate(store: &Store, config: &Config) -> Result<Self, Error> {
         let old = store
             .networks()
-            .await?
+            .await
             .into_iter()
             .map(|n| (n.data.name, n.id))
             .collect();

@@ -1,5 +1,4 @@
 use serde_with::DeserializeFromStr;
-use sqlx::types::chrono;
 use std::{fmt::Display, str::FromStr};
 
 pub type Id = u32;

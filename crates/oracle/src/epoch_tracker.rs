@@ -4,8 +4,8 @@ use tracing::debug;
 
 #[derive(Debug, Error)]
 pub enum EpochTrackerError {
-    #[error("Store error: {0}")]
-    Sqlx(#[from] sqlx::error::Error),
+    #[error("Store error")]
+    StoreError,
     #[error("Failed to determine current epoch. No previous epoch was found in local storage.")]
     PreviousEpochNotFound,
 }
@@ -25,7 +25,7 @@ impl EpochTracker {
     }
 
     pub async fn is_new_epoch(&self, block_number: u64) -> Result<bool, EpochTrackerError> {
-        if let Some(block_number_of_last_tx) = self.store.block_number_of_last_epoch().await? {
+        if let Some(block_number_of_last_tx) = self.store.block_number_of_last_epoch().await {
             debug!(
                 block_number = block_number,
                 block_number_of_last_tx = block_number_of_last_tx,

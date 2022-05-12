@@ -39,8 +39,8 @@ lazy_static! {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Database error: {0}")]
-    Sqlx(#[from] sqlx::Error),
+    #[error("Store error")]
+    Store,
     #[error("Error fetching blockchain data: {0}")]
     EventSource(#[from] event_source::EventSourceError),
     #[error("Can't publish events to Ethereum mainnet: {0}")]
@@ -62,7 +62,7 @@ async fn main() -> Result<(), Error> {
     init_logging(CONFIG.log_level);
     info!(log_level = %CONFIG.log_level, "Block oracle starting up.");
 
-    let store = Store::new(CONFIG.database_url.as_str()).await?;
+    let store = Store::new();
 
     let mut oracle = Oracle::new(store, &*CONFIG)?;
     while !CTRLC_HANDLER.poll_ctrlc() {
@@ -120,7 +120,7 @@ impl<'a> Oracle<'a> {
     }
 
     async fn networks(&self) -> Result<Vec<(String, ee::Network)>, Error> {
-        let networks = self.store.networks().await?;
+        let networks = self.store.networks().await;
         Ok(networks
             .into_iter()
             .map(|n| {
