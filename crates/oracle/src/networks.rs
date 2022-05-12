@@ -4,7 +4,6 @@ use std::{fmt::Display, str::FromStr};
 pub type Id = u32;
 pub type BlockNumber = u64;
 pub type Timestamp = chrono::DateTime<chrono::Utc>;
-pub type Nonce = u64;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WithId<T, I = Id> {
