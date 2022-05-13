@@ -3,7 +3,10 @@ use secp256k1::SecretKey;
 use std::time::Duration;
 use url::Url;
 use web3::{
-    types::{SignedTransaction, TransactionParameters, TransactionReceipt, U64},
+    types::{
+        BlockNumber, SignedTransaction, Trace, TraceFilter, TraceFilterBuilder,
+        TransactionParameters, TransactionReceipt, H160, U64,
+    },
     Web3,
 };
 
@@ -49,5 +52,22 @@ impl ProtocolChain {
     /// Get a reference to the protocol chain client's chain id.
     pub fn id(&self) -> &Caip2ChainId {
         &self.chain_id
+    }
+
+    pub async fn traces_in_block_range(
+        &self,
+        from_block: U64,
+        to_block: U64,
+        from_address: H160,
+        to_address: H160,
+    ) -> Result<Vec<Trace>, web3::Error> {
+        let trace_filter = TraceFilterBuilder::default()
+            .from_block(BlockNumber::Number(from_block))
+            .to_block(BlockNumber::Number(to_block))
+            .from_address(vec![from_address])
+            .to_address(vec![to_address])
+            .count(1)
+            .build();
+        self.web3.trace().filter(trace_filter).await
     }
 }
