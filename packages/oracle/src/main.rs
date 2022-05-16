@@ -301,3 +301,95 @@ fn networks_diff_to_message(diff: &NetworksDiff) -> Option<ee::Message> {
         })
     }
 }
+
+mod freshness {
+    use crate::protocol_chain::ProtocolChain;
+    use thiserror::Error;
+    use tracing::{debug, error, trace};
+    use web3::types::{Action, H160, U64};
+
+    #[derive(Debug, Error)]
+    enum FreshnessCheckEror {
+        #[error("Epoch Subgraph advanced beyond protocol chain's head")]
+        SubgraphBeyondChain,
+        #[error(transparent)]
+        Web3(#[from] web3::Error),
+    }
+
+    /// Number of blocks that the Epoch Subgraph may be away from the protocol chain's head. If the
+    /// block distance is lower than this, a `trace_filter` JSON RPC call will be used to infer if
+    /// any relevant transaction happened within that treshold.
+    ///
+    /// This should be configurable.
+    const FRESHNESS_THRESHOLD: u64 = 10;
+
+    /// The Epoch Subgraph is considered fresh if it has processed all relevant transactions
+    /// targeting the DataEdge contract.
+    ///
+    /// To assert that, the Block Oracle will need to get the latest block from a JSON RPC provider
+    /// and compare its number with the subgraph’s current block.
+    ///
+    /// If they are way too different, then the subgraph is not fresh, and we should gracefully
+    /// handle that error.
+    ///
+    /// Otherwise, if block numbers are under a certain threshold apart, we could scan the blocks
+    /// in between and ensure they’re not relevant to the DataEdge contract.
+    async fn subgaph_is_fresh(
+        subgraph_latest_block: U64,
+        current_block: U64,
+        protocol_chain: &ProtocolChain,
+        owner_address: H160,
+        contract_address: H160,
+    ) -> Result<bool, FreshnessCheckEror> {
+        // If this ever happens, then there must be a serious bug in the code
+        if subgraph_latest_block > current_block {
+            let anomaly = FreshnessCheckEror::SubgraphBeyondChain;
+            error!(%anomaly);
+            return Err(anomaly);
+        }
+        let block_distance = (current_block - subgraph_latest_block).as_u64();
+        if block_distance == 0 {
+            return Ok(true);
+        } else if block_distance > FRESHNESS_THRESHOLD {
+            debug!(
+                %subgraph_latest_block,
+                %current_block,
+                "Epoch Subgraph is not considered fresh because it is {} blocks behind \
+                 protocol chain's head",
+                block_distance
+            );
+            return Ok(false);
+        }
+        // Scan the blocks in betwenn for transactions from the Owner to the Data Edge contract
+        let traces = protocol_chain
+            .traces_in_block_range(
+                subgraph_latest_block,
+                current_block,
+                owner_address,
+                contract_address,
+            )
+            .await?;
+
+        if traces
+            .iter()
+            .any(|trace| matches!(trace.action, Action::Call(_)))
+        {
+            debug!(
+                %subgraph_latest_block,
+                %current_block,
+                "Epoch Subgraph is not fresh. \
+                 Found {} calls between the last synced block and the protocol chain's head",
+                traces.len()
+            );
+            Ok(false)
+        } else {
+            trace!(
+                %subgraph_latest_block,
+                %current_block,
+                "Epoch Subgraph is fresh. \
+                 Found no calls between last synced block and the protocol chain's head",
+            );
+            Ok(true)
+        }
+    }
+}
