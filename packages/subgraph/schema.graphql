@@ -3,8 +3,83 @@ type DataEdge @entity {
   owner: Bytes!
 }
 
-type Message @entity {
+type Payload @entity {
   id: ID!
   data: Bytes!
   submitter: String!
+  messageBlocks: [MessageBlock!]! @derivedFrom(field: "payload")
+}
+
+type MessageBlock @entity {
+  id: ID!
+  data: Bytes!
+  payload: Payload!
+  messages: [Message!]! @derivedFrom(field: "block")
+}
+
+interface Message {
+  id: ID!
+  block: MessageBlock!
+  "data is optional since it might be an empty message"
+  data: Bytes
+}
+
+type SetBlockNumbersForEpochMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes
+  merkleRoot: Bytes
+  accelerations: [BigInt!]
+}
+
+type CorrectEpochsMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes
+}
+
+type UpdateVersionsMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes
+}
+
+type RegisterNetworksMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes
+  removeCount: BigInt!
+  addCount: BigInt!
+  networksRemoved: [Network!]! @derivedFrom(field: "removedAt")
+  networksAdded: [Network!]! @derivedFrom(field: "addedAt")
+}
+
+type Network @entity {
+  id: ID!
+  chainID: String!
+  addedAt: RegisterNetworksMessage!
+  removedAt: RegisterNetworksMessage
+  blockNumbers: [NetworkEpochBlockNumber!]! @derivedFrom(field:"network")
+}
+
+type GlobalState @entity {
+  id: ID!
+  networkCount: Int!
+  activeNetworkCount: Int!
+  latestValidEpoch: Epoch
+}
+
+type Epoch @entity {
+  id: ID!
+  epochNumber: BigInt!
+  blockNumbers: [NetworkEpochBlockNumber!]! @derivedFrom(field:"epoch")
+}
+
+type NetworkEpochBlockNumber @entity {
+  id: ID!
+  acceleration: BigInt!
+  delta: BigInt!
+  blockNumber: BigInt!
+  network: Network!
+  epoch: Epoch!
 }

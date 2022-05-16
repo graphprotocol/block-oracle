@@ -13,6 +13,9 @@ cached/
 # Ignore solc bin output
 bin/
 
+# Ignore matchstick bin output
+.bin/
+
 # Others
 .env
 .DS_Store
