@@ -1,0 +1,6 @@
+deploy-contract: sh deploy-contract.sh
+deploy-subgraph: sh deploy-subgraph.sh
+graph-node: sh graph-node.sh
+hardhat: sh hardhat.sh
+ipfs: sh ipfs.sh
+postgres: sh postgres.sh

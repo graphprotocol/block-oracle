@@ -9,7 +9,9 @@
     "deploy": "graph deploy --node https://api.thegraph.com/deploy/ juanmardefago/block-oracle",
     "create-local": "graph create --node http://localhost:8020/ abarmat/block-oracle",
     "remove-local": "graph remove --node http://localhost:8020/ abarmat/block-oracle",
-    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 abarmat/block-oracle"
+    "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 abarmat/block-oracle",
+    "create-hardhat": "graph create --node http://127.0.0.1:8020/ tiago/block-oracle",
+    "deploy-hardhat": "graph deploy --node http://127.0.0.1:8020 --ipfs http://127.0.0.1:5001 --version-label 0.0.1 tiago/block-oracle"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.29.0",

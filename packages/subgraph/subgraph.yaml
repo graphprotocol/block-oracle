@@ -8,7 +8,7 @@ dataSources:
     source:
       address: "0xae6ADd894F8a1BcAC10b153dc59Cab1da9656836"
       abi: DataEdge
-      startBlock: 12052156
+      # startBlock: 1205215  # Hardhat starts at block zero.
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
