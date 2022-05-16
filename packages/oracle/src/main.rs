@@ -317,7 +317,7 @@ mod freshness {
     }
 
     /// Number of blocks that the Epoch Subgraph may be away from the protocol chain's head. If the
-    /// block distance is higher than this, a `trace_filter` JSON RPC call will be used to infer if
+    /// block distance is lower than this, a `trace_filter` JSON RPC call will be used to infer if
     /// any relevant transaction happened within that treshold.
     ///
     /// This should be configurable.
