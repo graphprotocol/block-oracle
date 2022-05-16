@@ -30,7 +30,7 @@ pub struct EventSource {
 impl EventSource {
     pub fn new(config: &Config) -> Self {
         Self {
-            protocol_chain: config.protocol_chain_client.clone(),
+            protocol_chain: config.protocol_chain.clone(),
             indexed_chains: config.indexed_chains.clone(),
         }
     }

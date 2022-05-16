@@ -3,7 +3,7 @@ owner_address = "0x90F8bf6A479f320ead074411a4B0e7944Ea8c9C1"
 # Deployed in the first block.
 contract_address = "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab"
 
-json_rpc_polling_interval_in_seconds = 5
+protocol_chain_polling_interval_in_seconds = 5
 epoch_duration = 2
 
 [protocol_chain]

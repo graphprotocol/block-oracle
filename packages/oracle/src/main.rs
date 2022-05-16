@@ -70,7 +70,7 @@ async fn main() -> Result<(), Error> {
     let mut oracle = Oracle::new(store, &*CONFIG)?;
     while !CTRLC_HANDLER.poll_ctrlc() {
         oracle.wait_and_process_next_event().await?;
-        tokio::time::sleep(CONFIG.json_rpc_polling_interval).await;
+        tokio::time::sleep(CONFIG.protocol_chain_polling_interval).await;
     }
 
     Ok(())
@@ -233,13 +233,13 @@ impl<'a> Oracle<'a> {
             .submit_oracle_messages(nonce, calldata.clone())
             .await?;
 
-        // TODO: After broadcasting a transaction to eip155:1 and getting a
-        // transaction receipt, we should monitor it until it get enough
-        // confirmations. It's unclear which component should do this task.
+        // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
+        // receipt, we should monitor it until it get enough confirmations. It's unclear which
+        // component should do this task.
 
-        // FIXME: The only purpose of this scope is to transform a
-        // transaction receipt and an encoded payload into a DataEdgeCall
-        // value. We could refactor it into a dedicated function.
+        // FIXME: The only purpose of this scope is to transform a transaction receipt and an
+        // encoded payload into a DataEdgeCall value. We could refactor it into a dedicated
+        // function.
         let web3::types::TransactionReceipt {
             transaction_hash,
             block_hash,

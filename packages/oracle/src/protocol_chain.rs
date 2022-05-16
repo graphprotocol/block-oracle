@@ -11,11 +11,24 @@ use web3::{
 pub struct ProtocolChain {
     chain_id: Caip2ChainId,
     web3: Web3<JsonRpcExponentialBackoff>,
+    transaction_confirmation_poll_interval_in_seconds: u64,
+    transaction_confirmation_count: usize,
 }
 impl ProtocolChain {
-    pub fn new(chain_id: Caip2ChainId, jrpc_url: Url, retry_wait_time: Duration) -> Self {
+    pub fn new(
+        chain_id: Caip2ChainId,
+        jrpc_url: Url,
+        retry_wait_time: Duration,
+        transaction_confirmation_poll_interval_in_seconds: u64,
+        transaction_confirmation_count: usize,
+    ) -> Self {
         let web3 = Web3::new(JsonRpcExponentialBackoff::new(jrpc_url, retry_wait_time));
-        Self { chain_id, web3 }
+        Self {
+            chain_id,
+            web3,
+            transaction_confirmation_poll_interval_in_seconds,
+            transaction_confirmation_count,
+        }
     }
 
     pub async fn sign_transaction(

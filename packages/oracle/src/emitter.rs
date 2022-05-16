@@ -21,7 +21,7 @@ pub struct Emitter<'a> {
 impl<'a> Emitter<'a> {
     pub fn new(config: &'a Config) -> Self {
         Self {
-            client: &config.protocol_chain_client,
+            client: &config.protocol_chain,
             contract_address: config.contract_address,
             owner_private_key: config.owner_private_key,
         }
