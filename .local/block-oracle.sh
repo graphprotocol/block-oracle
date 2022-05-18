@@ -3,7 +3,7 @@ set -eu
 
 . ./prelude.sh
 
-await "curl --silent --fail localhost:${ETHEREUM_PORT}" # hardhat
+await_contract
 
 cd ../packages/oracle/
 
