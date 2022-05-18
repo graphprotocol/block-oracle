@@ -30,6 +30,7 @@ type SetBlockNumbersForEpochMessage implements Message @entity {
   data: Bytes
   merkleRoot: Bytes
   accelerations: [BigInt!]
+  count: BigInt
 }
 
 type CorrectEpochsMessage implements Message @entity {
@@ -55,18 +56,27 @@ type RegisterNetworksMessage implements Message @entity {
 }
 
 type Network @entity {
-  id: ID!
-  chainID: String!
+  id: ID! # chainID now
+  #chainID: String!
   addedAt: RegisterNetworksMessage!
   removedAt: RegisterNetworksMessage
   blockNumbers: [NetworkEpochBlockNumber!]! @derivedFrom(field:"network")
+  # Linked-list implementation for pop-and-swap
+  "Next element on the linked-list implementation for networks. Used for list recreation"
+  nextArrayElement: Network
+  "Index number on the linked list"
+  arrayIndex: Int
+  # Link to global state to be able to recreate the list on query time for the GlobalState entity
+  state: GlobalState
 }
 
 type GlobalState @entity {
   id: ID!
   networkCount: Int!
   activeNetworkCount: Int!
+  networkArrayHead: Network
   latestValidEpoch: Epoch
+  networks: [Network!]! @derivedFrom(field:"state")
 }
 
 type Epoch @entity {
