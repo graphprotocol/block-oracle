@@ -4,3 +4,4 @@ graph-node: sh graph-node.sh
 hardhat: sh hardhat.sh
 ipfs: sh ipfs.sh
 postgres: sh postgres.sh
+block-oracle: sh block-oracle.sh

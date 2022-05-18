@@ -8,7 +8,7 @@ cd build/graphprotocol/graph-node
 
 cargo build -p graph-node
 
-await "curl --silent --fail localhost:${ETHEREUM_PORT}" 0
+await "curl --silent --fail localhost:${ETHEREUM_PORT}"
 # graph-node has issues if the chain has no blocks, so we just make sure at least one exists
 curl "localhost:${ETHEREUM_PORT}" -X POST --data '{"jsonrpc":"2.0","method":"evm_mine","params":[],"id":1}'
 
