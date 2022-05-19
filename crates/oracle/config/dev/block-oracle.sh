@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
-cd ../contracts
+cd ../../packages/contracts
 yarn hardhat run --network localhost scripts/deploy.ts
-cd ../oracle
+cd ../../crates/oracle
 
 cargo run -- \
 	--config-file=config/dev/config.toml \

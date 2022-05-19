@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-cd ../contracts 
+cd ../../packages/contracts 
 yarn hardhat node

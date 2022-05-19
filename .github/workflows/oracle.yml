@@ -4,11 +4,11 @@ on:
   push:
     branches: [main, block-oracle]
     paths:
-      - "packages/oracle/**"
+      - "crates/**"
   pull_request:
     branches: [main, block-oracle]
     paths:
-      - "packages/oracle/**"
+      - "crates/**"
 
 env:
   CARGO_TERM_COLOR: always
@@ -30,7 +30,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --tests --manifest-path packages/oracle/Cargo.toml
+          args: --tests --manifest-path crates/oracle/Cargo.toml
 
   test:
     name: Tests
@@ -46,7 +46,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --manifest-path packages/oracle/Cargo.toml
+          args: --manifest-path crates/oracle/Cargo.toml
 
   fmt:
     name: Rustfmt
@@ -63,7 +63,7 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --manifest-path packages/oracle/Cargo.toml --all -- --check
+          args: --manifest-path crates/oracle/Cargo.toml --all -- --check
 
   clippy:
     name: Clippy
@@ -80,4 +80,4 @@ jobs:
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --manifest-path packages/oracle/Cargo.toml -- -D warnings
+          args: --manifest-path crates/oracle/Cargo.toml -- -D warnings
