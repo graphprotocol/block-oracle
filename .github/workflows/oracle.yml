@@ -21,27 +21,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --tests --manifest-path crates/oracle/Cargo.toml
+          args: --workspace --tests
 
   test:
     name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
@@ -53,31 +43,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add rustfmt
-      - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --manifest-path crates/oracle/Cargo.toml --all -- --check
+          args: --all --check
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
       - run: rustup component add clippy
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
-          args: --manifest-path crates/oracle/Cargo.toml -- -D warnings
+          args: --workspace -- -D warnings
