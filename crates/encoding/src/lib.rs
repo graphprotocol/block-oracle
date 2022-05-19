@@ -147,10 +147,7 @@ impl CompressionEngine {
 mod tests {
     use {
         super::*,
-        crate::{
-            database::mocks::*,
-            messages::{BlockPtr, Message},
-        },
+        crate::messages::{BlockPtr, Message},
         never::Never,
         std::collections::HashMap,
         tokio::test,
@@ -168,6 +165,15 @@ mod tests {
         let networks: Vec<_> = ["A:1991", "B:2kl", "C:190", "D:18818"]
             .iter()
             .map(|i| i.to_string())
+            .map(|s| {
+                (
+                    s,
+                    Network {
+                        block_number: 0,
+                        block_delta: 0,
+                    },
+                )
+            })
             .collect();
 
         // Add blocks
@@ -175,11 +181,11 @@ mod tests {
             let nums = networks
                 .iter()
                 .enumerate()
-                .map(|(ni, n)| {
+                .map(|(network_i, (name, _network))| {
                     (
-                        n.to_string(),
+                        name.to_string(),
                         BlockPtr {
-                            number: 300 * (i + (ni as u64)) + i,
+                            number: 300 * (i + (network_i as u64)) + i,
                             hash: [1; 32],
                         },
                     )
@@ -188,27 +194,21 @@ mod tests {
             messages.push(Message::SetBlockNumbersForNextEpoch(nums));
         }
 
-        let db = MockConnection::new();
+        let mut engine = CompressionEngine::new(networks);
+        engine.compress_messages(&messages[..]);
 
-        struct MockChain {}
-
-        #[async_trait]
-        impl Blockchain for MockChain {
-            type Err = Never;
-            async fn submit_oracle_messages(
-                &mut self,
-                transaction: Transaction,
-            ) -> Result<(), Self::Err> {
-                println!("Len: {}", transaction.payload.len());
-                println!("{:?}", transaction);
-                Ok(())
-            }
-        }
-
-        publish(&db, &messages, &mut MockChain {})
-            .await
-            .unwrap()
-            .unwrap();
+        assert!(matches!(
+            engine.compressed[0],
+            CompressedMessage::SetBlockNumbersForNextEpoch(
+                CompressedSetBlockNumbersForNextEpoch::Empty { count: 20 }
+            )
+        ));
+        assert!(matches!(
+            engine.compressed.last().unwrap(),
+            CompressedMessage::SetBlockNumbersForNextEpoch(
+                CompressedSetBlockNumbersForNextEpoch::NonEmpty { .. }
+            )
+        ));
 
         // TODO: Add ability to skip epochs? Right now the way to get past this is to
         // just add 80 or so SetBlockNumbers.
