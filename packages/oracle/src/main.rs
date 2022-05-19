@@ -222,13 +222,10 @@ impl<'a> Oracle<'a> {
         Ok(())
     }
 
-    async fn submit_oracle_messages(
-        &mut self,
-        calldata: Vec<u8>,
-    ) -> Result<DataEdgeCall, Error> {
+    async fn submit_oracle_messages(&mut self, call_data: Vec<u8>) -> Result<DataEdgeCall, Error> {
         let receipt = self
             .emitter
-            .submit_oracle_messages(calldata.clone())
+            .submit_oracle_messages(call_data.clone())
             .await?;
 
         // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
@@ -242,7 +239,6 @@ impl<'a> Oracle<'a> {
             transaction_hash,
             block_hash,
             block_number,
-            
             ..
         } = &receipt;
         if let (Some(block_hash), Some(block_number)) = (block_hash, block_number) {
@@ -250,10 +246,10 @@ impl<'a> Oracle<'a> {
                 transaction_hash.as_bytes().to_vec(),
                 // This is a filler value, we don't care anymore about the
                 // nonce stored in the database.
-                0, 
+                0,
                 block_number.as_u64(),
                 block_hash.as_bytes().to_vec(),
-                calldata,
+                call_data,
             ))
         } else {
             todo!(
