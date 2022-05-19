@@ -4,8 +4,8 @@ use std::time::Duration;
 use url::Url;
 use web3::{
     types::{
-        BlockNumber, SignedTransaction, Trace, TraceFilterBuilder,
-        TransactionParameters, TransactionReceipt, H160, U64, U256,
+        BlockNumber, SignedTransaction, Trace, TraceFilterBuilder, TransactionParameters,
+        TransactionReceipt, H160, U256, U64,
     },
     Web3,
 };
