@@ -17,8 +17,7 @@ await "curl --silent --fail localhost:${POSTGRES_PORT}" 52
 
 export POSTGRES_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:${POSTGRES_PORT}/${POSTGRES_USER}"
 
-# the Epoch Subhraph declares `ropsten` as its network, so we have to configure Graph Node to use it
-export ETHEREUM_RPC="ropsten:http://localhost:${ETHEREUM_PORT}"
+export ETHEREUM_RPC="hardhat:http://localhost:${ETHEREUM_PORT}"
 
 export IPFS="localhost:${IPFS_PORT}"
 export GRAPH_IPFS_TIMEOUT=10
