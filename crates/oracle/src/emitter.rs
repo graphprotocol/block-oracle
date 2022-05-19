@@ -36,7 +36,7 @@ impl<'a> Emitter<'a> {
         &mut self,
         call_data: Vec<u8>,
     ) -> Result<web3::types::TransactionReceipt, EmitterError> {
-        let nonce = self.client.get_latest_nonce(self.owner_address).await? + 1;
+        let nonce = self.client.get_latest_nonce(self.owner_address).await?;
 
         let call_data_with_identifier = {
             let mut identifier = function_identifier().to_vec();

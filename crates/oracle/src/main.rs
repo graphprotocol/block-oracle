@@ -169,55 +169,7 @@ impl<'a> Oracle<'a> {
         let encoded = encode_messages(&compression_engine.compressed);
         debug!(encoded = ?encoded, "Successfully encoded message(s).");
 
-        let data_edge_call = self.submit_oracle_messages(encoded).await?;
-        let data_edge_call_id = self.store.insert_data_edge_call(data_edge_call).await?;
-        debug!(
-            row_id = data_edge_call_id,
-            "Persisted the call receipt to the database."
-        );
-
-        // Delete all removed networks.
-        try_join_all(
-            networks_diff
-                .deletions
-                .into_iter()
-                .map(|(_, id)| self.store.delete_network(id))
-                .collect::<Vec<_>>(),
-        )
-        .await?;
-        // Persist all newly-created networks.
-        try_join_all(
-            networks_diff
-                .insertions
-                .into_iter()
-                .map(|(name, id)| {
-                    self.store.insert_network(WithId {
-                        id,
-                        data: Network {
-                            name,
-                            latest_block_delta: None,
-                            latest_block_number: None,
-                            latest_block_hash: None,
-                            introduced_with: data_edge_call_id,
-                        },
-                    })
-                })
-                .collect::<Vec<_>>(),
-        )
-        .await?;
-        // Finally, update network data with the new block numbers / deltas.
-        try_join_all(
-            compression_engine
-                .network_data_updates
-                .into_iter()
-                .map(|(id, update)| {
-                    let id = u32::try_from(id).unwrap();
-                    self.store
-                        .update_network_block_info_by_id(id, update.block_number)
-                })
-                .collect::<Vec<_>>(),
-        )
-        .await?;
+        self.submit_oracle_messages(encoded).await?;
 
         Ok(())
     }
