@@ -1,25 +1,48 @@
-use crate::*;
+use crate::NetworkId;
 use std::collections::HashMap;
 
-#[derive(Debug)]
+pub type Bytes32 = [u8; 32];
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct BlockPtr {
     pub number: u64,
     pub hash: Bytes32,
 }
 
-#[derive(Debug)]
-pub struct Transaction {
-    pub nonce: u64,
-    pub payload: Vec<u8>,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Message {
     // TODO: Consider specifying epoch number here?
     SetBlockNumbersForNextEpoch(HashMap<String, BlockPtr>),
-    // TODO: include hash, count, and (if count is nonzero) merkle root
-    CorrectEpochs,
-    UpdateVersion,
+    RegisterNetworks {
+        // Remove is by index
+        remove: Vec<NetworkId>,
+        // Add is by name
+        add: Vec<String>,
+    },
+    CorrectEpochs {
+        // TODO: include hash, count, and (if count is nonzero) merkle root
+        data_by_network_id: HashMap<NetworkId, EpochDetails>,
+    },
+    UpdateVersion {
+        version_number: u64,
+    },
+    Reset,
+}
+
+#[derive(Debug)]
+pub enum CompressedMessage {
+    SetBlockNumbersForNextEpoch(CompressedSetBlockNumbersForNextEpoch),
+    CorrectEpochs {
+        data_by_network_id: HashMap<NetworkId, EpochDetails>,
+    },
+    RegisterNetworks {
+        remove: Vec<u64>,
+        add: Vec<String>,
+    },
+    UpdateVersion {
+        version_number: u64,
+    },
+    Reset,
 }
 
 #[derive(Debug)]
@@ -33,15 +56,8 @@ pub enum CompressedSetBlockNumbersForNextEpoch {
     },
 }
 
-#[derive(Debug)]
-pub enum CompressedMessage {
-    SetBlockNumbersForNextEpoch(CompressedSetBlockNumbersForNextEpoch),
-    CorrectEpochs,
-    RegisterNetworks {
-        // Remove is by index
-        remove: Vec<u64>,
-        // Add is by name
-        add: Vec<String>,
-    },
-    UpdateVersion,
+#[derive(Debug, Clone)]
+pub struct EpochDetails {
+    tx_hash: Bytes32,
+    merkle_root: Bytes32,
 }

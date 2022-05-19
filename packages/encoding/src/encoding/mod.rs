@@ -1,8 +1,10 @@
+mod varint;
+
 use crate::{messages::*, NetworkId};
 
 pub fn encode_messages(messages: &[CompressedMessage]) -> Vec<u8> {
     let mut bytes = Vec::new();
-    let message_blocks = messages.chunks(4);
+    let message_blocks = messages.chunks(2);
     for message_block in message_blocks {
         encode_preamble(message_block, &mut bytes);
 
@@ -15,20 +17,21 @@ pub fn encode_messages(messages: &[CompressedMessage]) -> Vec<u8> {
 
 fn encode_preamble(messages: &[CompressedMessage], bytes: &mut Vec<u8>) {
     assert!(messages.len() > 0);
-    assert!(messages.len() < 5);
+    assert!(messages.len() < 3);
 
     fn tag(message: &CompressedMessage) -> u8 {
         match message {
             CompressedMessage::SetBlockNumbersForNextEpoch { .. } => 0u8,
-            CompressedMessage::CorrectEpochs => 1,
-            CompressedMessage::UpdateVersion => 2,
+            CompressedMessage::CorrectEpochs { .. } => 1,
+            CompressedMessage::UpdateVersion { .. } => 2,
             CompressedMessage::RegisterNetworks { .. } => 3,
+            CompressedMessage::Reset => 4,
         }
     }
 
     let mut preamble = 0;
     for (i, message) in messages.iter().enumerate() {
-        preamble |= tag(message) << (i * 2);
+        preamble |= tag(message) << (i * 4);
     }
 
     bytes.push(preamble)
@@ -85,9 +88,14 @@ fn encode_str(value: &str, bytes: &mut Vec<u8>) {
 }
 
 fn encode_u64(value: u64, bytes: &mut Vec<u8>) {
-    crate::varint::encode_prefix_varint(value, bytes);
+    varint::encode_prefix_varint(value, bytes);
 }
 
 fn encode_i64(value: i64, bytes: &mut Vec<u8>) {
     encode_u64(zigzag::ZigZag::encode(value), bytes);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 }
