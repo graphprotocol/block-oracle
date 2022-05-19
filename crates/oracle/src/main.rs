@@ -303,7 +303,7 @@ mod freshness {
     use crate::protocol_chain::ProtocolChain;
     use thiserror::Error;
     use tracing::{debug, error, trace};
-    use web3::types::{Action, H160, U64};
+    use web3::types::{H160, U64};
 
     #[derive(Debug, Error)]
     enum FreshnessCheckEror {
