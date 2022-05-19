@@ -5,7 +5,7 @@ set -eu
 
 await_contract
 
-cd ../packages/oracle/
+cd ../crates/oracle/
 
 cargo run -- \
 	--config-file=config/dev/config.toml \
