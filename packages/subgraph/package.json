@@ -6,8 +6,8 @@
     "codegen": "graph codegen",
     "test": "graph test",
     "build": "yarn prepare && graph build",
-    "deploy": "graph deploy --node https://api.thegraph.com/deploy/ juanmardefago/block-oracle",
-    "create-local": "graph create --node http://localhost:8020/ abarmat/block-oracle",
+    "deploy": "graph deploy --node https://api.thegraph.com/deploy/ edgeandnode/block-oracle",
+    "create-local": "graph create --node http://localhost:8020/ edgeandnode/block-oracle",
     "remove-local": "graph remove --node http://localhost:8020/ edgeandnode/block-oracle",
     "deploy-local": "graph deploy --node http://localhost:8020/ --ipfs http://localhost:${IPFS_PORT} edgeandnode/block-oracle"
   },
