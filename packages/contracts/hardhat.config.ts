@@ -105,6 +105,10 @@ const config: HardhatUserConfig = {
       accounts: {
         mnemonic: 'myth like bonus scare over problem client lizard pioneer submit female collect',
       },
+      mining: {
+        auto: true,
+        interval: 2000
+      }
     },
     ganache: {
       chainId: 1337,

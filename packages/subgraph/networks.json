@@ -5,10 +5,10 @@
       "startBlock": 12052156
     }
   },
-  "mainnet": {
+  "hardhat": {
     "DataEdge": {
-      "address": "0xae6ADd894F8a1BcAC10b153dc59Cab1da9656836",
-      "startBlock": 12052156
+      "address": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
+      "startBlock": 0
     }
   }
 }
