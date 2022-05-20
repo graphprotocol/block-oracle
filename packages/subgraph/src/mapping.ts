@@ -37,7 +37,7 @@ import {
 } from "./constants";
 
 export function handleLogCrossChainEpochOracle(
-  event: LogCrossChainEpochOracleCall
+  event: Log
 ): void {
   // Read input vars
   let submitter = event.transaction.from.toHexString();

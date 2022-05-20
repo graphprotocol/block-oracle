@@ -27,11 +27,11 @@ export function getAuxGlobalState(): GlobalState {
 }
 
 export function commitToGlobalState(state: GlobalState): void {
-  // ToDo: Add commit of network entities here...
   let realGlobalState = getGlobalState();
+  let networks = getNetworkList(state);
+  commitNetworkChanges([], networks, realGlobalState);
   realGlobalState.networkCount = state.networkCount;
   realGlobalState.activeNetworkCount = state.activeNetworkCount;
-  realGlobalState.networkArrayHead = state.networkArrayHead;
   realGlobalState.latestValidEpoch = state.latestValidEpoch;
   realGlobalState.save();
   state.save();
