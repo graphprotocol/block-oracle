@@ -34,13 +34,13 @@ impl<'a> Emitter<'a> {
 
     pub async fn submit_oracle_messages(
         &mut self,
-        call_data: Vec<u8>,
+        calldata: Vec<u8>,
     ) -> Result<web3::types::TransactionReceipt, EmitterError> {
         let nonce = self.client.get_latest_nonce(self.owner_address).await?;
 
-        let call_data_with_identifier = {
+        let calldata_with_identifier = {
             let mut identifier = function_identifier().to_vec();
-            identifier.extend(call_data);
+            identifier.extend(calldata);
             identifier
         };
 
@@ -48,7 +48,7 @@ impl<'a> Emitter<'a> {
             to: Some(self.contract_address),
             value: U256::zero(),
             nonce: Some(nonce.into()),
-            data: Bytes::from(call_data_with_identifier),
+            data: Bytes::from(calldata_with_identifier),
             ..Default::default()
         };
         let signed = self

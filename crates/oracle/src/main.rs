@@ -174,10 +174,10 @@ impl<'a> Oracle<'a> {
         Ok(())
     }
 
-    async fn submit_oracle_messages(&mut self, call_data: Vec<u8>) -> Result<DataEdgeCall, Error> {
+    async fn submit_oracle_messages(&mut self, calldata: Vec<u8>) -> Result<DataEdgeCall, Error> {
         let receipt = self
             .emitter
-            .submit_oracle_messages(call_data.clone())
+            .submit_oracle_messages(calldata.clone())
             .await?;
 
         // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
@@ -201,7 +201,7 @@ impl<'a> Oracle<'a> {
                 0,
                 block_number.as_u64(),
                 block_hash.as_bytes().to_vec(),
-                call_data,
+                calldata,
             ))
         } else {
             todo!(
