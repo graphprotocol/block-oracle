@@ -1,4 +1,7 @@
-import { CrossChainEpochOracleCall } from "../generated/DataEdge/DataEdge";
+import {
+  CrossChainEpochOracleCall,
+  Log
+} from "../generated/DataEdge/DataEdge";
 import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
 import {
   DataEdge,
@@ -33,6 +36,17 @@ import {
   BIGINT_ONE
 } from "./constants";
 
+export function handleLogCrossChainEpochOracle(
+  event: LogCrossChainEpochOracleCall
+): void {
+  // Read input vars
+  let submitter = event.transaction.from.toHexString();
+  let payloadBytes = event.params.data;
+  let txHash = event.transaction.hash.toHexString();
+
+  processPayload(submitter, payloadBytes, txHash);
+}
+
 export function handleCrossChainEpochOracle(
   call: CrossChainEpochOracleCall
 ): void {
@@ -41,6 +55,14 @@ export function handleCrossChainEpochOracle(
   let payloadBytes = call.inputs._payload;
   let txHash = call.transaction.hash.toHexString();
 
+  processPayload(submitter, payloadBytes, txHash);
+}
+
+export function processPayload(
+  submitter: String,
+  payloadBytes: Bytes,
+  txHash: String
+): void {
   // Load auxiliary GlobalState for rollback capabilities
   let globalState = getAuxGlobalState();
 
@@ -189,10 +211,12 @@ function executeSetBlockNumbersForEpochMessage(
     bytesRead += readCount[1] as i32;
     message.save();
 
-    log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [message.count!.toString()])
+    log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
+      message.count!.toString()
+    ]);
 
-    for (let i = BIGINT_ZERO; i < message.count!; i+=BIGINT_ONE) {
-      log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()])
+    for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
+      log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
       let newEpoch = getOrCreateEpoch(
         (globalState.latestValidEpoch != null
           ? BigInt.fromString(globalState.latestValidEpoch!)
@@ -200,7 +224,7 @@ function executeSetBlockNumbersForEpochMessage(
       );
       globalState.latestValidEpoch = newEpoch.id;
     }
-    log.warning("AFTER EPOCH LOOP", [])
+    log.warning("AFTER EPOCH LOOP", []);
   }
   return bytesRead;
 }
@@ -243,7 +267,10 @@ function executeRegisterNetworksMessage(
     let readRemove = decodePrefixVarIntU64(data, bytesRead);
     bytesRead += readRemove[1] as i32;
     // check network to remove is within bounds
-    if (networks.length <= (readRemove[0] as i32) || (readRemove[1] as i32) == 0) {
+    if (
+      networks.length <= (readRemove[0] as i32) ||
+      (readRemove[1] as i32) == 0
+    ) {
       // trigger error here
     }
     let networkToRemoveID = readRemove[0] as i32;

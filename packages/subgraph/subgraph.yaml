@@ -19,6 +19,9 @@ dataSources:
       abis:
         - name: DataEdge
           file: ./abis/DataEdgeFull.json
+      eventHandlers:
+        - event: Log(bytes)
+          handler: handleLogCrossChainEpochOracle
       callHandlers:
         - function: crossChainEpochOracle(bytes)
           handler: handleCrossChainEpochOracle

@@ -1,17 +1,11 @@
 import { clearStore, test, assert } from "matchstick-as/assembly/index";
-import { handleCrossChainEpochOracle } from "../src/mapping";
 import {
-  getGlobalState,
-  getTags,
   decodePrefixVarIntU64,
   decodePrefixVarIntI64,
   zigZagDecode
 } from "../src/helpers";
 import { log } from "@graphprotocol/graph-ts";
-
-import { CrossChainEpochOracleCall } from "../generated/DataEdge/DataEdge";
 import { Bytes, BigInt } from "@graphprotocol/graph-ts";
-import { DataEdge, MessageBlock, Payload } from "../generated/schema";
 
 test("U64 Decoding 0x2F", () => {
   // 23 -> [47] -> 0x2F
