@@ -189,7 +189,10 @@ function executeSetBlockNumbersForEpochMessage(
     bytesRead += readCount[1] as i32;
     message.save();
 
-    for (let i = BIGINT_ZERO; i < message.count!; i.plus(BIGINT_ONE)) {
+    log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [message.count!.toString()])
+
+    for (let i = BIGINT_ZERO; i < message.count!; i+=BIGINT_ONE) {
+      log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()])
       let newEpoch = getOrCreateEpoch(
         (globalState.latestValidEpoch != null
           ? BigInt.fromString(globalState.latestValidEpoch!)
@@ -197,6 +200,7 @@ function executeSetBlockNumbersForEpochMessage(
       );
       globalState.latestValidEpoch = newEpoch.id;
     }
+    log.warning("AFTER EPOCH LOOP", [])
   }
   return bytesRead;
 }
