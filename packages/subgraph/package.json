@@ -13,11 +13,10 @@
     "prep:local": "mustache ./config/local.json subgraph.template.yaml > subgraph.yaml",
     "prep:prod": "mustache ./config/prod.json subgraph.template.yaml > subgraph.yaml"
   },
-  "dependencies": {
-    "@graphprotocol/graph-cli": "0.29.0",
-    "@graphprotocol/graph-ts": "0.26.0"
-  },
   "devDependencies": {
-    "matchstick-as": "^0.4.1"
+    "matchstick-as": "^0.4.1",
+    "@graphprotocol/graph-cli": "0.29.0",
+    "@graphprotocol/graph-ts": "0.26.0",
+    "mustache": "^4.0.1"
   }
 }

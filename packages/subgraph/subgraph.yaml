@@ -22,7 +22,4 @@ dataSources:
       eventHandlers:
         - event: Log(bytes)
           handler: handleLogCrossChainEpochOracle
-      callHandlers:
-        - function: crossChainEpochOracle(bytes)
-          handler: handleCrossChainEpochOracle
       file: ./src/mapping.ts
