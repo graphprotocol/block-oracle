@@ -40,3 +40,4 @@ bin/
 
 # Subgraph
 generated/
+subgraph.yaml

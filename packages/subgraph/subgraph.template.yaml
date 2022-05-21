@@ -19,7 +19,14 @@ dataSources:
       abis:
         - name: DataEdge
           file: ./abis/DataEdgeFull.json
+      {{#local}}
       eventHandlers:
         - event: Log(bytes)
           handler: handleLogCrossChainEpochOracle
+      {{/local}}
+      {{^local}}
+      callHandlers:
+        - function: crossChainEpochOracle(bytes)
+          handler: handleCrossChainEpochOracle
+      {{/local}}
       file: ./src/mapping.ts

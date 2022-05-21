@@ -1,4 +1,7 @@
-import { CrossChainEpochOracleCall } from "../generated/DataEdge/DataEdge";
+import {
+  CrossChainEpochOracleCall,
+  Log
+} from "../generated/DataEdge/DataEdge";
 import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
 import {
   DataEdge,
@@ -21,7 +24,10 @@ import {
   commitToGlobalState,
   rollbackToGlobalState,
   getOrCreateEpoch,
-  createOrUpdateNetworkEpochBlockNumber
+  createOrUpdateNetworkEpochBlockNumber,
+  getNetworkList,
+  swapAndPop,
+  commitNetworkChanges
 } from "./helpers";
 import {
   PREAMBLE_BIT_LENGTH,
@@ -29,6 +35,17 @@ import {
   BIGINT_ZERO,
   BIGINT_ONE
 } from "./constants";
+
+export function handleLogCrossChainEpochOracle(
+  event: Log
+): void {
+  // Read input vars
+  let submitter = event.transaction.from.toHexString();
+  let payloadBytes = event.params.data;
+  let txHash = event.transaction.hash.toHexString();
+
+  processPayload(submitter, payloadBytes, txHash);
+}
 
 export function handleCrossChainEpochOracle(
   call: CrossChainEpochOracleCall
@@ -38,6 +55,14 @@ export function handleCrossChainEpochOracle(
   let payloadBytes = call.inputs._payload;
   let txHash = call.transaction.hash.toHexString();
 
+  processPayload(submitter, payloadBytes, txHash);
+}
+
+export function processPayload(
+  submitter: String,
+  payloadBytes: Bytes,
+  txHash: String
+): void {
   // Load auxiliary GlobalState for rollback capabilities
   let globalState = getAuxGlobalState();
 
@@ -181,7 +206,25 @@ function executeSetBlockNumbersForEpochMessage(
     message.data = changetype<Bytes>(data.slice(0, bytesRead));
     message.save();
   } else {
+    let readCount = decodePrefixVarIntU64(data, bytesRead); // we should check for errors here
+    message.count = BigInt.fromU64(readCount[0]);
+    bytesRead += readCount[1] as i32;
     message.save();
+
+    log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
+      message.count!.toString()
+    ]);
+
+    for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
+      log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
+      let newEpoch = getOrCreateEpoch(
+        (globalState.latestValidEpoch != null
+          ? BigInt.fromString(globalState.latestValidEpoch!)
+          : BIGINT_ZERO) + BIGINT_ONE
+      );
+      globalState.latestValidEpoch = newEpoch.id;
+    }
+    log.warning("AFTER EPOCH LOOP", []);
   }
   return bytesRead;
 }
@@ -216,12 +259,23 @@ function executeRegisterNetworksMessage(
   let readRemoveLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
   bytesRead += readRemoveLength[1] as i32;
 
-  // now get all the removed network ids
+  let networks = getNetworkList(globalState);
+  let removedNetworks: Array<Network> = [];
+
+  // now get all the removed network ids and apply the changes to the pre-loaded list
   for (let i = 0; i < (readRemoveLength[0] as i32); i++) {
-    let readRemove = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
+    let readRemove = decodePrefixVarIntU64(data, bytesRead);
     bytesRead += readRemove[1] as i32;
-    // remove networks to do
-    globalState.activeNetworkCount -= 1;
+    // check network to remove is within bounds
+    if (
+      networks.length <= (readRemove[0] as i32) ||
+      (readRemove[1] as i32) == 0
+    ) {
+      // trigger error here
+    }
+    let networkToRemoveID = readRemove[0] as i32;
+    networks[networkToRemoveID].removedAt = message.id;
+    removedNetworks.push(swapAndPop(networkToRemoveID, networks));
   }
 
   let readAddLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
@@ -235,15 +289,16 @@ function executeRegisterNetworksMessage(
     let chainID = getStringFromBytes(data, bytesRead, readStrLength[0] as u32);
     bytesRead += readStrLength[0] as i32;
 
-    // ID used here might need to change depending on what we get passed in the removes
-    let network = new Network(globalState.networkCount.toString());
-    network.chainID = chainID;
+    let network = new Network(chainID);
     network.addedAt = message.id;
     network.save();
 
     globalState.networkCount += 1;
-    globalState.activeNetworkCount += 1;
+
+    networks.push(network);
   }
+
+  commitNetworkChanges(removedNetworks, networks, globalState);
 
   message.data = changetype<Bytes>(data.slice(0, bytesRead));
   message.removeCount = BigInt.fromU64(readRemoveLength[0]);
