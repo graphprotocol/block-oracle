@@ -7,7 +7,9 @@ cd ../packages/subgraph/
 
 yarn
 yarn codegen
-yarn build --network hardhat
+yarn prepare
+yarn prep:local
+yarn graph build --network hardhat
 
 await "curl --silent --fail localhost:${GRAPH_NODE_JRPC_PORT}"
 
