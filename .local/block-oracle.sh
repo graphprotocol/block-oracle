@@ -3,9 +3,12 @@ set -eu
 
 . ./prelude.sh
 
-await_contract
-
 cd ../crates/oracle/
+
+cargo build
+
+await_contract
+await_subgraph
 
 cargo run -- \
 	--config-file=config/dev/config.toml \
