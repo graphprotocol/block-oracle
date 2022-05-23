@@ -37,6 +37,7 @@ pub struct Config {
     pub owner_private_key: SecretKey,
     pub contract_address: H160,
     pub database_url: String,
+    pub subgraph_url: String,
     pub epoch_duration: u64,
     pub protocol_chain_polling_interval: Duration,
     pub indexed_chains: Arc<Vec<IndexedChain>>,
@@ -58,6 +59,7 @@ impl Config {
             owner_private_key: SecretKey::from_str(clap.owner_private_key.as_str()).unwrap(),
             contract_address: config_file.contract_address.parse().unwrap(),
             database_url: clap.database_url,
+            subgraph_url: clap.subgraph_url,
             epoch_duration: config_file.epoch_duration,
             protocol_chain_polling_interval: Duration::from_secs(
                 config_file.protocol_chain_polling_interval_in_seconds,
@@ -96,6 +98,9 @@ struct Clap {
     /// The Ethereum address of the Data Edge smart contract.
     #[clap(long)]
     database_url: String,
+    /// The subgraph endpoint.
+    #[clap(long)]
+    subgraph_url: String,
     /// The filepath of the TOML JSON-RPC configuration file.
     #[clap(long, default_value = "config.toml", parse(from_os_str))]
     config_file: PathBuf,

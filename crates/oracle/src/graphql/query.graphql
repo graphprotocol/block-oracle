@@ -1,0 +1,18 @@
+query SubgraphState {
+  networks {
+    id
+    removedAt {
+      id
+    }
+    blockNumbers {
+      id
+      acceleration
+      delta
+      blockNumber
+      epoch
+    }
+    nextArrayElement
+    arrayIndex
+    state
+  }
+}

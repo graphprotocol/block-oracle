@@ -5,14 +5,16 @@ edition = "2021"
 
 [dependencies]
 actix-web = "4"
-backoff = { version = "0.4.0", features = [ "tokio" ] }
+backoff = { version = "0.4.0", features = ["tokio"] }
 clap = { version = "3.0.0", features = ["derive"] }
 ctrlc = "3.2.1"
 epoch-encoding = { path = "../encoding" }
 futures = "0.3.21"
 jsonrpc-core = "18.0.0"
+graphql_client = "0.10.0"
 lazy_static = "1"
 prometheus = "0.13.0"
+reqwest = "0.11.10"
 secp256k1 = "0.21"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_with = "1.1.12"
