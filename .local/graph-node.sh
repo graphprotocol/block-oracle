@@ -23,4 +23,4 @@ export IPFS="localhost:${IPFS_PORT}"
 export GRAPH_IPFS_TIMEOUT=10
 export GRAPH_LOG=debug
 
-cargo run -p graph-node
+./target/debug/graph-node
