@@ -1,4 +1,4 @@
-use crate::{indexed_chain::IndexedChain, networks::Caip2ChainId, Config, Error};
+use crate::{networks::Caip2ChainId, Config, Error};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
