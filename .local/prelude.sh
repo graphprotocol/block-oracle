@@ -87,7 +87,7 @@ await_subgraph() {
 		if [ $exit_code -eq 7 ]; then
 			echo "Waiting for graph-node to go live"
 		elif jq --exit-status 'has("errors")' <<<"${response}" >/dev/null; then
-			if jq --exit-status '.errors[0].message|match("deployment .*? does not exist")' <<<"${response}" >/dev/null; then
+			if jq --exit-status '.errors[0].message|match("deployment .*? does not exist|has not started syncing yet")' <<<"${response}" >/dev/null; then
 				echo "Waiting for subgraph to start"
 			else
 				echo "Unknown error received from graph-node"
