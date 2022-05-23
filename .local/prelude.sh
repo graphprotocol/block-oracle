@@ -72,7 +72,7 @@ await_contract() {
 }
 
 subgraph_is_ready() {
-	curl --silent --fail "http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/id/${DEPLOYMENT_HASH}" \
+	curl --silent --fail "http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/${DEPLOYMENT_NAME}" \
 		-X POST \
 		-d '{"query": ""}' \
 		-H 'Content-Type: application/json; charset=utf-8' \
