@@ -63,6 +63,19 @@ impl CompressionEngine {
                 }
             }
             Message::RegisterNetworks { remove, add } => {
+                // TODO: removals.
+                for added in add {
+                    self.network_data.push((
+                        added.clone(),
+                        Network {
+                            block_delta: 0,
+                            block_number: 0,
+                        },
+                    ));
+                    self.network_ids_by_name
+                        .insert(added.clone(), self.network_data.len() as NetworkId - 1);
+                }
+
                 self.compressed.push(CompressedMessage::RegisterNetworks {
                     remove: remove.clone(),
                     add: add.clone(),

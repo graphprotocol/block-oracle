@@ -10,6 +10,7 @@ mod metrics;
 mod networks_diff;
 mod protocol_chain;
 mod store;
+mod subgraph;
 mod transport;
 
 use crate::ctrlc::CtrlcHandler;
@@ -66,6 +67,10 @@ async fn main() -> Result<(), Error> {
     let mut oracle = Oracle::new(store, &*CONFIG)?;
     while !CTRLC_HANDLER.poll_ctrlc() {
         oracle.wait_and_process_next_event().await?;
+        println!(
+            "sugraph state: {:?}",
+            subgraph::query(CONFIG.subgraph_url.as_str()).await.unwrap()
+        );
         tokio::time::sleep(CONFIG.protocol_chain_polling_interval).await;
     }
 
@@ -157,9 +162,8 @@ impl<'a> Oracle<'a> {
             networks_count = networks.len(),
             "Compressing message(s)."
         );
-        let mut compression_engine = CompressionEngine::new(networks);
-        let messages = vec![];
 
+        let mut compression_engine = CompressionEngine::new(networks);
         compression_engine.compress_messages(&messages[..]);
         debug!(msg = ?compression_engine.compressed, msg_count = messages.len(), "Successfully compressed, now encoding message(s).");
         let encoded = encode_messages(&compression_engine.compressed);
