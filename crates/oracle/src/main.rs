@@ -255,7 +255,7 @@ mod freshness {
     use crate::protocol_chain::ProtocolChain;
     use thiserror::Error;
     use tracing::{debug, error, trace};
-    use web3::types::{Action, H160, U64};
+    use web3::types::{H160, U64};
 
     #[derive(Debug, Error)]
     enum FreshnessCheckEror {
@@ -310,8 +310,8 @@ mod freshness {
             return Ok(false);
         }
         // Scan the blocks in betwenn for transactions from the Owner to the Data Edge contract
-        let traces = protocol_chain
-            .traces_in_block_range(
+        let calls = protocol_chain
+            .calls_in_block_range(
                 subgraph_latest_block,
                 current_block,
                 owner_address,
@@ -319,19 +319,7 @@ mod freshness {
             )
             .await?;
 
-        if traces
-            .iter()
-            .any(|trace| matches!(trace.action, Action::Call(_)))
-        {
-            debug!(
-                %subgraph_latest_block,
-                %current_block,
-                "Epoch Subgraph is not fresh. \
-                 Found {} calls between the last synced block and the protocol chain's head",
-                traces.len()
-            );
-            Ok(false)
-        } else {
+        if calls.is_empty() {
             trace!(
                 %subgraph_latest_block,
                 %current_block,
@@ -339,6 +327,15 @@ mod freshness {
                  Found no calls between last synced block and the protocol chain's head",
             );
             Ok(true)
+        } else {
+            debug!(
+                %subgraph_latest_block,
+                %current_block,
+                "Epoch Subgraph is not fresh. \
+                 Found {} calls between the last synced block and the protocol chain's head",
+                calls.len()
+            );
+            Ok(false)
         }
     }
 }
