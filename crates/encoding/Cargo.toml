@@ -11,3 +11,4 @@ zigzag = "0.1.0"
 
 [dev-dependencies]
 tokio = { version = "1.14", features = ["sync", "parking_lot", "rt", "macros"] }
+never = "0.1.0"
