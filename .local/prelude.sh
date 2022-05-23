@@ -71,24 +71,34 @@ await_contract() {
 	set -e
 }
 
-subgraph_is_ready() {
+query_subgraph() {
 	curl --silent --fail "http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/name/${DEPLOYMENT_NAME}" \
 		-X POST \
-		-d '{"query": ""}' \
-		-H 'Content-Type: application/json; charset=utf-8' \
-		-o /dev/null
+		-d '{"query": "{_meta {block {number}}}"}' \
+		-H 'Content-Type: application/json; charset=utf-8'
 }
 
 await_subgraph() {
 	timeout="${1:-2}"
 	set +e
 	while true; do
-		subgraph_is_ready
+		response=$(query_subgraph)
 		exit_code=$?
 		if [ $exit_code -eq 7 ]; then
 			echo "Waiting for graph-node to go live"
-		else
+		elif jq --exit-status 'has("errors")' <<<"${response}" >/dev/null; then
+			if jq --exit-status '.errors[0].message|match("deployment .*? does not exist")' <<<"${response}" >/dev/null; then
+				echo "Waiting for subgraph to start"
+			else
+				echo "Unknown error received from graph-node"
+				exit
+			fi
+		elif jq --exit-status 'has("data")' <<<"$response" >/dev/null; then
+			echo "Subgraph was deployed"
 			break
+		else
+			echo "Unknown error"
+			exit
 		fi
 		sleep "$timeout"
 	done
