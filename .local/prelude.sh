@@ -70,3 +70,27 @@ await_contract() {
 	done
 	set -e
 }
+
+subgraph_is_ready() {
+	curl --silent --fail "http://localhost:${GRAPH_NODE_GRAPHQL_PORT}/subgraphs/id/${DEPLOYMENT_HASH}" \
+		-X POST \
+		-d '{"query": ""}' \
+		-H 'Content-Type: application/json; charset=utf-8' \
+		-o /dev/null
+}
+
+await_subgraph() {
+	timeout="${1:-2}"
+	set +e
+	while true; do
+		subgraph_is_ready
+		exit_code=$?
+		if [ $exit_code -eq 7 ]; then
+			echo "Waiting for graph-node to go live"
+		else
+			break
+		fi
+		sleep "$timeout"
+	done
+	set -e
+}
