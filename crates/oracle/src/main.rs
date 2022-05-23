@@ -12,15 +12,11 @@ mod protocol_chain;
 mod store;
 mod transport;
 
-use crate::{
-    ctrlc::CtrlcHandler,
-    store::{Network, WithId},
-};
+use crate::ctrlc::CtrlcHandler;
 use diagnostics::init_logging;
 use epoch_encoding::{self as ee, encode_messages, BlockPtr, CompressionEngine, Message};
 use epoch_tracker::EpochTrackerError;
 use event_source::{EventSource, EventSourceError};
-use futures::future::try_join_all;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use store::{Caip2ChainId, DataEdgeCall};
