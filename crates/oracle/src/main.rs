@@ -15,7 +15,8 @@ mod subgraph;
 
 use crate::ctrlc::CtrlcHandler;
 use diagnostics::init_logging;
-use epoch_encoding::{self as ee, encode_messages, BlockPtr, CompressionEngine, Message};
+use ee::CURRENT_ENCODING_VERSION;
+use epoch_encoding::{self as ee, BlockPtr, Encoder, Message};
 use epoch_tracker::EpochTrackerError;
 use event_source::{EventSource, EventSourceError};
 use lazy_static::lazy_static;
@@ -25,7 +26,6 @@ use tracing::{debug, info, warn};
 
 pub use config::Config;
 pub use emitter::Emitter;
-pub use encoder::Encoder;
 pub use epoch_tracker::EpochTracker;
 pub use metrics::Metrics;
 pub use networks_diff::NetworksDiff;
@@ -163,10 +163,8 @@ impl<'a> Oracle<'a> {
             "Compressing message(s)."
         );
 
-        let mut compression_engine = CompressionEngine::new(networks);
-        compression_engine.compress_messages(&messages[..]);
-        debug!(msg = ?compression_engine.compressed, msg_count = messages.len(), "Successfully compressed, now encoding message(s).");
-        let encoded = encode_messages(&compression_engine.compressed);
+        let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, networks);
+        let encoded = compression_engine.encode(&messages[..]);
         debug!(encoded = ?encoded, "Successfully encoded message(s).");
 
         self.submit_oracle_messages(encoded).await?;

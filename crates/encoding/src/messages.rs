@@ -1,6 +1,6 @@
-use crate::NetworkId;
 use std::collections::HashMap;
 
+pub type NetworkId = u64;
 pub type Bytes32 = [u8; 32];
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -29,7 +29,7 @@ pub enum Message {
     Reset,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CompressedMessage {
     SetBlockNumbersForNextEpoch(CompressedSetBlockNumbersForNextEpoch),
     CorrectEpochs {
@@ -45,7 +45,7 @@ pub enum CompressedMessage {
     Reset,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CompressedSetBlockNumbersForNextEpoch {
     Empty {
         count: u64,
@@ -56,7 +56,7 @@ pub enum CompressedSetBlockNumbersForNextEpoch {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct EpochDetails {
     tx_hash: Bytes32,
     merkle_root: Bytes32,
