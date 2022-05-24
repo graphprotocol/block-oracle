@@ -6,12 +6,12 @@ mod encoder;
 mod epoch_tracker;
 mod event_source;
 mod indexed_chain;
+mod jsonrpc_utils;
 mod metrics;
 mod networks_diff;
 mod protocol_chain;
 mod store;
 mod subgraph;
-mod transport;
 
 use crate::ctrlc::CtrlcHandler;
 use diagnostics::init_logging;

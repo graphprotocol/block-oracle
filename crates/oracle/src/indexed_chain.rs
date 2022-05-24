@@ -1,4 +1,4 @@
-use crate::{store::Caip2ChainId, transport::JsonRpcExponentialBackoff};
+use crate::{jsonrpc_utils::JsonRpcExponentialBackoff, store::Caip2ChainId};
 use epoch_encoding::BlockPtr;
 use std::time::Duration;
 use tracing::error;
@@ -13,7 +13,7 @@ pub struct IndexedChain {
 
 impl IndexedChain {
     pub fn new(chain_id: Caip2ChainId, jrpc_url: Url, retry_wait_time: Duration) -> Self {
-        let web3 = Web3::new(JsonRpcExponentialBackoff::new(jrpc_url, retry_wait_time));
+        let web3 = Web3::new(JsonRpcExponentialBackoff::http(jrpc_url, retry_wait_time));
         Self { chain_id, web3 }
     }
 
