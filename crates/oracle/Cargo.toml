@@ -18,7 +18,6 @@ reqwest = "0.11.10"
 secp256k1 = "0.21"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_with = "1.1.12"
-sqlx = { version = "0.5", features = ["runtime-tokio-rustls", "sqlite", "migrate", "chrono"] }
 thiserror = "1.0.30"
 tokio = { version = "1", features = ["rt", "macros", "sync"] }
 toml = "0.5.8"

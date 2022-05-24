@@ -4,7 +4,6 @@ use prometheus::*;
 pub struct Metrics {
     registry: Registry,
 
-    pub db_queries: Counter,
     pub retries_by_jsonrpc_provider: HistogramVec,
 }
 
@@ -22,7 +21,6 @@ impl Default for Metrics {
     fn default() -> Self {
         let r = Registry::new();
 
-        let db_queries = Counter::new("db_queries", "Number of database queries").unwrap();
         let retries_by_jsonrpc_provider = HistogramVec::new(
             HistogramOpts::new(
                 "retries_by_jsonrpc_provider",
@@ -32,13 +30,11 @@ impl Default for Metrics {
         )
         .unwrap();
 
-        r.register(Box::new(db_queries.clone())).unwrap();
         r.register(Box::new(retries_by_jsonrpc_provider.clone()))
             .unwrap();
 
         Self {
             registry: r,
-            db_queries,
             retries_by_jsonrpc_provider,
         }
     }

@@ -2,15 +2,14 @@ mod config;
 mod ctrlc;
 mod diagnostics;
 mod emitter;
-mod encoder;
 mod epoch_tracker;
 mod event_source;
 mod indexed_chain;
 mod jsonrpc_utils;
 mod metrics;
+mod models;
 mod networks_diff;
 mod protocol_chain;
-mod store;
 mod subgraph;
 
 use crate::ctrlc::CtrlcHandler;
@@ -20,8 +19,8 @@ use epoch_encoding::{self as ee, BlockPtr, Encoder, Message};
 use epoch_tracker::EpochTrackerError;
 use event_source::{EventSource, EventSourceError};
 use lazy_static::lazy_static;
+use models::Caip2ChainId;
 use std::collections::HashMap;
-use store::{Caip2ChainId, DataEdgeCall};
 use tracing::{debug, info, warn};
 
 pub use config::Config;
@@ -29,7 +28,6 @@ pub use emitter::Emitter;
 pub use epoch_tracker::EpochTracker;
 pub use metrics::Metrics;
 pub use networks_diff::NetworksDiff;
-pub use store::Store;
 
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
@@ -39,8 +37,6 @@ lazy_static! {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Database error: {0}")]
-    Sqlx(#[from] sqlx::Error),
     #[error("Error fetching blockchain data: {0}")]
     EventSource(#[from] event_source::EventSourceError),
     #[error("Can't publish events to Ethereum mainnet: {0}")]
@@ -62,9 +58,7 @@ async fn main() -> Result<(), Error> {
     init_logging(CONFIG.log_level);
     info!(log_level = %CONFIG.log_level, "Block oracle starting up.");
 
-    let store = Store::new(CONFIG.database_url.as_str()).await?;
-
-    let mut oracle = Oracle::new(store, &*CONFIG)?;
+    let mut oracle = Oracle::new(&*CONFIG)?;
     while !CTRLC_HANDLER.poll_ctrlc() {
         oracle.wait_and_process_next_event().await?;
         println!(
@@ -79,20 +73,18 @@ async fn main() -> Result<(), Error> {
 
 /// The main application in-memory state
 struct Oracle<'a> {
-    store: Store,
     emitter: Emitter<'a>,
     epoch_tracker: EpochTracker,
     event_source: EventSource,
 }
 
 impl<'a> Oracle<'a> {
-    pub fn new(store: Store, config: &'a Config) -> Result<Self, Error> {
+    pub fn new(config: &'a Config) -> Result<Self, Error> {
         let event_source = EventSource::new(config);
         let emitter = Emitter::new(config);
-        let epoch_tracker = EpochTracker::new(&store, &*CONFIG);
+        let epoch_tracker = EpochTracker::new(&*CONFIG);
 
         Ok(Self {
-            store,
             event_source,
             emitter,
             epoch_tracker,
@@ -119,29 +111,13 @@ impl<'a> Oracle<'a> {
         }
     }
 
-    async fn networks(&self) -> Result<Vec<(String, ee::Network)>, Error> {
-        let networks = self.store.networks().await?;
-        Ok(networks
-            .into_iter()
-            .map(|n| {
-                (
-                    n.data.name.as_str().to_string(),
-                    ee::Network {
-                        block_delta: n.data.latest_block_delta.unwrap_or(0) as _,
-                        block_number: n.data.latest_block_number.unwrap_or(0) as _,
-                    },
-                )
-            })
-            .collect())
-    }
-
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
         info!("A new epoch started in the protocol chain.");
         let mut messages = vec![];
 
         // First, we need to make sure that there are no pending
         // `RegisterNetworks` messages.
-        let networks_diff = NetworksDiff::calculate(&self.store, &CONFIG).await?;
+        let networks_diff = NetworksDiff::calculate((), &CONFIG).await?;
         info!(
             created = networks_diff.insertions.len(),
             deleted = networks_diff.deletions.len(),
@@ -155,15 +131,15 @@ impl<'a> Oracle<'a> {
         let latest_blocks = self.event_source.get_latest_blocks().await?;
         messages.push(latest_blocks_to_message(latest_blocks));
 
-        let networks = self.networks().await?;
+        let available_networks = vec![];
         debug!(
             messages = ?messages,
             messages_count = messages.len(),
-            networks_count = networks.len(),
+            networks_count = available_networks.len(),
             "Compressing message(s)."
         );
 
-        let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, networks);
+        let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks);
         let encoded = compression_engine.encode(&messages[..]);
         debug!(encoded = ?encoded, "Successfully encoded message(s).");
 
@@ -172,8 +148,8 @@ impl<'a> Oracle<'a> {
         Ok(())
     }
 
-    async fn submit_oracle_messages(&mut self, calldata: Vec<u8>) -> Result<DataEdgeCall, Error> {
-        let receipt = self
+    async fn submit_oracle_messages(&mut self, calldata: Vec<u8>) -> Result<(), Error> {
+        let _receipt = self
             .emitter
             .submit_oracle_messages(calldata.clone())
             .await?;
@@ -182,32 +158,7 @@ impl<'a> Oracle<'a> {
         // receipt, we should monitor it until it get enough confirmations. It's unclear which
         // component should do this task.
 
-        // FIXME: The only purpose of this scope is to transform a transaction receipt and an
-        // encoded payload into a DataEdgeCall value. We could refactor it into a dedicated
-        // function.
-        let web3::types::TransactionReceipt {
-            transaction_hash,
-            block_hash,
-            block_number,
-            ..
-        } = &receipt;
-        if let (Some(block_hash), Some(block_number)) = (block_hash, block_number) {
-            Ok(DataEdgeCall::new(
-                transaction_hash.as_bytes().to_vec(),
-                // This is a filler value, we don't care anymore about the
-                // nonce stored in the database.
-                0,
-                block_number.as_u64(),
-                block_hash.as_bytes().to_vec(),
-                calldata,
-            ))
-        } else {
-            todo!(
-                "The expected block number and hash were not present, \
-                                         despite having the transaction receipt at hand. \
-                                         We should make an new Error variant out of this."
-            )
-        }
+        Ok(())
     }
 
     async fn is_new_epoch(&self, block_number: u64) -> Result<bool, Error> {

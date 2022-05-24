@@ -38,17 +38,17 @@ impl<'a> Emitter<'a> {
     ) -> Result<web3::types::TransactionReceipt, EmitterError> {
         let nonce = self.client.get_latest_nonce(self.owner_address).await?;
 
-        let calldata_with_identifier = {
-            let mut identifier = function_identifier().to_vec();
-            identifier.extend(calldata);
-            identifier
-        };
+        //let calldata_with_identifier = {
+        //    let mut identifier = function_identifier().to_vec();
+        //    identifier.extend(calldata);
+        //    identifier
+        //};
 
         let tx_object = TransactionParameters {
             to: Some(self.contract_address),
             value: U256::zero(),
             nonce: Some(nonce.into()),
-            data: Bytes::from(calldata_with_identifier),
+            data: Bytes::from(calldata),
             ..Default::default()
         };
         let signed = self
