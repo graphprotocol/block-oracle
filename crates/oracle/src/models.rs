@@ -1,17 +1,7 @@
 use serde_with::DeserializeFromStr;
-use sqlx::types::chrono;
 use std::{fmt::Display, str::FromStr};
 
 pub type Id = u32;
-pub type BlockNumber = u64;
-pub type Timestamp = chrono::DateTime<chrono::Utc>;
-pub type Nonce = u64;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct WithId<T, I = Id> {
-    pub id: I,
-    pub data: T,
-}
 
 /// See https://github.com/ChainAgnostic/CAIPs/blob/master/CAIPs/caip-2.md.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, DeserializeFromStr)]
@@ -79,37 +69,6 @@ pub struct Network {
     pub latest_block_hash: Option<Vec<u8>>,
     pub latest_block_delta: Option<i64>,
     pub introduced_with: Id,
-}
-
-#[derive(Debug, Clone)]
-pub struct DataEdgeCall {
-    pub tx_hash: Vec<u8>,
-    pub nonce: u64,
-    pub num_confirmations: u64,
-    pub num_confirmations_last_checked_at: Timestamp,
-    pub block_number: BlockNumber,
-    pub block_hash: Vec<u8>,
-    pub payload: Vec<u8>,
-}
-
-impl DataEdgeCall {
-    pub fn new(
-        tx_hash: Vec<u8>,
-        nonce: u64,
-        block_number: BlockNumber,
-        block_hash: Vec<u8>,
-        payload: Vec<u8>,
-    ) -> Self {
-        Self {
-            tx_hash,
-            nonce,
-            num_confirmations: 0,
-            num_confirmations_last_checked_at: chrono::Utc::now(),
-            block_number,
-            block_hash,
-            payload,
-        }
-    }
 }
 
 #[cfg(test)]

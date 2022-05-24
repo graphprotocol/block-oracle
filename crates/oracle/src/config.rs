@@ -1,6 +1,4 @@
-use crate::{
-    indexed_chain::IndexedChain, protocol_chain::ProtocolChain, store::models::Caip2ChainId,
-};
+use crate::{indexed_chain::IndexedChain, models::Caip2ChainId, protocol_chain::ProtocolChain};
 use clap::Parser;
 use secp256k1::SecretKey;
 use serde::Deserialize;
@@ -36,7 +34,6 @@ pub struct Config {
     pub owner_address: H160,
     pub owner_private_key: SecretKey,
     pub contract_address: H160,
-    pub database_url: String,
     pub subgraph_url: String,
     pub epoch_duration: u64,
     pub protocol_chain_polling_interval: Duration,
@@ -58,7 +55,6 @@ impl Config {
             owner_address: config_file.owner_address.parse().unwrap(),
             owner_private_key: SecretKey::from_str(clap.owner_private_key.as_str()).unwrap(),
             contract_address: config_file.contract_address.parse().unwrap(),
-            database_url: clap.database_url,
             subgraph_url: clap.subgraph_url,
             epoch_duration: config_file.epoch_duration,
             protocol_chain_polling_interval: Duration::from_secs(
@@ -95,9 +91,6 @@ struct Clap {
     /// Only show log messages at or above this level. `INFO` by default.
     #[clap(short, long, default_value = "info")]
     log_level: LevelFilter,
-    /// The Ethereum address of the Data Edge smart contract.
-    #[clap(long)]
-    database_url: String,
     /// The subgraph endpoint.
     #[clap(long)]
     subgraph_url: String,

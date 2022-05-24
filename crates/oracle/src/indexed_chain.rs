@@ -1,4 +1,4 @@
-use crate::{jsonrpc_utils::JsonRpcExponentialBackoff, store::Caip2ChainId};
+use crate::{jsonrpc_utils::JsonRpcExponentialBackoff, models::Caip2ChainId};
 use epoch_encoding::BlockPtr;
 use std::time::Duration;
 use tracing::error;

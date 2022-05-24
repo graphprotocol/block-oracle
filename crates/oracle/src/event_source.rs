@@ -1,6 +1,6 @@
 use crate::indexed_chain::IndexedChain;
 use crate::Config;
-use crate::{protocol_chain::ProtocolChain, store::Caip2ChainId};
+use crate::{models::Caip2ChainId, protocol_chain::ProtocolChain};
 use epoch_encoding::BlockPtr;
 use futures::{
     stream::{FuturesUnordered, StreamExt},
@@ -10,8 +10,6 @@ use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
 use thiserror::Error;
 use web3::types::U64;
-
-type BlockNumber = U64;
 
 #[derive(Error, Debug)]
 pub enum EventSourceError {
