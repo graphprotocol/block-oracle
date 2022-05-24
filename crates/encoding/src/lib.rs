@@ -120,7 +120,7 @@ impl Encoder {
                     .networks
                     .iter()
                     .position(|(s, _)| s == network_name)
-                    .expect(format!("Network named '{}' not found", network_name).as_str());
+                    .unwrap_or_else(|| panic!("Network named '{}' not found", network_name));
                 (network_id as NetworkId, *block_ptr)
             })
             .collect();
