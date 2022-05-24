@@ -1,4 +1,4 @@
-use crate::{store::Caip2ChainId, transport::JsonRpcExponentialBackoff};
+use crate::{jsonrpc_utils::JsonRpcExponentialBackoff, store::Caip2ChainId};
 use futures::future::try_join_all;
 use secp256k1::SecretKey;
 use std::time::Duration;
@@ -27,7 +27,7 @@ impl ProtocolChain {
         transaction_confirmation_poll_interval_in_seconds: u64,
         transaction_confirmation_count: usize,
     ) -> Self {
-        let web3 = Web3::new(JsonRpcExponentialBackoff::new(jrpc_url, retry_wait_time));
+        let web3 = Web3::new(JsonRpcExponentialBackoff::http(jrpc_url, retry_wait_time));
         Self {
             chain_id,
             web3,
