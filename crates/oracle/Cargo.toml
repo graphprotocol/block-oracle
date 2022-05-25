@@ -27,6 +27,7 @@ tiny-keccak = { version = "2", features = ["keccak"] }
 url = { version = "2.2.2", features = ["serde"] }
 web3 = { version = "0.18.0", features = ["signing"] }
 hex = "0.4.3"
+anyhow = "1.0.57"
 
 [dev-dependencies]
 rand = "0.8"

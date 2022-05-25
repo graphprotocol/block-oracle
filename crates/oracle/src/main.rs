@@ -11,6 +11,7 @@ mod models;
 mod networks_diff;
 mod protocol_chain;
 mod subgraph;
+mod subgraph_state;
 
 use crate::ctrlc::CtrlcHandler;
 use diagnostics::init_logging;
@@ -171,7 +172,6 @@ impl<'a> Oracle<'a> {
                 warn!("Failed to determine the previous epoch.");
                 Ok(true)
             }
-            Err(other_error) => Err(other_error.into()),
         }
     }
 }
