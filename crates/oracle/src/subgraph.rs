@@ -1,6 +1,9 @@
+use crate::{Config, SubgraphApi};
+use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
 use serde::{de, Deserialize, Deserializer};
 use std::fmt;
+use url::Url;
 
 pub type Id = String;
 pub type BigInt = u128;
