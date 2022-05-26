@@ -13,7 +13,7 @@ mod protocol_chain;
 mod subgraph;
 mod subgraph_state;
 
-use crate::ctrlc::CtrlcHandler;
+use crate::{ctrlc::CtrlcHandler, emitter::EmitterError};
 use diagnostics::init_logging;
 use ee::CURRENT_ENCODING_VERSION;
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message};
@@ -22,7 +22,7 @@ use event_source::{EventSource, EventSourceError};
 use lazy_static::lazy_static;
 use models::Caip2ChainId;
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub use config::Config;
 pub use emitter::Emitter;
@@ -41,13 +41,13 @@ lazy_static! {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Error fetching blockchain data: {0}")]
-    EventSource(#[from] event_source::EventSourceError),
-    #[error("Can't publish events to Ethereum mainnet: {0}")]
-    Web3(#[from] web3::Error),
+    EventSource(#[from] EventSourceError),
     #[error(transparent)]
     EpochTracker(#[from] epoch_tracker::EpochTrackerError),
     #[error(transparent)]
-    Emitter(#[from] emitter::EmitterError),
+    Emitter(#[from] EmitterError),
+    #[error(transparent)]
+    SubgraphState(#[from] SubgraphStateError),
 }
 
 #[tokio::main]
@@ -62,12 +62,37 @@ async fn main() -> Result<(), Error> {
     info!(log_level = %CONFIG.log_level, "Block oracle starting up.");
 
     let mut oracle = Oracle::new(&*CONFIG)?;
+
     while !CTRLC_HANDLER.poll_ctrlc() {
-        oracle.wait_and_process_next_event().await?;
-        println!(
-            "sugraph state: {:?}",
-            subgraph::query(CONFIG.subgraph_url.as_str()).await.unwrap()
-        );
+        if let Err(error) = oracle.wait_and_process_next_event().await {
+            // TODO: This scope should be move to a dedicated function that returns the next control
+            // step for this loop.
+            //
+            // We must log and handle all possible errors and decide if any of them should stop the
+            // Oracle or if it should sleep for another (full or partial) cycle.
+            use EmitterError::*;
+            use EpochTrackerError::*;
+            use Error::*;
+            use EventSourceError::*;
+            use SubgraphStateError::*;
+            match error {
+                EventSource(DuplicateChainResult(_)) => todo!(),
+                EventSource(MissingChains(_)) => todo!(),
+                EventSource(GetLatestBlocksForChain(error, chain)) => {
+                    error!(%error, %chain, "Failed to poll the latest block");
+                }
+                EpochTracker(PreviousEpochNotFound) => {
+                    warn!("Failed to determine the previous epoch.");
+                }
+
+                Emitter(Nonce(_)) => todo!(),
+                Emitter(SignTransaction(_)) => todo!(),
+                Emitter(BroadcastTransaction(_)) => todo!(),
+
+                SubgraphState(Failed(_)) => todo!(),
+                SubgraphState(Uninitialized(_)) => todo!(),
+            }
+        };
         tokio::time::sleep(CONFIG.protocol_chain_polling_interval).await;
     }
 
@@ -131,7 +156,7 @@ impl<'a> Oracle<'a> {
 
         // First, we need to make sure that there are no pending
         // `RegisterNetworks` messages.
-        let networks_diff = NetworksDiff::calculate((), &CONFIG).await?;
+        let networks_diff = NetworksDiff::calculate((), &CONFIG);
         info!(
             created = networks_diff.insertions.len(),
             deleted = networks_diff.deletions.len(),
