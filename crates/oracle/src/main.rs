@@ -29,7 +29,9 @@ pub use emitter::Emitter;
 pub use epoch_tracker::EpochTracker;
 pub use metrics::Metrics;
 pub use networks_diff::NetworksDiff;
-
+use subgraph::SubgraphQuery;
+pub use subgraph_state::SubgraphApi;
+use subgraph_state::{SubgraphStateError, SubgraphStateTracker};
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
     pub static ref METRICS: Metrics = Metrics::default();
@@ -72,44 +74,55 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
+/// FIXME: Using this type for now, but we might want to change to a more specific type later.
+type SubgraphStateData = Vec<subgraph::subgraph_state::SubgraphStateNetworks>;
+
 /// The main application in-memory state
 struct Oracle<'a> {
     emitter: Emitter<'a>,
     epoch_tracker: EpochTracker,
     event_source: EventSource,
+    subgraph_state: SubgraphStateTracker<SubgraphStateData, SubgraphQuery>,
 }
 
 impl<'a> Oracle<'a> {
     pub fn new(config: &'a Config) -> Result<Self, Error> {
         let event_source = EventSource::new(config);
         let emitter = Emitter::new(config);
-        let epoch_tracker = EpochTracker::new(&*CONFIG);
+        let epoch_tracker = EpochTracker::new(config);
+        let subgraph_state = {
+            let subgraph_query = SubgraphQuery::from(config);
+            SubgraphStateTracker::new(subgraph_query)
+        };
 
         Ok(Self {
             event_source,
             emitter,
             epoch_tracker,
+            subgraph_state,
         })
     }
 
     pub async fn wait_and_process_next_event(&mut self) -> Result<(), Error> {
-        match self.event_source.get_latest_protocol_chain_block().await {
-            Ok(block_number) => {
-                debug!(
-                    block = %block_number,
-                    "Received latest block information from the protocol chain."
-                );
+        // Fetch latest subgraph state
+        self.subgraph_state.refresh().await;
+        self.subgraph_state.error_for_state()?;
 
-                if self.is_new_epoch(block_number.as_u64()).await? {
-                    self.handle_new_epoch().await?;
-                }
+        let block_number = self.event_source.get_latest_protocol_chain_block().await?;
+        debug!(
+            block = %block_number,
+            "Received latest block information from the protocol chain."
+        );
 
-                Ok(())
-            }
-            Err(EventSourceError::Web3(_)) => {
-                todo!("decide how should we handle JRPC errors")
-            }
+        if self
+            .epoch_tracker
+            .is_new_epoch(block_number.as_u64())
+            .await?
+        {
+            self.handle_new_epoch().await?;
         }
+
+        Ok(())
     }
 
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
@@ -160,19 +173,6 @@ impl<'a> Oracle<'a> {
         // component should do this task.
 
         Ok(())
-    }
-
-    async fn is_new_epoch(&self, block_number: u64) -> Result<bool, Error> {
-        match self.epoch_tracker.is_new_epoch(block_number).await {
-            Ok(b) => Ok(b),
-            Err(EpochTrackerError::PreviousEpochNotFound) => {
-                // FIXME: At the moment, we are unable to determine the latest epoch from an
-                // empty state. Until the Oracle is capable of reacting upon that, we will
-                // consider that we have reached a new epoch in such cases.
-                warn!("Failed to determine the previous epoch.");
-                Ok(true)
-            }
-        }
     }
 }
 
