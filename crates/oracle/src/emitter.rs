@@ -9,8 +9,12 @@ const METHOD_SIGNATURE: &'static str = "crossChainEpochOracle(bytes)";
 
 #[derive(Debug, Error)]
 pub enum EmitterError {
-    #[error(transparent)]
-    Web3(#[from] web3::Error),
+    #[error("Failed to determine the latest nonce for Owner's account")]
+    Nonce(#[source] web3::Error),
+    #[error("Failed to sign the transaction")]
+    SignTransaction(#[source] web3::Error),
+    #[error("Failed to broadcast the signed transaction")]
+    BroadcastTransaction(#[source] web3::Error),
 }
 
 /// Responsible for receiving the encoded payload, constructing and signing the
@@ -36,7 +40,11 @@ impl<'a> Emitter<'a> {
         &mut self,
         calldata: Vec<u8>,
     ) -> Result<web3::types::TransactionReceipt, EmitterError> {
-        let nonce = self.client.get_latest_nonce(self.owner_address).await?;
+        let nonce = self
+            .client
+            .get_latest_nonce(self.owner_address)
+            .await
+            .map_err(EmitterError::Nonce)?;
 
         //let calldata_with_identifier = {
         //    let mut identifier = function_identifier().to_vec();
@@ -54,9 +62,14 @@ impl<'a> Emitter<'a> {
         let signed = self
             .client
             .sign_transaction(tx_object, &self.owner_private_key)
-            .await?;
+            .await
+            .map_err(EmitterError::SignTransaction)?;
         debug!(hash = ?signed.transaction_hash, nonce = %nonce, "Signed transaction.");
-        let receipt = self.client.send_transaction(signed).await?;
+        let receipt = self
+            .client
+            .send_transaction(signed)
+            .await
+            .map_err(EmitterError::BroadcastTransaction)?;
         info!(hash = ?receipt.transaction_hash, nonce = %nonce, "Sent transaction.");
         Ok(receipt)
     }

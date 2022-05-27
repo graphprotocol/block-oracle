@@ -176,7 +176,6 @@ mod tests {
     use {
         super::*,
         crate::messages::{BlockPtr, Message},
-        never::Never,
         std::collections::HashMap,
         tokio::test,
     };

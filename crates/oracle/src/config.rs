@@ -34,7 +34,7 @@ pub struct Config {
     pub owner_address: H160,
     pub owner_private_key: SecretKey,
     pub contract_address: H160,
-    pub subgraph_url: String,
+    pub subgraph_url: Url,
     pub epoch_duration: u64,
     pub protocol_chain_polling_interval: Duration,
     pub indexed_chains: Arc<Vec<IndexedChain>>,
@@ -93,7 +93,7 @@ struct Clap {
     log_level: LevelFilter,
     /// The subgraph endpoint.
     #[clap(long)]
-    subgraph_url: String,
+    subgraph_url: Url,
     /// The filepath of the TOML JSON-RPC configuration file.
     #[clap(long, default_value = "config.toml", parse(from_os_str))]
     config_file: PathBuf,

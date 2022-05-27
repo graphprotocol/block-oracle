@@ -6,6 +6,7 @@ use futures::{
     stream::{FuturesUnordered, StreamExt},
     FutureExt,
 };
+use std::collections::HashSet;
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
 use thiserror::Error;
@@ -14,7 +15,11 @@ use web3::types::U64;
 #[derive(Error, Debug)]
 pub enum EventSourceError {
     #[error("Ethereum client error")]
-    Web3(#[from] web3::Error),
+    GetLatestBlocksForChain(#[source] web3::Error, Caip2ChainId),
+    #[error("Received a JSON RPC result twice for the same chain")]
+    DuplicateChainResult(Caip2ChainId),
+    #[error("Missed block pointers for a subset of indexed chains")]
+    MissingChains(Vec<Caip2ChainId>),
 }
 
 /// Actively listens for new blocks and reorgs from registered blockchains. Also, it checks the
@@ -48,20 +53,36 @@ impl EventSource {
             })
             .collect::<FuturesUnordered<_>>();
 
-        while let Some((chain_id, eth_call_result)) = tasks.next().await {
-            match eth_call_result {
+        while let Some((chain_id, jrpc_call_result)) = tasks.next().await {
+            match jrpc_call_result {
                 Ok(block_ptr) => {
                     match block_ptr_per_chain.entry(chain_id) {
-                        Entry::Occupied(_) => todo!("receiving a result for the same chain twice is an error, we should log that and continue"),
+                        Entry::Occupied(_) => {
+                            return Err(EventSourceError::DuplicateChainResult(chain_id.clone()))
+                        }
                         Entry::Vacant(slot) => slot.insert(block_ptr),
                     };
                 }
-                Err(_) => todo!("we should log this as an error and continue"),
+                Err(json_rpc_error) => {
+                    return Err(EventSourceError::GetLatestBlocksForChain(
+                        json_rpc_error,
+                        chain_id.clone(),
+                    ))
+                }
             }
         }
-
+        // check if we missed any chain
         if block_ptr_per_chain.len() != self.indexed_chains.len() {
-            todo!("we should log this as a detailed error (missing chains) and continue")
+            let missing = {
+                let current: HashSet<&Caip2ChainId> = block_ptr_per_chain.keys().cloned().collect();
+                let expected: HashSet<&Caip2ChainId> =
+                    self.indexed_chains.iter().map(|chain| chain.id()).collect();
+                current
+                    .intersection(&expected)
+                    .map(|&x| x.clone())
+                    .collect::<Vec<_>>()
+            };
+            return Err(EventSourceError::MissingChains(missing));
         }
 
         Ok(block_ptr_per_chain)
@@ -69,7 +90,16 @@ impl EventSource {
 
     /// Pools the latest block from the protocol chain.
     pub async fn get_latest_protocol_chain_block(&self) -> Result<U64, EventSourceError> {
-        let block_number = self.protocol_chain.get_latest_block().await?;
+        let block_number =
+            self.protocol_chain
+                .get_latest_block()
+                .await
+                .map_err(|json_rpc_error| {
+                    EventSourceError::GetLatestBlocksForChain(
+                        json_rpc_error,
+                        self.protocol_chain.id().clone(),
+                    )
+                })?;
         Ok(block_number)
     }
 }

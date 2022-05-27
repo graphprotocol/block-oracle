@@ -1,4 +1,4 @@
-use crate::{models::Caip2ChainId, Config, Error};
+use crate::{models::Caip2ChainId, Config};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
@@ -8,17 +8,13 @@ pub struct NetworksDiff {
 }
 
 impl NetworksDiff {
-    pub async fn calculate(
-        _subgraph_networks: (), /* FIXME */
-        config: &Config,
-    ) -> Result<Self, Error> {
+    pub fn calculate(_subgraph_networks: () /* FIXME */, config: &Config) -> Self {
         let new = config
             .indexed_chains
             .iter()
             .map(|c| c.id().clone())
             .collect();
-
-        Ok(Self::diff(HashMap::new(), new))
+        Self::diff(HashMap::new(), new)
     }
 
     fn diff(old: HashMap<Caip2ChainId, u32>, new: Vec<Caip2ChainId>) -> Self {

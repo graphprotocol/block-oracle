@@ -11,8 +11,9 @@ mod models;
 mod networks_diff;
 mod protocol_chain;
 mod subgraph;
+mod subgraph_state;
 
-use crate::ctrlc::CtrlcHandler;
+use crate::{ctrlc::CtrlcHandler, emitter::EmitterError};
 use diagnostics::init_logging;
 use ee::CURRENT_ENCODING_VERSION;
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message};
@@ -21,14 +22,16 @@ use event_source::{EventSource, EventSourceError};
 use lazy_static::lazy_static;
 use models::Caip2ChainId;
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub use config::Config;
 pub use emitter::Emitter;
 pub use epoch_tracker::EpochTracker;
 pub use metrics::Metrics;
 pub use networks_diff::NetworksDiff;
-
+use subgraph::SubgraphQuery;
+pub use subgraph_state::SubgraphApi;
+use subgraph_state::{SubgraphStateError, SubgraphStateTracker};
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
     pub static ref METRICS: Metrics = Metrics::default();
@@ -38,13 +41,13 @@ lazy_static! {
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Error fetching blockchain data: {0}")]
-    EventSource(#[from] event_source::EventSourceError),
-    #[error("Can't publish events to Ethereum mainnet: {0}")]
-    Web3(#[from] web3::Error),
+    EventSource(#[from] EventSourceError),
     #[error(transparent)]
     EpochTracker(#[from] epoch_tracker::EpochTrackerError),
     #[error(transparent)]
-    Emitter(#[from] emitter::EmitterError),
+    Emitter(#[from] EmitterError),
+    #[error(transparent)]
+    SubgraphState(#[from] SubgraphStateError),
 }
 
 #[tokio::main]
@@ -59,56 +62,92 @@ async fn main() -> Result<(), Error> {
     info!(log_level = %CONFIG.log_level, "Block oracle starting up.");
 
     let mut oracle = Oracle::new(&*CONFIG)?;
+
     while !CTRLC_HANDLER.poll_ctrlc() {
-        oracle.wait_and_process_next_event().await?;
-        println!(
-            "sugraph state: {:?}",
-            subgraph::query(CONFIG.subgraph_url.as_str()).await.unwrap()
-        );
+        if let Err(error) = oracle.wait_and_process_next_event().await {
+            // TODO: This scope should be move to a dedicated function that returns the next control
+            // step for this loop.
+            //
+            // We must log and handle all possible errors and decide if any of them should stop the
+            // Oracle or if it should sleep for another (full or partial) cycle.
+            use EmitterError::*;
+            use EpochTrackerError::*;
+            use Error::*;
+            use EventSourceError::*;
+            use SubgraphStateError::*;
+            match error {
+                EventSource(DuplicateChainResult(_)) => todo!(),
+                EventSource(MissingChains(_)) => todo!(),
+                EventSource(GetLatestBlocksForChain(error, chain)) => {
+                    error!(%error, %chain, "Failed to poll the latest block");
+                }
+                EpochTracker(PreviousEpochNotFound) => {
+                    warn!("Failed to determine the previous epoch.");
+                }
+
+                Emitter(Nonce(_)) => todo!(),
+                Emitter(SignTransaction(_)) => todo!(),
+                Emitter(BroadcastTransaction(_)) => todo!(),
+
+                SubgraphState(Failed(_)) => todo!(),
+                SubgraphState(Uninitialized(_)) => todo!(),
+            }
+        };
         tokio::time::sleep(CONFIG.protocol_chain_polling_interval).await;
     }
 
     Ok(())
 }
 
+/// FIXME: Using this type for now, but we might want to change to a more specific type later.
+type SubgraphStateData = Vec<subgraph::subgraph_state::SubgraphStateNetworks>;
+
 /// The main application in-memory state
 struct Oracle<'a> {
     emitter: Emitter<'a>,
     epoch_tracker: EpochTracker,
     event_source: EventSource,
+    subgraph_state: SubgraphStateTracker<SubgraphStateData, SubgraphQuery>,
 }
 
 impl<'a> Oracle<'a> {
     pub fn new(config: &'a Config) -> Result<Self, Error> {
         let event_source = EventSource::new(config);
         let emitter = Emitter::new(config);
-        let epoch_tracker = EpochTracker::new(&*CONFIG);
+        let epoch_tracker = EpochTracker::new(config);
+        let subgraph_state = {
+            let subgraph_query = SubgraphQuery::from(config);
+            SubgraphStateTracker::new(subgraph_query)
+        };
 
         Ok(Self {
             event_source,
             emitter,
             epoch_tracker,
+            subgraph_state,
         })
     }
 
     pub async fn wait_and_process_next_event(&mut self) -> Result<(), Error> {
-        match self.event_source.get_latest_protocol_chain_block().await {
-            Ok(block_number) => {
-                debug!(
-                    block = %block_number,
-                    "Received latest block information from the protocol chain."
-                );
+        // Fetch latest subgraph state
+        self.subgraph_state.refresh().await;
+        self.subgraph_state.error_for_state()?;
 
-                if self.is_new_epoch(block_number.as_u64()).await? {
-                    self.handle_new_epoch().await?;
-                }
+        let block_number = self.event_source.get_latest_protocol_chain_block().await?;
+        debug!(
+            block = %block_number,
+            "Received latest block information from the protocol chain."
+        );
 
-                Ok(())
-            }
-            Err(EventSourceError::Web3(_)) => {
-                todo!("decide how should we handle JRPC errors")
-            }
+        if self
+            .epoch_tracker
+            .is_new_epoch(block_number.as_u64())
+            .await?
+        {
+            self.handle_new_epoch().await?;
         }
+
+        Ok(())
     }
 
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
@@ -117,7 +156,7 @@ impl<'a> Oracle<'a> {
 
         // First, we need to make sure that there are no pending
         // `RegisterNetworks` messages.
-        let networks_diff = NetworksDiff::calculate((), &CONFIG).await?;
+        let networks_diff = NetworksDiff::calculate((), &CONFIG);
         info!(
             created = networks_diff.insertions.len(),
             deleted = networks_diff.deletions.len(),
@@ -159,20 +198,6 @@ impl<'a> Oracle<'a> {
         // component should do this task.
 
         Ok(())
-    }
-
-    async fn is_new_epoch(&self, block_number: u64) -> Result<bool, Error> {
-        match self.epoch_tracker.is_new_epoch(block_number).await {
-            Ok(b) => Ok(b),
-            Err(EpochTrackerError::PreviousEpochNotFound) => {
-                // FIXME: At the moment, we are unable to determine the latest epoch from an
-                // empty state. Until the Oracle is capable of reacting upon that, we will
-                // consider that we have reached a new epoch in such cases.
-                warn!("Failed to determine the previous epoch.");
-                Ok(true)
-            }
-            Err(other_error) => Err(other_error.into()),
-        }
     }
 }
 

@@ -1,6 +1,12 @@
+use crate::{Config, SubgraphApi};
+use anyhow::Context;
+use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
+use reqwest::Url;
 use serde::{de, Deserialize, Deserializer};
 use std::fmt;
+
+use self::subgraph_state::ResponseData;
 
 pub type Id = String;
 pub type BigInt = u128;
@@ -15,7 +21,32 @@ pub type BigInt = u128;
 )]
 pub struct SubgraphState;
 
-pub async fn query(url: &str) -> reqwest::Result<subgraph_state::ResponseData> {
+pub struct SubgraphQuery {
+    url: Url,
+}
+
+impl From<&Config> for SubgraphQuery {
+    fn from(config: &Config) -> Self {
+        Self {
+            url: config.subgraph_url.clone(),
+        }
+    }
+}
+
+#[async_trait]
+impl SubgraphApi for SubgraphQuery {
+    type State = Vec<subgraph_state::SubgraphStateNetworks>;
+
+    async fn get_subgraph_state(&self) -> anyhow::Result<Self::State> {
+        let response = query(self.url.clone())
+            .await
+            .context("querying Epoch Subgraph")?;
+        let ResponseData { networks } = response;
+        Ok(networks)
+    }
+}
+
+pub async fn query(url: Url) -> reqwest::Result<subgraph_state::ResponseData> {
     // TODO: authentication token.
     let client = reqwest::Client::builder()
         .user_agent("block-oracle")
@@ -160,9 +191,4 @@ where
     }
 
     de.deserialize_string(HexStringVisitor)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
 }
