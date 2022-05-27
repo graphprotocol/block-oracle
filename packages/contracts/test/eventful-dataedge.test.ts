@@ -13,7 +13,7 @@ describe('EventfulDataEdge', () => {
   let me: SignerWithAddress
 
   beforeEach(async () => {
-    ;[me] = await getSigners()
+    ;[me] = await getSigners() // eslint-disable-line @typescript-eslint/no-extra-semi
 
     const factory = (await getContractFactory('EventfulDataEdge', me)) as EventfulDataEdge__factory
     edge = await factory.deploy()
