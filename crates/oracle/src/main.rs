@@ -3,6 +3,7 @@ mod ctrlc;
 mod diagnostics;
 mod emitter;
 mod epoch_tracker;
+mod error_handling;
 mod event_source;
 mod indexed_chain;
 mod jsonrpc_utils;
@@ -27,11 +28,12 @@ use tracing::{debug, error, info, warn};
 pub use config::Config;
 pub use emitter::Emitter;
 pub use epoch_tracker::EpochTracker;
+pub use error_handling::{handle_oracle_error, MainLoopFlow, OracleControlFlow};
 pub use metrics::Metrics;
 pub use networks_diff::NetworksDiff;
-use subgraph::SubgraphQuery;
-pub use subgraph_state::SubgraphApi;
-use subgraph_state::{SubgraphStateError, SubgraphStateTracker};
+pub use subgraph::SubgraphQuery;
+pub use subgraph_state::{SubgraphApi, SubgraphStateError, SubgraphStateTracker};
+
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
     pub static ref METRICS: Metrics = Metrics::default();
@@ -43,11 +45,23 @@ pub enum Error {
     #[error("Error fetching blockchain data: {0}")]
     EventSource(#[from] EventSourceError),
     #[error(transparent)]
-    EpochTracker(#[from] epoch_tracker::EpochTrackerError),
+    EpochTracker(#[from] EpochTrackerError),
     #[error(transparent)]
     Emitter(#[from] EmitterError),
     #[error(transparent)]
     SubgraphState(#[from] SubgraphStateError),
+}
+
+impl MainLoopFlow for Error {
+    fn instruction(&self) -> OracleControlFlow {
+        use Error::*;
+        match self {
+            EventSource(event_source) => event_source.instruction(),
+            EpochTracker(epoch_tracker) => epoch_tracker.instruction(),
+            Emitter(emitter) => emitter.instruction(),
+            SubgraphState(subgraph_state) => subgraph_state.instruction(),
+        }
+    }
 }
 
 #[tokio::main]
@@ -65,32 +79,17 @@ async fn main() -> Result<(), Error> {
 
     while !CTRLC_HANDLER.poll_ctrlc() {
         if let Err(error) = oracle.wait_and_process_next_event().await {
-            // TODO: This scope should be move to a dedicated function that returns the next control
-            // step for this loop.
-            //
-            // We must log and handle all possible errors and decide if any of them should stop the
-            // Oracle or if it should sleep for another (full or partial) cycle.
-            use EmitterError::*;
-            use EpochTrackerError::*;
-            use Error::*;
-            use EventSourceError::*;
-            use SubgraphStateError::*;
-            match error {
-                EventSource(DuplicateChainResult(_)) => todo!(),
-                EventSource(MissingChains(_)) => todo!(),
-                EventSource(GetLatestBlocksForChain(error, chain)) => {
-                    error!(%error, %chain, "Failed to poll the latest block");
+            use std::ops::ControlFlow::*;
+            match handle_oracle_error(error) {
+                Continue(Some(sleep_time)) => {
+                    tokio::time::sleep(sleep_time).await;
+                    continue;
                 }
-                EpochTracker(PreviousEpochNotFound) => {
-                    warn!("Failed to determine the previous epoch.");
+                Continue(None) => continue,
+                Break(()) => {
+                    error!("Stopping the Block Oracle due to an irreversible error");
+                    break;
                 }
-
-                Emitter(Nonce(_)) => todo!(),
-                Emitter(SignTransaction(_)) => todo!(),
-                Emitter(BroadcastTransaction(_)) => todo!(),
-
-                SubgraphState(Failed(_)) => todo!(),
-                SubgraphState(Uninitialized(_)) => todo!(),
             }
         };
         tokio::time::sleep(CONFIG.protocol_chain_polling_interval).await;

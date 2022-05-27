@@ -1,6 +1,6 @@
 //! Subgraph State Transitions
 use async_trait::async_trait;
-use std::{rc::Rc, sync::Arc};
+use std::{rc::Rc, sync::Arc, time::Duration};
 use thiserror;
 use tracing::{debug, error, info};
 
@@ -9,10 +9,27 @@ use self::State::*;
 /// Exposes the current [`SubgraphState`] internal error.
 #[derive(Debug, thiserror::Error)]
 pub enum SubgraphStateError {
-    #[error("Subgraph is failed")]
+    #[error("Failed to retrieve latest subgraph state")]
     Failed(#[source] Arc<anyhow::Error>),
     #[error("Subgraph failed to initialize")]
     Uninitialized(#[source] Arc<anyhow::Error>),
+}
+
+impl crate::MainLoopFlow for SubgraphStateError {
+    fn instruction(&self) -> crate::OracleControlFlow {
+        use std::ops::ControlFlow::*;
+        use SubgraphStateError::*;
+        match self {
+            outer_error @ Failed(error) => {
+                error!(%error, "{outer_error}");
+                Continue(None)
+            }
+            outer_error @ Uninitialized(error) => {
+                error!(%error, "{outer_error}");
+                Continue(None)
+            }
+        }
+    }
 }
 
 /// Represents Subgraph states.
@@ -104,12 +121,9 @@ where
                     state: Rc::new(state),
                 }
             }
-            (Uninitialized { .. }, Err(error)) => {
-                error!("Failed to initialize subgraph state");
-                Uninitialized {
-                    error: Some(Arc::new(error)),
-                }
-            }
+            (Uninitialized { .. }, Err(error)) => Uninitialized {
+                error: Some(Arc::new(error)),
+            },
             (Failed { previous, .. }, Err(error)) => {
                 error!("Failed to retrieve state from a previously failed subgraph");
                 Failed {
@@ -117,13 +131,10 @@ where
                     error: Arc::new(error),
                 }
             }
-            (Valid { state }, Err(error)) => {
-                error!("Failed to retrieve latest subgraph state");
-                Failed {
-                    previous: state.clone(),
-                    error: Arc::new(error),
-                }
-            }
+            (Valid { state }, Err(error)) => Failed {
+                previous: state.clone(),
+                error: Arc::new(error),
+            },
         }
     }
 
