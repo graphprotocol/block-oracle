@@ -1,11 +1,24 @@
 use crate::Config;
 use thiserror::Error;
-use tracing::debug;
+use tracing::{debug, error};
 
 #[derive(Debug, Error)]
 pub enum EpochTrackerError {
-    #[error("Failed to determine current epoch. No previous epoch was found in local storage.")]
+    #[error("Failed to determine current epoch")]
     PreviousEpochNotFound,
+}
+
+impl crate::MainLoopFlow for EpochTrackerError {
+    fn instruction(&self) -> crate::OracleControlFlow {
+        use std::ops::ControlFlow::*;
+        use EpochTrackerError::*;
+        match self {
+            error @ PreviousEpochNotFound => {
+                error!("{error}");
+                Continue(None)
+            }
+        }
+    }
 }
 
 /// Tracks current Ethereum mainnet epoch.

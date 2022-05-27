@@ -10,16 +10,39 @@ use std::collections::HashSet;
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::Arc;
 use thiserror::Error;
+use tracing::error;
 use web3::types::U64;
 
 #[derive(Error, Debug)]
 pub enum EventSourceError {
-    #[error("Ethereum client error")]
+    #[error("Failed to poll chain for its latest block")]
     GetLatestBlocksForChain(#[source] web3::Error, Caip2ChainId),
     #[error("Received a JSON RPC result twice for the same chain")]
     DuplicateChainResult(Caip2ChainId),
     #[error("Missed block pointers for a subset of indexed chains")]
     MissingChains(Vec<Caip2ChainId>),
+}
+
+impl crate::MainLoopFlow for EventSourceError {
+    fn instruction(&self) -> crate::OracleControlFlow {
+        use std::ops::ControlFlow::*;
+        use EventSourceError::*;
+        match self {
+            error @ GetLatestBlocksForChain(cause, chain) => {
+                error!(%cause, %chain, "{error}");
+                Continue(None)
+            }
+            error @ DuplicateChainResult(duplicated_chain) => {
+                error!(%duplicated_chain, "{error}");
+                Continue(None)
+            }
+            error @ MissingChains(missing_chains) => {
+                let missing_chains = crate::error_handling::format_slice(&missing_chains);
+                error!(%missing_chains, "{error}");
+                Continue(None)
+            }
+        }
+    }
 }
 
 /// Actively listens for new blocks and reorgs from registered blockchains. Also, it checks the

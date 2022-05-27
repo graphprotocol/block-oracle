@@ -2,7 +2,7 @@ use crate::{config::Config, protocol_chain::ProtocolChain};
 use secp256k1::SecretKey;
 use thiserror::Error;
 use tiny_keccak::{Hasher, Keccak};
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use web3::types::{Bytes, TransactionParameters, H160, U256};
 
 const METHOD_SIGNATURE: &'static str = "crossChainEpochOracle(bytes)";
@@ -15,6 +15,27 @@ pub enum EmitterError {
     SignTransaction(#[source] web3::Error),
     #[error("Failed to broadcast the signed transaction")]
     BroadcastTransaction(#[source] web3::Error),
+}
+
+impl crate::MainLoopFlow for EmitterError {
+    fn instruction(&self) -> crate::OracleControlFlow {
+        use std::ops::ControlFlow::*;
+        use EmitterError::*;
+        match self {
+            error @ Nonce(json_rpc_error) => {
+                error!(%json_rpc_error, "{error}");
+                Continue(None)
+            }
+            error @ SignTransaction(json_rpc_error) => {
+                error!(%json_rpc_error, "{error}");
+                Continue(None)
+            }
+            error @ BroadcastTransaction(json_rpc_error) => {
+                error!(%json_rpc_error, "{error}");
+                Continue(None)
+            }
+        }
+    }
 }
 
 /// Responsible for receiving the encoded payload, constructing and signing the
