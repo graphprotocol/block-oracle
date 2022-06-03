@@ -1,6 +1,6 @@
 //! Subgraph State Transitions
 use async_trait::async_trait;
-use std::{rc::Rc, sync::Arc, time::Duration};
+use std::sync::Arc;
 use thiserror;
 use tracing::{debug, error, info};
 
@@ -52,7 +52,7 @@ enum State<S> {
     ///
     /// Can only be transitioned to [`State::Failed`] and to itself.
     /// Can be transitioned from all other variants, including itself.
-    Valid { state: Rc<S> },
+    Valid { state: S },
 
     /// Failed attempt at retrieving subgraph state.
     ///
@@ -60,7 +60,7 @@ enum State<S> {
     ///
     /// Can only be transitioned between [`State::Valid`] and [`State::Failed`].
     Failed {
-        previous: Rc<S>,
+        previous: S,
         error: Arc<anyhow::Error>,
     },
 }
@@ -73,13 +73,18 @@ pub trait SubgraphApi {
 }
 
 /// Coordinates the retrieval of subgraph data and the transition of its own internal [`State`].
-pub struct SubgraphStateTracker<S, A: SubgraphApi<State = S> = S> {
+pub struct SubgraphStateTracker<S, A = S>
+where
+    S: Clone,
+    A: SubgraphApi<State = S>,
+{
     inner: State<S>,
     subgraph_api: A,
 }
 
 impl<S, A> SubgraphStateTracker<S, A>
 where
+    S: Clone,
     A: SubgraphApi<State = S>,
 {
     pub fn new(api: A) -> Self {
@@ -118,7 +123,7 @@ where
             (_, Ok(state)) => {
                 info!("Retrieved new subgraph state");
                 Valid {
-                    state: Rc::new(state),
+                    state,
                 }
             }
             (Uninitialized { .. }, Err(error)) => Uninitialized {

@@ -15,8 +15,8 @@ pub type BigInt = u128;
 #[graphql(
     schema_path = "src/graphql/schema.graphql",
     query_path = "src/graphql/query.graphql",
-    response_derives = "Debug",
-    variables_derives = "Debug",
+    response_derives = "Debug,Clone",
+    variables_derives = "Debug,Clone",
     deprecated = "warn"
 )]
 pub struct SubgraphState;
