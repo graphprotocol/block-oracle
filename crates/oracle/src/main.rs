@@ -149,13 +149,29 @@ impl<'a> Oracle<'a> {
         Ok(())
     }
 
+    async fn registered_networks(&self) -> Result<Vec<Caip2ChainId>, Error> {
+        if self.subgraph_state.is_valid() {
+            Ok(self
+                .subgraph_state
+                .data()
+                .unwrap()
+                .iter()
+                .map(|s| s.id.parse().unwrap())
+                .collect())
+        } else {
+            todo!("Handle this as error")
+        }
+    }
+
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
         info!("A new epoch started in the protocol chain.");
+        let registered_networks = self.registered_networks().await?;
+
         let mut messages = vec![];
 
         // First, we need to make sure that there are no pending
         // `RegisterNetworks` messages.
-        let networks_diff = NetworksDiff::calculate((), &CONFIG);
+        let networks_diff = NetworksDiff::calculate(registered_networks, &CONFIG);
         info!(
             created = networks_diff.insertions.len(),
             deleted = networks_diff.deletions.len(),

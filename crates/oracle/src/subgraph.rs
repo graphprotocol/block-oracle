@@ -1,3 +1,4 @@
+use crate::error_handling::format_slice;
 use crate::{Config, SubgraphApi};
 use anyhow::Context;
 use async_trait::async_trait;
@@ -10,6 +11,16 @@ use self::subgraph_state::ResponseData;
 
 pub type Id = String;
 pub type BigInt = u128;
+
+#[derive(Debug, thiserror::Error)]
+pub enum SubgraphQueryError {
+    #[error(transparent)]
+    Transport(#[from] reqwest::Error),
+    #[error("The subgraph is in a failed state")]
+    IndexingError,
+    #[error("Unknown subgraph error(s): {}", format_slice(messages))]
+    Other { messages: Vec<String> },
+}
 
 #[derive(GraphQLQuery)]
 #[graphql(
@@ -46,7 +57,7 @@ impl SubgraphApi for SubgraphQuery {
     }
 }
 
-pub async fn query(url: Url) -> reqwest::Result<subgraph_state::ResponseData> {
+pub async fn query(url: Url) -> Result<subgraph_state::ResponseData, SubgraphQueryError> {
     // TODO: authentication token.
     let client = reqwest::Client::builder()
         .user_agent("block-oracle")
@@ -57,9 +68,13 @@ pub async fn query(url: Url) -> reqwest::Result<subgraph_state::ResponseData> {
     let response = request.send().await?;
     let response_body: Response<subgraph_state::ResponseData> = response.json().await?;
 
-    println!("{:?}", response_body.errors);
-
-    Ok(response_body.data.unwrap())
+    match response_body.errors.as_deref() {
+        None | Some(&[]) => Ok(response_body.data.unwrap()),
+        Some([e]) if e.message == "indexing_error" => Err(SubgraphQueryError::IndexingError),
+        Some(errs) => Err(SubgraphQueryError::Other {
+            messages: errs.into_iter().map(|e| e.message.clone()).collect(),
+        }),
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
