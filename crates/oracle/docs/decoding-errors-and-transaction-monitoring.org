@@ -1,0 +1,142 @@
+#+title: Decoding Errors
+
+How should the Block Oracle and the Epoch Subgraph behave when the subgraph fails to
+decode a Message payload /(calldata)/?
+
+* Epoch Subgraph
+The subgraph must signal that an Oracle message for the current epoch is invalid.
+
+It should create a new =DecodingError= (entity) instance scoped to the transaction it just received.
+
+The subgraph will not enter on a failed state because of this.
+
+* Block Oracle
+Once it detects a =DecodingError= for the current epoch, the Oracle will change
+its behaviour/mode.
+
+It will transition its internal state from =Valid= to =SubgraphDecodingError= and enter
+a [[Preemptive State]], followed by a possible [[Alert State]].
+
+** Subgraph Error Monitoring
+By introducing the concept of =DecodingErrors= in the Epoch Subgraph, the Block Oracle
+is given the responsibility to actively monitor the former during the ongoing epoch
+until its state is successfully updated.
+
+This routine complements the [[Transaction Monitoring]] system.
+
+** Preemptive State
+In this state, the Oracle will:
+1. Emit an alert.
+2. Build and send a single preemptive =SetBlockNumberForCurrentEpoch=
+   message. Note that this specific message will not include
+   unregistered networks, as in compliance with the current Epoch
+   Subgraph state.
+3. Watch if the preemptive message triggered another =DecodingError= in the subgraph for
+   this epoch.
+
+** Why?
+To prioritize closing allocations. This operational mode will ensure that the current
+indexed chains continue to receive updates, regardless of failing to register other
+networks.
+
+** Assumptions
+Given the following network sets in the context of Message creation:
+- previously registered :: ~O~ /(old)/
+- to be registered ::  ~N~ /(new)/
+- to have its chain head updated :: ~O ∩ N~ /(old + new)/
+
+The Oracle could have prepared and sent a malformed =[RegisterNetworks { N },
+SetBlockNumberForCurrentEpoch { O ∩ N }]= message block.
+
+There is a chance that the encoding error was caused by the =RegisterNetworks { N }=
+message, so it might still be possible to send a =SetBlockNumberForCurrentEpoch { O }=
+message to update the chain head for all previously registered networks.
+
+** On Success
+If no second =DecodingError= for this epoch is detected, then it means that the Oracle:
+- succeeded at updating the previously registered networks, and
+- failed at registering new networks.
+
+*** If Left Unattended
+In the advent of a new epoch, the Oracle will transition its internal state from
+=SubgraphDecodingError= to =Valid=, as if it had forgotten about the =DecodingErrors=
+from the previous epoch. Nonetheless, it will quickly fail again for the same reason at
+the entering epoch, as it will retry sending the very same =RegisterNetworks { N }=
+message that supposedly triggered the error in the first place.
+
+Effectively, the Oracle will lock itself in it's [[Preemptive State]], incapable of
+registering networks, but will try to update the currently registered networks at every
+new epoch.
+
+** On Error
+If the preemptive =SetBlockNumberForCurrentEpoch { O }= message triggers a second
+=DecodingError= in the Epoch Subgraph at the same epoch, then this means that the
+encoding error could have happened for all other message types.
+
+Thus the Oracle can't recover by itself and will change its mode once more and enter in
+its [[Alert State]].
+
+** Alert State
+It will stop sending messages to the DataEdge contract and will emit alerts
+periodically.
+
+
+* Transaction Monitoring
+The Block Oracle must monitor the changes in the Epoch Subgraph state changes after each transactions it broadcasts.
+
++ Why? ::
+  Transactions could contain malformed encoded messages and fail to achieve their purpose.
+
+  In those cases, the Epoch Subgraph will instantiate a =DecodingError= for the invalid message instead of updating its global state to the ongoing epoch.
+
+** Possible Outcomes
+There are three possible outcomes for a recently broadcast-ed message:
+
+*** Mined
+The transaction is mined into a block and is expected to be captured by the Epoch Subgraph.
+
+Once the Oracle detects that the transaction was mined (according to  predefined criteria) it then transitions to watch for changes inthe Epoch Subgraph internal state.
+
+**** Valid Message
+The message payload is decoded successfully and updates the Epoch Subgraph global state according to expectations.
+
+**** Invalid Message
+The message payload fails to be decoded by the Epoch Subgraph and results in a new =DecodingError= instance for the ongoing epoch.
+
+The recovery strategy for undecodable payloads produced by the Block Oracle is discussed in the beginning of this document.
+
+*** Lingering
+The transaction lingers in the mempool for longer than expected.
+
+The Block Oracle can acknowledge and react to this condition in two different ways:
+
+**** Aware
+Usually the Oracle will wait for the transaction to be confirmed for a predefined time.
+
+***** Gas Spending Strategy system
+If confirmation exceeds that limit, then the Oracle will compare the current market gas price with the one used in the recently broadcast-ed transaction.
+
+If a significant difference is found, then the Oracle should ponder about preparing a new transaction with adjusted gas prices.
+
+The Gas Spending Strategy system will be consulted on the outcome of this action, as it will ultimately manage transaction retries:
++ Should it wait (again) for the gas prices to drop?
+  + If so, for how long?
++ How much should the gas price be increased for the next transaction broadcast?
++ How many attempts will it make, and for how much more will it increase the gas price?
+
+**** Unaware
+Since the Block Oracle application is stateless, it is possible that it loses track of monitored transactions.
+
++ How could that happen? ::
+  Failures or roll-outs/deploys could kill the Block Oracle process
+  while it is waiting for a transaction to be confirmed.
+
+If so, it would not be aware of any pending transactions and the Gas Spending Strategy system would never be invoked.
+
+Nonetheless, this case would not be a problem as the Block Oracle will perform a "situational awareness" check by:
+1) querying the Epoch Subgraph for its latest recorded epoch, and
+2) querying the Protocol Chain for its current epoch.
+
+If the Epoch Subgraph synced with the ongoing epoch, then the Block Oracle can safely sleep until the next epoch.
+
+Otherwise, the Block Oracle will promptly attempt to perform its routine and prepare a transaction with updated gas prices, entering its Transaction Monitoring phase as usual.
