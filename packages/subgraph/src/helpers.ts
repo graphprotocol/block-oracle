@@ -8,6 +8,24 @@ import {
 import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH, BIGINT_ONE } from "./constants";
 import { log } from "@graphprotocol/graph-ts";
 
+export enum MessageTag {
+  SetBlockNumbersForEpochMessage = 0,
+  CorrectEpochsMessage,
+  UpdateVersionsMessage,
+  RegisterNetworksMessage
+}
+
+export namespace MessageTag {
+  export function toString(tag: MessageTag): string {
+    return [
+      "SetBlockNumbersForEpochMessage",
+      "CorrectEpochsMessage",
+      "UpdateVersionsMessage",
+      "RegisterNetworksMessage"
+    ][tag]
+  }
+}
+
 export function getGlobalState(): GlobalState {
   let state = GlobalState.load("0");
   if (state == null) {
@@ -96,15 +114,15 @@ export function createOrUpdateNetworkEpochBlockNumber(
   return networkEpochBlockNumber;
 }
 
-export function getTags(preamble: Bytes): Array<i32> {
-  let tags = new Array<i32>();
+export function getTags(preamble: Bytes): Array<MessageTag> {
+  let tags = new Array<MessageTag>();
   for (let i = 0; i < PREAMBLE_BIT_LENGTH / TAG_BIT_LENGTH; i++) {
     tags.push(getTag(preamble, i));
   }
   return tags;
 }
 
-function getTag(preamble: Bytes, index: i32): i32 {
+function getTag(preamble: Bytes, index: i32): MessageTag {
   return (
     (BigInt.fromUnsignedBytes(preamble).toI32() >> (index * TAG_BIT_LENGTH)) &
     (2 ** TAG_BIT_LENGTH - 1)
@@ -261,21 +279,21 @@ export function commitNetworkChanges(
   newNetworksList: Array<Network>,
   state: GlobalState
 ): void {
-  for(let i = 0; i < removedNetworks.length; i++) {
+  for (let i = 0; i < removedNetworks.length; i++) {
     removedNetworks[i].state = null
     removedNetworks[i].nextArrayElement = null
     removedNetworks[i].arrayIndex = null
     removedNetworks[i].save()
   }
 
-  for(let i = 0; i < newNetworksList.length; i++) {
+  for (let i = 0; i < newNetworksList.length; i++) {
     newNetworksList[i].state = state.id
-    newNetworksList[i].nextArrayElement = i < newNetworksList.length - 1 ? newNetworksList[i+1].id : null
+    newNetworksList[i].nextArrayElement = i < newNetworksList.length - 1 ? newNetworksList[i + 1].id : null
     newNetworksList[i].arrayIndex = i
     newNetworksList[i].save()
   }
 
-  if(newNetworksList.length > 0){
+  if (newNetworksList.length > 0) {
     state.networkArrayHead = newNetworksList[0].id
   } else {
     state.networkArrayHead = null

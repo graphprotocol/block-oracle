@@ -27,6 +27,7 @@ import {
   createOrUpdateNetworkEpochBlockNumber,
   getNetworkList,
   swapAndPop,
+  MessageTag,
   commitNetworkChanges
 } from "./helpers";
 import {
@@ -58,6 +59,47 @@ export function handleCrossChainEpochOracle(
   processPayload(submitter, payloadBytes, txHash);
 }
 
+export function processMessage(globalState: GlobalState, messageBlock: MessageBlock, i: i32, tag: MessageTag, payload: Bytes): i32 {
+  log.warning("Processing new message with tag {}", [MessageTag.toString(tag)]);
+  log.warning("The remaining payload is {}", [payload.toHexString()]);
+
+  if (payload.length == 0) {
+    //rollbackToGlobalState(globalState);
+    //return;
+    return 0;
+  }
+
+  let numBytesRead = executeMessage(
+    tag,
+    i,
+    globalState,
+    messageBlock.id,
+    payload
+  );
+
+  log.warning("Bytes read: {}", [numBytesRead.toString()]);
+  return numBytesRead;
+}
+
+export function processMessageBlock(globalState: GlobalState, messageBlock: MessageBlock, payload: Bytes): i32 {
+  let numBytesRead = 0;
+
+  // Read the message block's tags.
+  numBytesRead += 1;
+  let preamble = changetype<Bytes>(payload.slice(0, PREAMBLE_BIT_LENGTH / 8));
+  let tags = getTags(preamble);
+
+  for (let i = 0; i < tags.length; i++) {
+    let messageBytes = changetype<Bytes>(payload.slice(numBytesRead));
+    numBytesRead += processMessage(globalState, messageBlock, i, tags[i], messageBytes);
+  }
+
+  messageBlock.data = payload; // cut it to the amount actually read
+  messageBlock.save();
+
+  return numBytesRead;
+}
+
 export function processPayload(
   submitter: String,
   payloadBytes: Bytes,
@@ -73,49 +115,21 @@ export function processPayload(
   payload.save();
 
   let rawPayloadData = payloadBytes;
+  let numBlocksRead = 0;
+  let numBytesRead = 0;
 
-  let messageBlockCounter = 0;
+  while (numBytesRead < rawPayloadData.length) {
+    let i = BigInt.fromI32(numBlocksRead).toString();
+    log.warning("New message block (num. {}) with remaining data: {}", [i, rawPayloadData.toHexString()]);
 
-  while (rawPayloadData.length > 0) {
-    log.warning("NEW MESSAGE BLOCK {}", [messageBlockCounter.toString()]);
     // Save raw message
     let messageBlock = new MessageBlock(
-      [txHash, BigInt.fromI32(messageBlockCounter).toString()].join("-")
+      [txHash, i].join("-")
     );
 
-    let tags = getTags(
-      changetype<Bytes>(rawPayloadData.slice(0, PREAMBLE_BIT_LENGTH / 8))
-    );
-
-    rawPayloadData = changetype<Bytes>(
-      rawPayloadData.slice(PREAMBLE_BIT_LENGTH / 8)
-    );
-
-    for (let i = 0; i < tags.length; i++) {
-      log.warning("NEW LOOP", []);
-      log.warning("Payload size now {}", [rawPayloadData.length.toString()]);
-
-      if (rawPayloadData.length == 0) {
-        //rollbackToGlobalState(globalState);
-        //return;
-        break;
-      }
-
-      let bytesRead = executeMessage(
-        tags[i],
-        i,
-        globalState,
-        messageBlock.id,
-        rawPayloadData
-      );
-      rawPayloadData = changetype<Bytes>(rawPayloadData.slice(bytesRead));
-      log.warning("Bytes read: {}", [bytesRead.toString()]);
-    }
-
-    messageBlock.data = rawPayloadData; // cut it to the amount actually read
-    messageBlock.save();
-    log.warning("END OF MESSAGE BLOCK {}", [messageBlockCounter.toString()]);
-    messageBlockCounter++;
+    numBytesRead += processMessageBlock(globalState, messageBlock, rawPayloadData);
+    log.warning("Finished processing message block num. {}", [i]);
+    numBlocksRead++;
   }
 
   commitToGlobalState(globalState);
@@ -123,7 +137,7 @@ export function processPayload(
 
 // Executes the message and returns the amount of bytes read
 function executeMessage(
-  tag: i32,
+  tag: MessageTag,
   index: i32,
   globalState: GlobalState,
   messageBlockID: String,
@@ -136,34 +150,36 @@ function executeMessage(
   );
   message.block = messageBlockID;
 
-  if (tag == 0) {
-    log.warning("EXECUTING SetBlockNumbersForEpochMessage", []);
-    bytesRead = executeSetBlockNumbersForEpochMessage(
-      message,
-      globalState,
-      data
-    );
-  } else if (tag == 1) {
-    log.warning("EXECUTING CorrectEpochsMessage", []);
-    bytesRead = executeCorrectEpochsMessage(
-      changetype<CorrectEpochsMessage>(message),
-      globalState,
-      data
-    );
-  } else if (tag == 2) {
-    log.warning("EXECUTING UpdateVersionsMessage", []);
-    bytesRead = executeUpdateVersionsMessage(
-      changetype<UpdateVersionsMessage>(message),
-      globalState,
-      data
-    );
-  } else if (tag == 3) {
-    log.warning("EXECUTING RegisterNetworksMessage", []);
-    bytesRead = executeRegisterNetworksMessage(
-      changetype<RegisterNetworksMessage>(message),
-      globalState,
-      data
-    );
+  log.warning("Executing message {}", [MessageTag.toString(tag)]);
+  switch (tag) {
+    case MessageTag.SetBlockNumbersForEpochMessage:
+      bytesRead = executeSetBlockNumbersForEpochMessage(
+        message,
+        globalState,
+        data
+      );
+      break;
+    case MessageTag.CorrectEpochsMessage:
+      bytesRead = executeCorrectEpochsMessage(
+        changetype<CorrectEpochsMessage>(message),
+        globalState,
+        data
+      );
+      break;
+    case MessageTag.UpdateVersionsMessage:
+      bytesRead = executeUpdateVersionsMessage(
+        changetype<UpdateVersionsMessage>(message),
+        globalState,
+        data
+      );
+      break;
+    case MessageTag.RegisterNetworksMessage:
+      bytesRead = executeRegisterNetworksMessage(
+        changetype<RegisterNetworksMessage>(message),
+        globalState,
+        data
+      );
+      break;
   }
 
   return bytesRead;
