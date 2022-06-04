@@ -8,7 +8,7 @@ pub struct NetworksDiff {
 }
 
 impl NetworksDiff {
-    pub fn calculate(_subgraph_networks: () /* FIXME */, config: &Config) -> Self {
+    pub fn calculate(subgraph_networks: Vec<Caip2ChainId>, config: &Config) -> Self {
         let new = config
             .indexed_chains
             .iter()
