@@ -185,64 +185,91 @@ function executeMessage(
   return bytesRead;
 }
 
-function executeSetBlockNumbersForEpochMessage(
-  message: SetBlockNumbersForEpochMessage,
-  globalState: GlobalState,
-  data: Bytes
-): i32 {
+function executeNonEmptySetBlockNumbersForEpochMessage(message: SetBlockNumbersForEpochMessage, globalState: GlobalState, data: Bytes): i32 {
+  let bytesRead = 0;
+  log.warning("get or create epoch", []);
+  let newEpoch = getOrCreateEpoch(
+    (globalState.latestValidEpoch != null
+      ? BigInt.fromString(globalState.latestValidEpoch!)
+      : BIGINT_ZERO) + BIGINT_ONE
+  );
+  globalState.latestValidEpoch = newEpoch.id;
+  log.warning("get or create epoch done", []);
+
+  let merkleRoot = changetype<Bytes>(data.slice(bytesRead, bytesRead + 32))
+  message.merkleRoot = merkleRoot;
+  bytesRead += 32;
+  log.warning("The Merkle root after the update is {}", [merkleRoot.toHexString()]);
+
+  let accelerations: Array<BigInt> = [];
+  for (let i = 0; i < globalState.activeNetworkCount; i++) {
+    log.warning("Decoding acceleration num. {} from bytes {}", [
+      i.toString(),
+      changetype<Bytes>(data.slice(bytesRead)).toHexString()
+    ]);
+
+    let readAcceleration = decodePrefixVarIntI64(data, bytesRead); // we should check for errors here
+    if (readAcceleration[1] == 0) {
+      log.warning("Acceleration decoding failed", []);
+    } else {
+      log.warning("Acceleration decoded reading {} bytes", [readAcceleration[1].toString()]);
+      bytesRead += readAcceleration[1] as i32;
+      accelerations.push(BigInt.fromI64(readAcceleration[0]));
+    }
+
+    // Create new NetworkEpochBlockNumber
+    createOrUpdateNetworkEpochBlockNumber(
+      i.toString(),
+      newEpoch.epochNumber,
+      BigInt.fromI64(readAcceleration[0])
+    );
+    log.warning("created/update acceleration number {}", [i.toString()]);
+  }
+
+  message.accelerations = accelerations;
+  message.data = changetype<Bytes>(data.slice(0, bytesRead));
+  message.save();
+  return bytesRead;
+}
+
+function executeEmptySetBlockNumbersForEpochMessage(message: SetBlockNumbersForEpochMessage, globalState: GlobalState, data: Bytes): i32 {
   let bytesRead = 0;
 
-  if (globalState.activeNetworkCount != 0) {
+  log.warning("read count before", []);
+  let readCount = decodePrefixVarIntU64(data, bytesRead); // we should check for errors here
+  log.warning("read count after", []);
+  message.count = BigInt.fromU64(readCount[0]);
+  bytesRead += readCount[1] as i32;
+  message.save();
+
+  log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
+    message.count!.toString()
+  ]);
+
+  for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
+    log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
     let newEpoch = getOrCreateEpoch(
       (globalState.latestValidEpoch != null
         ? BigInt.fromString(globalState.latestValidEpoch!)
         : BIGINT_ZERO) + BIGINT_ONE
     );
     globalState.latestValidEpoch = newEpoch.id;
-
-    message.merkleRoot = changetype<Bytes>(
-      data.slice(bytesRead, bytesRead + 32)
-    );
-    bytesRead += 32;
-    let accelerations: Array<BigInt> = [];
-    for (let i = 0; i < globalState.activeNetworkCount; i++) {
-      let readAcceleration = decodePrefixVarIntI64(data, bytesRead); // we should check for errors here
-      bytesRead += readAcceleration[1] as i32;
-      accelerations.push(BigInt.fromI64(readAcceleration[0]));
-
-      // Create new NetworkEpochBlockNumber
-      createOrUpdateNetworkEpochBlockNumber(
-        i.toString(),
-        newEpoch.epochNumber,
-        BigInt.fromI64(readAcceleration[0])
-      );
-    }
-
-    message.accelerations = accelerations;
-    message.data = changetype<Bytes>(data.slice(0, bytesRead));
-    message.save();
-  } else {
-    let readCount = decodePrefixVarIntU64(data, bytesRead); // we should check for errors here
-    message.count = BigInt.fromU64(readCount[0]);
-    bytesRead += readCount[1] as i32;
-    message.save();
-
-    log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
-      message.count!.toString()
-    ]);
-
-    for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
-      log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
-      let newEpoch = getOrCreateEpoch(
-        (globalState.latestValidEpoch != null
-          ? BigInt.fromString(globalState.latestValidEpoch!)
-          : BIGINT_ZERO) + BIGINT_ONE
-      );
-      globalState.latestValidEpoch = newEpoch.id;
-    }
-    log.warning("AFTER EPOCH LOOP", []);
   }
+  log.warning("AFTER EPOCH LOOP", []);
   return bytesRead;
+}
+
+function executeSetBlockNumbersForEpochMessage(
+  message: SetBlockNumbersForEpochMessage,
+  globalState: GlobalState,
+  data: Bytes
+): i32 {
+  log.warning("Expecting {} block number updates", [globalState.activeNetworkCount.toString()]);
+  if (globalState.activeNetworkCount == 0) {
+    return executeEmptySetBlockNumbersForEpochMessage(message, globalState, data);
+  } else {
+    return executeNonEmptySetBlockNumbersForEpochMessage(message, globalState, data);
+  }
 }
 
 function executeCorrectEpochsMessage(
@@ -261,7 +288,16 @@ function executeUpdateVersionsMessage(
   data: Bytes
 ): i32 {
   let bytesRead = 0;
-  // To Do
+  // Decode the next encoding version ID.
+  let version = decodePrefixVarIntU64(data, 0);
+
+  if (version[1] == 0) {
+    // TODO: handle decoding error.
+  } else {
+    globalState.encodingVersion = version[0] as i32;
+    bytesRead += version[1] as i32;
+  }
+
   return bytesRead;
 }
 

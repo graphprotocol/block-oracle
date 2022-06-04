@@ -80,6 +80,7 @@ export function createOrUpdateNetworkEpochBlockNumber(
   epochId: BigInt,
   acceleration: BigInt
 ): NetworkEpochBlockNumber {
+  log.warning("calculating...", []);
   let id = [epochId.toString(), networkId].join("-");
   let previousId = [(epochId - BIGINT_ONE).toString(), networkId].join("-");
 
@@ -131,13 +132,22 @@ function getTag(preamble: Bytes, index: i32): MessageTag {
 
 // Returns the decoded i64 and the amount of bytes read. [0,0] -> Error
 export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): Array<i64> {
+  if ((bytes.length as u32) <= offset) {
+    log.warning("bad luength", []);
+    return [0, 0];
+  }
+
   let result: i64 = 0;
 
   // First we need to decode the raw bytes into a u64 and check that it didn't error out
+  log.warning("decoding u64", []);
   let zigZagDecodeInput = decodePrefixVarIntU64(bytes, offset);
+  log.warning("decoding u64 done", []);
   if (zigZagDecodeInput[1] != 0) {
+    log.warning("decoding i64", []);
     // Then we need to decode the U64 with ZigZag
     result = zigZagDecode(zigZagDecodeInput[0]);
+    log.warning("decoding i64 done", []);
   }
   return [result, zigZagDecodeInput[1]];
 }
@@ -145,7 +155,8 @@ export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): Array<i64> {
 // Returns the decoded u64 and the amount of bytes read. [0,0] -> Error
 export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): Array<u64> {
   let first = bytes[offset];
-  // shift can't be more than 8, but AS compiles u8 to an i32 in bytecode, so ctz acts weirdly here without the min.
+  // shift can't be more than 8, but AS compiles u8 to an i32 in bytecode, so
+  // ctz acts weirdly here without the min.
   let shift = min(ctz(first), 8);
 
   // Checking for invalid inputs that would break the algorithm
@@ -153,7 +164,7 @@ export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): Array<u64> {
     return [0, 0];
   }
 
-  let result: u64;
+  let result: u64 = 0;
   if (shift == 0) {
     result = (first >> 1) as u64;
   } else if (shift == 1) {
