@@ -140,48 +140,32 @@ function executeMessage(
   tag: MessageTag,
   index: i32,
   globalState: GlobalState,
-  messageBlockID: String,
+  messageBlockId: string,
   data: Bytes
 ): i32 {
   let bytesRead = 0;
-  // ToDo, parse and actually execute message
-  let message = new SetBlockNumbersForEpochMessage(
-    [messageBlockID, BigInt.fromI32(index).toString()].join("-")
-  );
-  message.block = messageBlockID;
+  let id = [messageBlockId, BigInt.fromI32(index).toString()].join("-");
 
   log.warning("Executing message {}", [MessageTag.toString(tag)]);
-  switch (tag) {
-    case MessageTag.SetBlockNumbersForEpochMessage:
-      bytesRead = executeSetBlockNumbersForEpochMessage(
-        message,
-        globalState,
-        data
-      );
-      break;
-    case MessageTag.CorrectEpochsMessage:
-      bytesRead = executeCorrectEpochsMessage(
-        changetype<CorrectEpochsMessage>(message),
-        globalState,
-        data
-      );
-      break;
-    case MessageTag.UpdateVersionsMessage:
-      bytesRead = executeUpdateVersionsMessage(
-        changetype<UpdateVersionsMessage>(message),
-        globalState,
-        data
-      );
-      break;
-    case MessageTag.RegisterNetworksMessage:
-      bytesRead = executeRegisterNetworksMessage(
-        changetype<RegisterNetworksMessage>(message),
-        globalState,
-        data
-      );
-      break;
+  if (tag == MessageTag.SetBlockNumbersForEpochMessage) {
+    let message = new SetBlockNumbersForEpochMessage(id);
+    bytesRead = executeSetBlockNumbersForEpochMessage(message, globalState, data);
+  } else if (tag == MessageTag.CorrectEpochsMessage) {
+    let message = new CorrectEpochsMessage(id);
+    bytesRead = executeCorrectEpochsMessage(message, globalState, data);
+  } else if (tag == MessageTag.UpdateVersionsMessage) {
+    let message = new UpdateVersionsMessage(id);
+    bytesRead = executeUpdateVersionsMessage(message, globalState, data);
+  } else if (tag == MessageTag.RegisterNetworksMessage) {
+    let message = new RegisterNetworksMessage(id);
+    bytesRead = executeRegisterNetworksMessage(message, globalState, data);
+  } else {
+    assert(false, "Unknown message tag. This is a bug!");
+    // Makes the compiler happy.
+    return 0;
   }
 
+  message.block = messageBlockId;
   return bytesRead;
 }
 
@@ -343,6 +327,7 @@ function executeRegisterNetworksMessage(
 
     let network = new Network(chainID);
     network.addedAt = message.id;
+    log.warning("New network", []);
     network.save();
 
     globalState.networkCount += 1;

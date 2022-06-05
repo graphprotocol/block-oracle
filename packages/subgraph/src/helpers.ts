@@ -133,21 +133,16 @@ function getTag(preamble: Bytes, index: i32): MessageTag {
 // Returns the decoded i64 and the amount of bytes read. [0,0] -> Error
 export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): Array<i64> {
   if ((bytes.length as u32) <= offset) {
-    log.warning("bad luength", []);
     return [0, 0];
   }
 
   let result: i64 = 0;
 
   // First we need to decode the raw bytes into a u64 and check that it didn't error out
-  log.warning("decoding u64", []);
   let zigZagDecodeInput = decodePrefixVarIntU64(bytes, offset);
-  log.warning("decoding u64 done", []);
   if (zigZagDecodeInput[1] != 0) {
-    log.warning("decoding i64", []);
     // Then we need to decode the U64 with ZigZag
     result = zigZagDecode(zigZagDecodeInput[0]);
-    log.warning("decoding i64 done", []);
   }
   return [result, zigZagDecodeInput[1]];
 }
@@ -236,7 +231,7 @@ export function getStringFromBytes(
   bytes: Bytes,
   offset: u32,
   stringLength: u32
-): String {
+): string {
   let slicedBytes = changetype<Bytes>(
     bytes.slice(offset, offset + stringLength)
   );
