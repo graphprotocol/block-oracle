@@ -122,9 +122,7 @@ where
         self.inner = match (&self.inner, new_state) {
             (_, Ok(state)) => {
                 info!("Retrieved new subgraph state");
-                Valid {
-                    state,
-                }
+                Valid { state }
             }
             (Uninitialized { .. }, Err(error)) => Uninitialized {
                 error: Some(Arc::new(error)),
