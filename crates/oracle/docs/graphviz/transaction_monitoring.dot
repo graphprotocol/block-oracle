@@ -1,0 +1,62 @@
+digraph transaction_monitor_state_machine {
+    // General Graph Display
+    rankdir=LR
+    fontname="Helvetica,Arial,sans-serif"
+    edge [fontname="Helvetica,Arial,sans-serif"]
+    node [fontname="Helvetica,Arial,sans-serif", shape=ellipse,
+          style=filled, fillcolor="white"]
+
+    // Node Definitions
+    ENTRY [shape=point, fillcolor="black"]
+    Pending [label="Pending", shape=doublecircle,style=filled, fillcolor="lightsteelblue"]
+    Finished [label="Finish", shape=doublecircle, style=filled, fillcolor="lightsteelblue"]
+    COND_TIMED_OUT [label="Timed\nOut?", shape=diamond, style=filled, fillcolor="gray"]
+    NewTransaction [label="Rebroadcast\n Transaction"]
+
+    subgraph cluster_failed_states {
+        label="Failures"
+        style="filled"
+        fillcolor="lightsteelblue"
+
+        TimedOut [label="Timed Out", shape=doublecircle]
+        OutOfGas [label="Out of Gas", shape=doublecircle]
+        MaximumGasReached [label="Max. Gas\nReached", shape=doublecircle]
+        IoError [label="I/O \nErrors", shape=doublecircle]
+    }
+
+    subgraph cluster_gas_manager {
+        label="Gas Manager"
+
+        CalculateNewPrice [label="Refresh and\nRecalculate\nNew Gas Price"]
+        COND_MAX_GAS_PRICE [shape="diamond", label="Maximum Gas\n Price Reached?", style=filled, fillcolor="gray"]
+        NewGasPrice [label="New Gas Price"]
+
+        CalculateNewPrice -> COND_MAX_GAS_PRICE
+    }
+
+    //
+    // Transitions
+    //
+
+    // Start
+    ENTRY -> Pending
+
+    // Success path
+    Pending -> Finished [label="Confirmation"]
+
+    // Retry
+    Pending -> COND_TIMED_OUT [label="Retry"]
+    COND_TIMED_OUT -> CalculateNewPrice [label="No"]
+    COND_TIMED_OUT -> TimedOut [label="Yes"]
+
+    // Gas Manager
+    NewGasPrice -> NewTransaction -> Pending
+    COND_MAX_GAS_PRICE -> MaximumGasReached [label="Yes"]
+    COND_MAX_GAS_PRICE -> NewGasPrice [label="No"]
+
+    // IO Errors
+    CalculateNewPrice -> IoError
+    NewTransaction-> IoError
+    Pending -> IoError
+    Pending -> OutOfGas
+}
