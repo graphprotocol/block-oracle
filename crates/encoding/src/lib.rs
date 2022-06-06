@@ -6,7 +6,7 @@ use merkle::{merkle_root, MerkleLeaf};
 use messages::*;
 use std::collections::HashMap;
 
-pub use messages::{BlockPtr, CompressedMessage, Message};
+pub use messages::{BlockPtr, CompressedMessage, CompressedSetBlockNumbersForNextEpoch, Message};
 pub use serialize::serialize_messages;
 
 pub const CURRENT_ENCODING_VERSION: u64 = 0;
