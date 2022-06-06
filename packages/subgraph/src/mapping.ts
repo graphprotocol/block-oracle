@@ -149,15 +149,19 @@ function executeMessage(
   log.warning("Executing message {}", [MessageTag.toString(tag)]);
   if (tag == MessageTag.SetBlockNumbersForEpochMessage) {
     let message = new SetBlockNumbersForEpochMessage(id);
+    message.block = messageBlockId;
     bytesRead = executeSetBlockNumbersForEpochMessage(message, globalState, data);
   } else if (tag == MessageTag.CorrectEpochsMessage) {
     let message = new CorrectEpochsMessage(id);
+    message.block = messageBlockId;
     bytesRead = executeCorrectEpochsMessage(message, globalState, data);
   } else if (tag == MessageTag.UpdateVersionsMessage) {
     let message = new UpdateVersionsMessage(id);
+    message.block = messageBlockId;
     bytesRead = executeUpdateVersionsMessage(message, globalState, data);
   } else if (tag == MessageTag.RegisterNetworksMessage) {
     let message = new RegisterNetworksMessage(id);
+    message.block = messageBlockId;
     bytesRead = executeRegisterNetworksMessage(message, globalState, data);
   } else {
     assert(false, "Unknown message tag. This is a bug!");
@@ -165,7 +169,6 @@ function executeMessage(
     return 0;
   }
 
-  message.block = messageBlockId;
   return bytesRead;
 }
 
@@ -219,9 +222,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(message: SetBlockNumbersF
 function executeEmptySetBlockNumbersForEpochMessage(message: SetBlockNumbersForEpochMessage, globalState: GlobalState, data: Bytes): i32 {
   let bytesRead = 0;
 
-  log.warning("read count before", []);
   let readCount = decodePrefixVarIntU64(data, bytesRead); // we should check for errors here
-  log.warning("read count after", []);
   message.count = BigInt.fromU64(readCount[0]);
   bytesRead += readCount[1] as i32;
   message.save();
@@ -272,16 +273,13 @@ function executeUpdateVersionsMessage(
   data: Bytes
 ): i32 {
   let bytesRead = 0;
-  // Decode the next encoding version ID.
-  let version = decodePrefixVarIntU64(data, 0);
-
-  if (version[1] == 0) {
-    // TODO: handle decoding error.
-  } else {
-    globalState.encodingVersion = version[0] as i32;
-    bytesRead += version[1] as i32;
+  let versionRead = decodePrefixVarIntU64(data, 0);
+  if (versionRead[1] == 0) {
+    return 0;
   }
 
+  globalState.encodingVersion = versionRead[0] as i32;
+  bytesRead += versionRead[1] as i32;
   return bytesRead;
 }
 
@@ -291,48 +289,55 @@ function executeRegisterNetworksMessage(
   data: Bytes
 ): i32 {
   let bytesRead = 0;
-  // get remove length
-  let readRemoveLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
-  bytesRead += readRemoveLength[1] as i32;
-
   let networks = getNetworkList(globalState);
   let removedNetworks: Array<Network> = [];
+
+  // get remove length
+  let readRemoveLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
+  if (readRemoveLength[1] == 0) {
+    return 0;
+  }
+  bytesRead += readRemoveLength[1] as i32;
 
   // now get all the removed network ids and apply the changes to the pre-loaded list
   for (let i = 0; i < (readRemoveLength[0] as i32); i++) {
     let readRemove = decodePrefixVarIntU64(data, bytesRead);
-    bytesRead += readRemove[1] as i32;
-    // check network to remove is within bounds
-    if (
-      networks.length <= (readRemove[0] as i32) ||
-      (readRemove[1] as i32) == 0
-    ) {
-      // trigger error here
+    let networkId = readRemove[0] as i32;
+    // Check for decoding errors and network list bounds.
+    if (readRemove[1] == 0 || networkId >= networks.length) {
+      return 0;
     }
-    let networkToRemoveID = readRemove[0] as i32;
-    networks[networkToRemoveID].removedAt = message.id;
-    removedNetworks.push(swapAndPop(networkToRemoveID, networks));
+
+    bytesRead += readRemove[1] as i32;
+    networks[networkId].removedAt = message.id;
+    removedNetworks.push(swapAndPop(networkId, networks));
   }
 
-  let readAddLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
+  let readAddLength = decodePrefixVarIntU64(data, bytesRead);
+  if (readAddLength[1] == 0) {
+    return 0;
+  }
   bytesRead += readAddLength[1] as i32;
 
   // now get all the add network strings
   for (let i = 0; i < (readAddLength[0] as i32); i++) {
-    let readStrLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
+    let readStrLength = decodePrefixVarIntU64(data, bytesRead);
+    if (readStrLength[1] == 0) {
+      return 0;
+    }
+
     bytesRead += readStrLength[1] as i32;
 
+    // TODO: handle this.
     let chainID = getStringFromBytes(data, bytesRead, readStrLength[0] as u32);
     bytesRead += readStrLength[0] as i32;
 
     let network = new Network(chainID);
     network.addedAt = message.id;
-    log.warning("New network", []);
     network.save();
-
     globalState.networkCount += 1;
-
     networks.push(network);
+    log.warning("A new network has been added (name: '{}')", [chainID]);
   }
 
   commitNetworkChanges(removedNetworks, networks, globalState);
