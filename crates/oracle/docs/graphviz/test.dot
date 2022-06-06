@@ -1,0 +1,33 @@
+digraph transaction_monitor_state_machine {
+        // general display
+	fontname="Helvetica,Arial,sans-serif"
+	node [fontname="Helvetica,Arial,sans-serif"];
+	edge [fontname="Helvetica,Arial,sans-serif"];
+	rankdir=LR;
+        compound=true;
+
+        // states definitions
+        node [shape=point] ENTRY
+	node [shape = doublecircle]; Finished, Failed;
+	node [shape = ellipse];
+
+        Pending [label = "Pending"];
+        Finished [label = "Finish"];
+        Failed [label = "Failed"];
+
+        // failed
+        TimedOut [label = "Timed Out"]
+        OutOfGas [label = "Out of Gas"]
+        MaximumGasReached [label = "Max. Gas"]
+
+        ENTRY -> Pending;
+        Pending -> Pending [label = "Retry"];
+        Pending -> Finished [label = "Confirmed"];
+
+        Pending -> Failed
+        Failed -> TimedOut [arrowhead = none]
+        Failed -> OutOfGas [arrowhead = none]
+        Failed -> MaximumGasReached [arrowhead = none]
+
+
+}
