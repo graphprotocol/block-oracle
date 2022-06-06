@@ -245,7 +245,13 @@ function executeUpdateVersionsMessage(
   data: Bytes
 ): i32 {
   let bytesRead = 0;
-  // To Do
+  let readVersion = decodePrefixVarIntU64(data, bytesRead);
+  if (readVersion[1] == 0) {
+    return 0;
+  }
+
+  globalState.encodingVersion = readVersion[0];
+  bytesRead += readVersion[1] as i32;
   return bytesRead;
 }
 
