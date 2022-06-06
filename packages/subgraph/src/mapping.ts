@@ -25,6 +25,7 @@ import {
   rollbackToGlobalState,
   getOrCreateEpoch,
   createOrUpdateNetworkEpochBlockNumber,
+  MessageTag,
   getNetworkList,
   swapAndPop,
   commitNetworkChanges
@@ -126,44 +127,35 @@ function executeMessage(
   tag: i32,
   index: i32,
   globalState: GlobalState,
-  messageBlockID: String,
+  messageBlockId: string,
   data: Bytes
 ): i32 {
   let bytesRead = 0;
-  // ToDo, parse and actually execute message
-  let message = new SetBlockNumbersForEpochMessage(
-    [messageBlockID, BigInt.fromI32(index).toString()].join("-")
-  );
-  message.block = messageBlockID;
+  let id = [messageBlockId, BigInt.fromI32(index).toString()].join("-");
+  // The message type can then be changed according to the tag.
+  let message = new SetBlockNumbersForEpochMessage(id);
+  message.block = messageBlockId;
 
-  if (tag == 0) {
-    log.warning("EXECUTING SetBlockNumbersForEpochMessage", []);
+  log.warning("Executing message {}", [MessageTag.toString(tag)]);
+  if (tag == MessageTag.SetBlockNumbersForEpochMessage) {
     bytesRead = executeSetBlockNumbersForEpochMessage(
-      message,
-      globalState,
-      data
+      changetype<SetBlockNumbersForEpochMessage>(message), globalState, data
     );
-  } else if (tag == 1) {
-    log.warning("EXECUTING CorrectEpochsMessage", []);
+  } else if (tag == MessageTag.CorrectEpochsMessage) {
     bytesRead = executeCorrectEpochsMessage(
-      changetype<CorrectEpochsMessage>(message),
-      globalState,
-      data
+      changetype<CorrectEpochsMessage>(message), globalState, data
     );
-  } else if (tag == 2) {
-    log.warning("EXECUTING UpdateVersionsMessage", []);
+  } else if (tag == MessageTag.UpdateVersionsMessage) {
     bytesRead = executeUpdateVersionsMessage(
-      changetype<UpdateVersionsMessage>(message),
-      globalState,
-      data
+      changetype<UpdateVersionsMessage>(message), globalState, data
     );
-  } else if (tag == 3) {
-    log.warning("EXECUTING RegisterNetworksMessage", []);
+  } else if (tag == MessageTag.RegisterNetworksMessage) {
     bytesRead = executeRegisterNetworksMessage(
-      changetype<RegisterNetworksMessage>(message),
-      globalState,
-      data
+      changetype<RegisterNetworksMessage>(message), globalState, data
     );
+  } else {
+    log.error("Unknown message tag '{}'. This is most likely a bug!", [MessageTag.toString(tag)]);
+    return 0;
   }
 
   return bytesRead;
