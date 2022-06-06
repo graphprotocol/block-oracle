@@ -1,0 +1,32 @@
+[
+	{
+		"message": "Reset"
+	},
+	{
+		"message": "UpdateVersion",
+		"versionNumber": 420
+	},
+	{
+		"message": "RegisterNetworks",
+		"remove": [
+			0,
+			42
+		],
+		"add": [
+			"eip155:1"
+		]
+	},
+	{
+		"message": "SetBlockNumbersForNextEpoch",
+		"count": 100
+	},
+	{
+		"message": "SetBlockNumbersForNextEpoch",
+		"merkleRoot": "0xf3e001b1c3d4bc26fbe2e326cc651a8937942ed730663249f61e55ddc08f39e9",
+		"accelerations": [
+			1,
+			2,
+			3
+		]
+	}
+]
