@@ -34,9 +34,6 @@ impl crate::MainLoopFlow for SubgraphStateError {
 
 /// Represents Subgraph states.
 ///
-/// It is generic over the actual internal type. Because of that it needs to wrap it in [`Rc`]s,
-/// otherwise the [`SubgraphState::refresh`] function could not have a signature of `&mut self.`
-///
 /// Errors will not be moved out of this type, so we use [`anyhow::Error`] because we only need to
 /// log and/or display them.
 enum State<S> {
