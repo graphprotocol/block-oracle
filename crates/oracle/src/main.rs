@@ -85,7 +85,7 @@ async fn main() -> Result<(), Error> {
                     tokio::time::sleep(sleep_time).await;
                     continue;
                 }
-                Continue(None) => continue,
+                Continue(None) => {}
                 Break(()) => {
                     error!("Stopping the Block Oracle due to an irreversible error");
                     break;
