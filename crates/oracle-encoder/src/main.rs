@@ -16,56 +16,78 @@ fn main() -> io::Result<()> {
     let inputs = OracleEncoder::parse();
 
     let file_contents = std::fs::read_to_string(inputs.json_path)?;
-    let messages: Vec<Message> = serde_json::from_str(&file_contents).unwrap();
+    let message_blocks: Vec<MessageBlock> = serde_json::from_str(&file_contents).unwrap();
 
-    let mut encoded_messages = vec![];
-    for m in messages {
-        let (message_type, ready_to_encode) = match m {
-            Message::Reset => ("Reset", ee::CompressedMessage::Reset),
-            Message::CorrectEpochs {} => (
-                "CorrectEpochs",
-                ee::CompressedMessage::CorrectEpochs {
-                    data_by_network_id: HashMap::new(),
-                },
-            ),
-            Message::UpdateVersion { version_number } => ("UpdateVersion", {
-                ee::CompressedMessage::UpdateVersion { version_number }
-            }),
-            Message::RegisterNetworks { remove, add } => ("RegisterNetworks", {
-                ee::CompressedMessage::RegisterNetworks { remove, add }
-            }),
-            Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::Empty { count }) => {
-                ("SetBlockNumbersForNextEpoch", {
+    let mut encoded_message_blocks = vec![];
+    for block in message_blocks {
+        let contents = match block {
+            MessageBlock::MessageBlock(b) => b,
+            MessageBlock::MessageBlockWithOneMessage(m) => vec![m],
+        };
+        let mut message_types = vec![];
+        let mut compressed_contents = vec![];
+        for message in contents {
+            let (message_type, ready_to_encode) = match message {
+                Message::Reset => ("Reset", ee::CompressedMessage::Reset),
+                Message::CorrectEpochs {} => (
+                    "CorrectEpochs",
+                    ee::CompressedMessage::CorrectEpochs {
+                        data_by_network_id: HashMap::new(),
+                    },
+                ),
+                Message::UpdateVersion { version_number } => ("UpdateVersion", {
+                    ee::CompressedMessage::UpdateVersion { version_number }
+                }),
+                Message::RegisterNetworks { remove, add } => ("RegisterNetworks", {
+                    ee::CompressedMessage::RegisterNetworks { remove, add }
+                }),
+                Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::Empty {
+                    count,
+                }) => ("SetBlockNumbersForNextEpoch", {
                     ee::CompressedMessage::SetBlockNumbersForNextEpoch(
                         ee::CompressedSetBlockNumbersForNextEpoch::Empty { count },
                     )
-                })
-            }
-            Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::NonEmpty {
-                merkle_root,
-                accelerations,
-            }) => (
-                "SetBlockNumbersForNextEpoch",
-                ee::CompressedMessage::SetBlockNumbersForNextEpoch(
-                    ee::CompressedSetBlockNumbersForNextEpoch::NonEmpty {
-                        root: merkle_root
-                            .try_into()
-                            .expect("Bad JSON: The Merkle root must have exactly 32 bytes."),
-                        accelerations,
-                    },
+                }),
+                Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::NonEmpty {
+                    merkle_root,
+                    accelerations,
+                }) => (
+                    "SetBlockNumbersForNextEpoch",
+                    ee::CompressedMessage::SetBlockNumbersForNextEpoch(
+                        ee::CompressedSetBlockNumbersForNextEpoch::NonEmpty {
+                            root: merkle_root
+                                .try_into()
+                                .expect("Bad JSON: The Merkle root must have exactly 32 bytes."),
+                            accelerations,
+                        },
+                    ),
                 ),
-            ),
-        };
+            };
+            message_types.push(message_type);
+            compressed_contents.push(ready_to_encode);
+        }
         let mut payload = Vec::new();
-        ee::serialize_messages(&[ready_to_encode], &mut payload);
-        encoded_messages.push((message_type, payload));
+        ee::serialize_messages(&compressed_contents[..], &mut payload);
+        encoded_message_blocks.push((message_types, payload));
     }
 
-    for (i, (message_type, payload)) in encoded_messages.iter().enumerate() {
-        println!("{} ({}): 0x{}", i + 1, message_type, hex::encode(payload));
+    for (i, (message_types, block_payload)) in encoded_message_blocks.iter().enumerate() {
+        println!(
+            "{} ({}): 0x{}",
+            i + 1,
+            message_types.join(", "),
+            hex::encode(block_payload)
+        );
     }
 
     Ok(())
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum MessageBlock {
+    MessageBlock(Vec<Message>),
+    MessageBlockWithOneMessage(Message),
 }
 
 #[derive(Serialize, Deserialize)]
