@@ -4,7 +4,6 @@ import {
 } from "../generated/DataEdge/DataEdge";
 import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
 import {
-  DataEdge,
   SetBlockNumbersForEpochMessage,
   CorrectEpochsMessage,
   UpdateVersionsMessage,
@@ -15,14 +14,12 @@ import {
   Network
 } from "../generated/schema";
 import {
-  getGlobalState,
   getTags,
   decodePrefixVarIntU64,
   decodePrefixVarIntI64,
   getStringFromBytes,
   getAuxGlobalState,
   commitToGlobalState,
-  rollbackToGlobalState,
   getOrCreateEpoch,
   createOrUpdateNetworkEpochBlockNumber,
   MessageTag,
@@ -32,9 +29,9 @@ import {
 } from "./helpers";
 import {
   PREAMBLE_BIT_LENGTH,
-  TAG_BIT_LENGTH,
   BIGINT_ZERO,
-  BIGINT_ONE
+  BIGINT_ONE,
+  PREAMBLE_BYTE_LENGTH
 } from "./constants";
 
 export function handleLogCrossChainEpochOracle(
@@ -60,104 +57,110 @@ export function handleCrossChainEpochOracle(
 }
 
 export function processPayload(
-  submitter: String,
+  submitter: string,
   payloadBytes: Bytes,
-  txHash: String
+  txHash: string
 ): void {
-  // Load auxiliary GlobalState for rollback capabilities
+  // Load auxiliary GlobalState for rollback capabilities.
   let globalState = getAuxGlobalState();
 
-  // Save raw payload
+  // Save raw payload.
   let payload = new Payload(txHash);
   payload.data = payloadBytes;
   payload.submitter = submitter;
   payload.save();
 
   let rawPayloadData = payloadBytes;
+  let numBlocksRead = 0;
+  let numBytesRead = 0;
 
-  let messageBlockCounter = 0;
+  while (numBytesRead < rawPayloadData.length) {
+    let i = BigInt.fromI32(numBlocksRead).toString();
+    log.warning("New message block (num. {}) with remaining data: {}", [i, rawPayloadData.toHexString()]);
 
-  while (rawPayloadData.length > 0) {
-    log.warning("NEW MESSAGE BLOCK {}", [messageBlockCounter.toString()]);
-    // Save raw message
-    let messageBlock = new MessageBlock(
-      [txHash, BigInt.fromI32(messageBlockCounter).toString()].join("-")
-    );
+    // Save raw message.
+    let messageBlock = new MessageBlock([txHash, i].join("-"));
 
-    let tags = getTags(
-      changetype<Bytes>(rawPayloadData.slice(0, PREAMBLE_BIT_LENGTH / 8))
-    );
-
-    rawPayloadData = changetype<Bytes>(
-      rawPayloadData.slice(PREAMBLE_BIT_LENGTH / 8)
-    );
-
-    for (let i = 0; i < tags.length; i++) {
-      log.warning("NEW LOOP", []);
-      log.warning("Payload size now {}", [rawPayloadData.length.toString()]);
-
-      if (rawPayloadData.length == 0) {
-        //rollbackToGlobalState(globalState);
-        //return;
-        break;
-      }
-
-      let bytesRead = executeMessage(
-        tags[i],
-        i,
-        globalState,
-        messageBlock.id,
-        rawPayloadData
-      );
-      rawPayloadData = changetype<Bytes>(rawPayloadData.slice(bytesRead));
-      log.warning("Bytes read: {}", [bytesRead.toString()]);
+    numBytesRead += processMessageBlock(globalState, messageBlock, rawPayloadData);
+    if (numBytesRead == 0) {
+      log.error("Failed to process message block num. {}", [i]);
+      return;
     }
 
-    messageBlock.data = rawPayloadData; // cut it to the amount actually read
-    messageBlock.save();
-    log.warning("END OF MESSAGE BLOCK {}", [messageBlockCounter.toString()]);
-    messageBlockCounter++;
+    log.warning("Finished processing message block num. {}", [i]);
+    numBlocksRead++;
   }
 
   commitToGlobalState(globalState);
 }
 
-// Executes the message and returns the amount of bytes read
-function executeMessage(
-  tag: i32,
-  index: i32,
+export function processMessageBlock(
   globalState: GlobalState,
-  messageBlockId: string,
-  data: Bytes
+  messageBlock: MessageBlock,
+  payload: Bytes
 ): i32 {
+  let numBytesRead = PREAMBLE_BYTE_LENGTH;
+
+  // Read the message block's tags.
+  let preamble = changetype<Bytes>(payload.slice(0, PREAMBLE_BYTE_LENGTH));
+  let tags = getTags(preamble);
+
+  for (let i = 0; i < tags.length; i++) {
+    let messageBytes = changetype<Bytes>(payload.slice(numBytesRead));
+    numBytesRead += processMessage(globalState, messageBlock, i, tags[i], messageBytes);
+  }
+
+  messageBlock.data = changetype<Bytes>(payload.slice(PREAMBLE_BYTE_LENGTH, numBytesRead));
+  messageBlock.save();
+
+  return numBytesRead;
+}
+
+// Finishes decoding the message, executes it, and finally returns the amount
+// of bytes read.
+export function processMessage(
+  globalState: GlobalState,
+  messageBlock: MessageBlock,
+  i: i32,
+  tag: MessageTag,
+  payload: Bytes
+): i32 {
+  log.warning("Processing new message with tag {}", [MessageTag.toString(tag)]);
+  log.warning("The remaining payload is {}", [payload.toHexString()]);
+
+  if (payload.length == 0) {
+    return 0;
+  }
+
   let bytesRead = 0;
-  let id = [messageBlockId, BigInt.fromI32(index).toString()].join("-");
+  let id = [messageBlock.id, BigInt.fromI32(i).toString()].join("-");
   // The message type can then be changed according to the tag.
   let message = new SetBlockNumbersForEpochMessage(id);
-  message.block = messageBlockId;
+  message.block = messageBlock.id;
 
   log.warning("Executing message {}", [MessageTag.toString(tag)]);
   if (tag == MessageTag.SetBlockNumbersForEpochMessage) {
     bytesRead = executeSetBlockNumbersForEpochMessage(
-      changetype<SetBlockNumbersForEpochMessage>(message), globalState, data
+      changetype<SetBlockNumbersForEpochMessage>(message), globalState, payload
     );
   } else if (tag == MessageTag.CorrectEpochsMessage) {
     bytesRead = executeCorrectEpochsMessage(
-      changetype<CorrectEpochsMessage>(message), globalState, data
+      changetype<CorrectEpochsMessage>(message), globalState, payload
     );
   } else if (tag == MessageTag.UpdateVersionsMessage) {
     bytesRead = executeUpdateVersionsMessage(
-      changetype<UpdateVersionsMessage>(message), globalState, data
+      changetype<UpdateVersionsMessage>(message), globalState, payload
     );
   } else if (tag == MessageTag.RegisterNetworksMessage) {
     bytesRead = executeRegisterNetworksMessage(
-      changetype<RegisterNetworksMessage>(message), globalState, data
+      changetype<RegisterNetworksMessage>(message), globalState, payload
     );
   } else {
     log.error("Unknown message tag '{}'. This is most likely a bug!", [MessageTag.toString(tag)]);
     return 0;
   }
 
+  log.warning("Bytes read: {}", [bytesRead.toString()]);
   return bytesRead;
 }
 
