@@ -2,20 +2,22 @@
 	{
 		"message": "Reset"
 	},
-	{
-		"message": "UpdateVersion",
-		"versionNumber": 420
-	},
-	{
-		"message": "RegisterNetworks",
-		"remove": [
-			0,
-			42
-		],
-		"add": [
-			"eip155:1"
-		]
-	},
+	[
+		{
+			"message": "UpdateVersion",
+			"versionNumber": 420
+		},
+		{
+			"message": "RegisterNetworks",
+			"remove": [
+				0,
+				42
+			],
+			"add": [
+				"eip155:1"
+			]
+		}
+	],
 	{
 		"message": "SetBlockNumbersForNextEpoch",
 		"count": 100
