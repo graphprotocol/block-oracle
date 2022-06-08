@@ -293,13 +293,55 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   let networkD = Network.load("D")!;
   assert.assertNull(networkD.nextArrayElement);
 
-  //processPayload(submitter, payloadBytes2, txHash);
+  processPayload(submitter, payloadBytes2, txHash);
 
-  // // Check counts
-  // assert.entityCount("Epoch", 2);
-  // assert.entityCount("Network", 4); // entity count won't change, but 1 would be inactive
-  // assert.entityCount("NetworkEpochBlockNumber", 4);
-  // assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "3");
+  // Check counts
+  assert.entityCount("Epoch", 2);
+  assert.entityCount("Network", 4); // entity count won't change, but 1 would be inactive
+  assert.entityCount("NetworkEpochBlockNumber", 7);
+  assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "3");
 
-  // To Do add asserts
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-B", "id", "1-B");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-C", "id", "1-C");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-D", "id", "1-D");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A", "id", "2-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "id", "2-C");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-D", "id", "2-D");
+
+  assert.notInStore("NetworkEpochBlockNumber", "2-B"); // 2-B shouldn't exist since it was removed from the list
+
+  // Check network array
+  assert.fieldEquals("Network", "A", "state", "0");
+  assert.fieldEquals("Network", "C", "state", "0");
+  assert.fieldEquals("Network", "D", "state", "0");
+  assert.fieldEquals("Network", "A", "arrayIndex", "0");
+  assert.fieldEquals("Network", "D", "arrayIndex", "1"); // D takes the places of B, since it's swapAndPop
+  assert.fieldEquals("Network", "C", "arrayIndex", "2");
+  let networkB = Network.load("B")!;
+  assert.assertNull(networkB.arrayIndex);
+  assert.assertNull(networkB.state);
+
+  assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
+  assert.fieldEquals("Network", "A", "nextArrayElement", "D");
+  assert.fieldEquals("Network", "D", "nextArrayElement", "C");
+  let networkC = Network.load("C")!;
+  assert.assertNull(networkC.nextArrayElement);
+
+  // Check accelerations and deltas make sense
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "1");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "1");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-B", "acceleration", "2");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-B", "delta", "2");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-C", "acceleration", "3");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-C", "delta", "3");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-D", "acceleration", "4");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-D", "delta", "4");
+
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A", "acceleration", "5");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A", "delta", "6");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-D", "acceleration", "6"); // D and C look like swapping places, since it's swapAndPop, and D takes the place of B
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-D", "delta", "10");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "acceleration", "7");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "delta", "10");
 });
