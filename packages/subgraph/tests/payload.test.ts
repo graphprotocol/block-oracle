@@ -69,6 +69,8 @@ test("RegisterNetworks, SetBlockNumbersForNextEpoch)", () => {
   assert.fieldEquals("Network", "A", "id", "A");
   assert.fieldEquals("Epoch", "1", "id", "1");
   assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "15");
   assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
 
 });
@@ -76,6 +78,10 @@ test("RegisterNetworks, SetBlockNumbersForNextEpoch)", () => {
 // crates/oracle-encoder/examples/03-register-networks-and-set-block-numbers.json
 // 1 (RegisterNetworks): 0x0301030341
 // 2 (SetBlockNumbersForNextEpoch): 0x0066ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc493d
+// [
+//   messages.add_networks(["A"]),
+//   messages.set_block_numbers([15]),
+// ]
 
 test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
   let payloadBytes1 = Bytes.fromHexString("0x0301030341") as Bytes;
@@ -85,14 +91,35 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
   let submitter = "0x00";
   let txHash = "0x00";
 
-  processPayload(submitter, payloadBytes1, txHash);
-  processPayload(submitter, payloadBytes2, txHash);
+  processPayload(submitter, payloadBytes1, txHash); // Network registration
 
-  // To Do add asserts
+  assert.entityCount("Epoch", 0);
+  assert.entityCount("Network", 1);
+  assert.entityCount("NetworkEpochBlockNumber", 0);
+
+  processPayload(submitter, payloadBytes2, txHash); // Acceleration
+
+  assert.entityCount("Epoch", 1);
+  assert.entityCount("Network", 1);
+  assert.entityCount("NetworkEpochBlockNumber", 1);
+  assert.fieldEquals("Network", "A", "id", "A");
+  assert.fieldEquals("Epoch", "1", "id", "1");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "15");
+  assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
 });
 
 // crates/oracle-encoder/examples/04-register-multiple-and-set-block-numbers-thrice.json
 // 1 (RegisterNetworks, SetBlockNumbersForNextEpoch, SetBlockNumbersForNextEpoch, SetBlockNumbersForNextEpoch): 0x030109034103420343034466ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4905090d110066ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4915191d2166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4925292d31
+// [
+//   [
+//     messages.add_networks(["A", "B", "C", "D"]),
+//     messages.set_block_numbers([1,  2,  3,  4]),
+//     messages.set_block_numbers([5,  6,  7,  8]),
+//     messages.set_block_numbers([9, 10, 11, 12]),
+//   ]
+// ]
 
 test("(RegisterNetworks, SetBlockNumbersForNextEpoch, SetBlockNumbersForNextEpoch, SetBlockNumbersForNextEpoch)", () => {
   let payloadBytes = Bytes.fromHexString(
@@ -109,6 +136,16 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch, SetBlockNumbersForNextEpoc
 // crates/oracle-encoder/examples/05-register-multiple-and-unregister.json
 // 1 (RegisterNetworks, SetBlockNumbersForNextEpoch): 0x030109034103420343034466ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4905090d11
 // 2 (RegisterNetworks, SetBlockNumbersForNextEpoch): 0x0303030166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4915191d
+// [
+//   [
+//     messages.add_networks(["A", "B", "C", "D"]),
+//     messages.set_block_numbers([1,  2,  3,  4]),
+//   ],
+//   [
+//     messages.remove_networks([1]),
+//     messages.set_block_numbers([5, 6, 7]),
+//   ]
+// ]
 
 test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetBlockNumbersForNextEpoch)", () => {
   let payloadBytes1 = Bytes.fromHexString(
