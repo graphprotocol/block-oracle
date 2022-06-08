@@ -23,7 +23,7 @@ use event_source::{EventSource, EventSourceError};
 use lazy_static::lazy_static;
 use models::Caip2ChainId;
 use std::collections::HashMap;
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info};
 
 pub use config::Config;
 pub use emitter::Emitter;
@@ -145,19 +145,38 @@ impl<'a> Oracle<'a> {
         {
             self.handle_new_epoch().await?;
         }
-
         Ok(())
     }
 
-    async fn registered_networks(&self) -> Result<Vec<Caip2ChainId>, Error> {
+    async fn registered_networks(&self) -> Result<HashMap<Caip2ChainId, u32>, Error> {
         if self.subgraph_state.is_valid() {
-            Ok(self
+            let subgraph_networks = self
                 .subgraph_state
                 .data()
-                .unwrap()
-                .iter()
-                .map(|s| s.id.parse().unwrap())
-                .collect())
+                .expect("expected data from a valid subgraph state, but found none");
+
+            let mut networks: HashMap<Caip2ChainId, u32> = HashMap::new();
+            for network in subgraph_networks {
+                let chain_id: Caip2ChainId =
+                    network.id.parse().expect("expected a valid CAIP2 name");
+                // Each network has an array of block numbers, one for each epoch, but we are
+                // only interested on the most recent one.
+                let block_number =
+                    network
+                        .block_numbers
+                        .iter()
+                        .max_by_key(|block_number| block_number.epoch.epoch_number)
+                        .expect(
+                            &format!("expected at least one block number for network '{chain_id}', but found none"),
+                        ).block_number;
+                networks.insert(
+                    chain_id.clone(),
+                    u32::try_from(block_number).expect(&format!(
+                        "expected a block number that would fit in a `u32`, but found {block_number}"
+                    )),
+                );
+            }
+            Ok(networks)
         } else {
             todo!("Handle this as error")
         }

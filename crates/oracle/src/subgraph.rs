@@ -3,8 +3,10 @@ use crate::{Config, SubgraphApi};
 use anyhow::Context;
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
+use itertools::Itertools;
 use reqwest::Url;
 use serde::{de, Deserialize, Deserializer};
+use std::collections::HashSet;
 use std::fmt;
 
 use self::subgraph_state::ResponseData;
@@ -18,6 +20,12 @@ pub enum SubgraphQueryError {
     Transport(#[from] reqwest::Error),
     #[error("The subgraph is in a failed state")]
     IndexingError,
+    #[error("Found duplicated network ids in subgraph state")]
+    DuplicatedNetworkIds(HashSet<String>),
+    #[error("Found duplicated network indices in subgraph state")]
+    DuplicatedNetworkIndices(HashSet<i64>),
+    #[error("Found a registered network without an index")]
+    NetworkWithMissingIndex(String),
     #[error("Unknown subgraph error(s): {}", format_slice(messages))]
     Other { messages: Vec<String> },
 }
@@ -57,6 +65,37 @@ impl SubgraphApi for SubgraphQuery {
     }
 }
 
+fn validate_subgraph_state(
+    registered_networks: &[subgraph_state::SubgraphStateNetworks],
+) -> Result<(), SubgraphQueryError> {
+    // 1. Validate against  duplicate chain ids (keys)
+    let duplicate_network_ids = helpers::duplicates(registered_networks.iter().map(|a| &a.id));
+    if !duplicate_network_ids.is_empty() {
+        let duplicates = duplicate_network_ids.into_iter().cloned().collect();
+        return Err(SubgraphQueryError::DuplicatedNetworkIds(duplicates));
+    }
+    // 2. Validate against duplicate array indices
+    // Indices are wrapped in Options, so we must unpack them before checking for duplicates
+    let mut unpacked_indices = vec![];
+    for network in registered_networks.into_iter() {
+        match network.array_index {
+            Some(index) => unpacked_indices.push(index),
+            None => {
+                return Err(SubgraphQueryError::NetworkWithMissingIndex(
+                    network.id.clone(),
+                ))
+            }
+        }
+    }
+    let duplicate_network_indices = helpers::duplicates(unpacked_indices);
+    if !duplicate_network_indices.is_empty() {
+        return Err(SubgraphQueryError::DuplicatedNetworkIndices(
+            duplicate_network_indices,
+        ));
+    }
+    Ok(())
+}
+
 pub async fn query(url: Url) -> Result<subgraph_state::ResponseData, SubgraphQueryError> {
     // TODO: authentication token.
     let client = reqwest::Client::builder()
@@ -69,7 +108,12 @@ pub async fn query(url: Url) -> Result<subgraph_state::ResponseData, SubgraphQue
     let response_body: Response<subgraph_state::ResponseData> = response.json().await?;
 
     match response_body.errors.as_deref() {
-        None | Some(&[]) => Ok(response_body.data.unwrap()),
+        None | Some(&[]) => {
+            // Unwrap: We just checked that there are no errors
+            let data = response_body.data.unwrap();
+            validate_subgraph_state(&data.networks)?;
+            Ok(data)
+        }
         Some([e]) if e.message == "indexing_error" => Err(SubgraphQueryError::IndexingError),
         Some(errs) => Err(SubgraphQueryError::Other {
             messages: errs.into_iter().map(|e| e.message.clone()).collect(),
@@ -206,4 +250,34 @@ where
     }
 
     de.deserialize_string(HexStringVisitor)
+}
+
+mod helpers {
+    use super::*;
+    pub fn duplicates<I, J>(elements: I) -> HashSet<J>
+    where
+        I: IntoIterator<Item = J>,
+        J: Ord + Eq + Clone + std::hash::Hash,
+    {
+        let sorted = elements.into_iter().sorted();
+        let mut duplicates = HashSet::new();
+        for (a, b) in sorted.tuple_windows() {
+            if a == b {
+                duplicates.insert(a);
+            }
+        }
+        duplicates
+    }
+
+    #[test]
+    fn test_duplicates() {
+        let no_dupes = [1, 2, 3, 4, 5];
+        assert!(duplicates(&no_dupes).is_empty());
+
+        let one_dupe = [1, 1, 2, 3];
+        assert_eq!(1, duplicates(&one_dupe).len());
+
+        let two_dupes = [1, 1, 2, 2];
+        assert_eq!(2, duplicates(&two_dupes).len());
+    }
 }

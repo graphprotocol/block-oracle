@@ -9,7 +9,9 @@ query SubgraphState {
       acceleration
       delta
       blockNumber
-      epoch
+      epoch {
+        epochNumber
+      }
     }
     nextArrayElement
     arrayIndex
