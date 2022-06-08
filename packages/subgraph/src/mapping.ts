@@ -17,7 +17,6 @@ import {
   getTags,
   decodePrefixVarIntU64,
   decodePrefixVarIntI64,
-  getStringFromBytes,
   getAuxGlobalState,
   commitToGlobalState,
   getOrCreateEpoch,
@@ -25,10 +24,11 @@ import {
   MessageTag,
   getNetworkList,
   swapAndPop,
-  commitNetworkChanges
+  commitNetworkChanges,
+  BytesReader,
+  decodePrefixVarIntString
 } from "./helpers";
 import {
-  PREAMBLE_BIT_LENGTH,
   BIGINT_ZERO,
   BIGINT_ONE,
   PREAMBLE_BYTE_LENGTH
@@ -70,25 +70,23 @@ export function processPayload(
   payload.submitter = submitter;
   payload.save();
 
-  let rawPayloadData = payloadBytes;
-  let numBlocksRead = 0;
-  let numBytesRead = 0;
+  let reader = new BytesReader(payloadBytes);
+  let blockIdx = 0;
 
-  while (numBytesRead < rawPayloadData.length) {
-    let i = BigInt.fromI32(numBlocksRead).toString();
-    log.warning("New message block (num. {}) with remaining data: {}", [i, rawPayloadData.toHexString()]);
+  while (reader.length() > 0) {
+    let i = blockIdx.toString();
+    log.warning("New message block (num. {}) with remaining data: {}", [i, reader.data().toHexString()]);
 
     // Save raw message.
     let messageBlock = new MessageBlock([txHash, i].join("-"));
-
-    numBytesRead += processMessageBlock(globalState, messageBlock, rawPayloadData);
-    if (numBytesRead == 0) {
+    processMessageBlock(globalState, messageBlock, reader);
+    if (!reader.ok) {
       log.error("Failed to process message block num. {}", [i]);
       return;
     }
 
     log.warning("Finished processing message block num. {}", [i]);
-    numBlocksRead++;
+    blockIdx++;
   }
 
   commitToGlobalState(globalState);
@@ -97,23 +95,31 @@ export function processPayload(
 export function processMessageBlock(
   globalState: GlobalState,
   messageBlock: MessageBlock,
-  payload: Bytes
-): i32 {
-  let numBytesRead = PREAMBLE_BYTE_LENGTH;
-
-  // Read the message block's tags.
-  let preamble = changetype<Bytes>(payload.slice(0, PREAMBLE_BYTE_LENGTH));
+  reader: BytesReader
+): void {
+  let preamble = reader.advance(PREAMBLE_BYTE_LENGTH);
   let tags = getTags(preamble);
 
+  log.warning("The message block preamble is {}", [preamble.toHexString()]);
+
   for (let i = 0; i < tags.length; i++) {
-    let messageBytes = changetype<Bytes>(payload.slice(numBytesRead));
-    numBytesRead += processMessage(globalState, messageBlock, i, tags[i], messageBytes);
+    if (reader.length() == 0) {
+      log.error("Expected a message but no data left", []);
+      reader.ok = false;
+      return;
+    }
+
+    processMessage(
+      globalState,
+      messageBlock,
+      i,
+      tags[i],
+      reader
+    );
+    if (!reader.ok) {
+      return;
+    }
   }
-
-  messageBlock.data = changetype<Bytes>(payload.slice(PREAMBLE_BYTE_LENGTH, numBytesRead));
-  messageBlock.save();
-
-  return numBytesRead;
 }
 
 // Finishes decoding the message, executes it, and finally returns the amount
@@ -123,182 +129,200 @@ export function processMessage(
   messageBlock: MessageBlock,
   i: i32,
   tag: MessageTag,
-  payload: Bytes
-): i32 {
-  log.warning("Processing new message with tag {}", [MessageTag.toString(tag)]);
-  log.warning("The remaining payload is {}", [payload.toHexString()]);
+  reader: BytesReader
+): void {
+  log.warning("Processing new message with tag {}. The remaining payload is {}", [
+    MessageTag.toString(tag),
+    reader.data().toHexString()
+  ]);
+  let id = [messageBlock.id, i.toString()].join("-");
+  let snapshot = reader.snapshot();
 
-  if (payload.length == 0) {
-    return 0;
-  }
-
-  let bytesRead = 0;
-  let id = [messageBlock.id, BigInt.fromI32(i).toString()].join("-");
   // The message type can then be changed according to the tag.
   let message = new SetBlockNumbersForEpochMessage(id);
   message.block = messageBlock.id;
 
   log.warning("Executing message {}", [MessageTag.toString(tag)]);
   if (tag == MessageTag.SetBlockNumbersForEpochMessage) {
-    bytesRead = executeSetBlockNumbersForEpochMessage(
-      changetype<SetBlockNumbersForEpochMessage>(message), globalState, payload
+    executeSetBlockNumbersForEpochMessage(
+      changetype<SetBlockNumbersForEpochMessage>(message), globalState, reader
     );
   } else if (tag == MessageTag.CorrectEpochsMessage) {
-    bytesRead = executeCorrectEpochsMessage(
-      changetype<CorrectEpochsMessage>(message), globalState, payload
+    executeCorrectEpochsMessage(
+      changetype<CorrectEpochsMessage>(message), globalState, reader
     );
   } else if (tag == MessageTag.UpdateVersionsMessage) {
-    bytesRead = executeUpdateVersionsMessage(
-      changetype<UpdateVersionsMessage>(message), globalState, payload
+    executeUpdateVersionsMessage(
+      changetype<UpdateVersionsMessage>(message), globalState, reader
     );
   } else if (tag == MessageTag.RegisterNetworksMessage) {
-    bytesRead = executeRegisterNetworksMessage(
-      changetype<RegisterNetworksMessage>(message), globalState, payload
+    executeRegisterNetworksMessage(
+      changetype<RegisterNetworksMessage>(message), globalState, reader
     );
   } else {
+    reader.fail();
     log.error("Unknown message tag '{}'. This is most likely a bug!", [MessageTag.toString(tag)]);
-    return 0;
+    return;
   }
 
-  log.warning("Bytes read: {}", [bytesRead.toString()]);
-  return bytesRead;
+  message.data = reader.diff(snapshot);
+  message.save();
 }
 
 function executeSetBlockNumbersForEpochMessage(
   message: SetBlockNumbersForEpochMessage,
   globalState: GlobalState,
-  data: Bytes
-): i32 {
-  let bytesRead = 0;
+  reader: BytesReader
+): void {
+  log.warning("There are {} currently active networks", [
+    globalState.activeNetworkCount.toString()
+  ]);
 
   if (globalState.activeNetworkCount != 0) {
+    executeNonEmptySetBlockNumbersForEpochMessage(message, globalState, reader);
+  } else {
+    executeEmptySetBlockNumbersForEpochMessage(message, globalState, reader);
+  }
+}
+
+function executeNonEmptySetBlockNumbersForEpochMessage(
+  message: SetBlockNumbersForEpochMessage,
+  globalState: GlobalState,
+  reader: BytesReader
+): void {
+  let newEpoch = getOrCreateEpoch(
+    (globalState.latestValidEpoch != null
+      ? BigInt.fromString(globalState.latestValidEpoch!)
+      : BIGINT_ZERO) + BIGINT_ONE
+  );
+  globalState.latestValidEpoch = newEpoch.id;
+
+  let merkleRoot = reader.advance(32);
+  message.merkleRoot = merkleRoot;
+  log.warning("The Merkle root of the new epoch is {}", [
+    merkleRoot.toHexString()
+  ]);
+  log.warning("Now decoding block updates: {}", [reader.data().toHexString()]);
+
+  let accelerations: Array<BigInt> = [];
+  for (let i = 0; i < globalState.activeNetworkCount; i++) {
+    let acceleration = BigInt.fromI64(decodePrefixVarIntI64(reader));
+    if (!reader.ok) {
+      log.warning("Failed to decode acceleration num. {}", [i.toString()]);
+      return;
+    }
+    log.warning("Decoded acceleration num. {} with value {}", [i.toString(), acceleration.toString()]);
+
+    accelerations.push(acceleration);
+
+    // Create new NetworkEpochBlockNumber
+    createOrUpdateNetworkEpochBlockNumber(
+      i.toString(),
+      newEpoch.epochNumber,
+      acceleration
+    );
+  }
+
+  log.warning("Successfullly decocoded accelerations", []);
+  message.accelerations = accelerations;
+}
+
+function executeEmptySetBlockNumbersForEpochMessage(
+  message: SetBlockNumbersForEpochMessage,
+  globalState: GlobalState,
+  reader: BytesReader
+): void {
+  let numNetworks = BigInt.fromU64(decodePrefixVarIntU64(reader));
+  if (!reader.ok) {
+    return;
+  }
+
+  message.count = numNetworks;
+  message.save();
+
+  log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
+    message.count!.toString()
+  ]);
+
+  for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
+    log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
     let newEpoch = getOrCreateEpoch(
       (globalState.latestValidEpoch != null
         ? BigInt.fromString(globalState.latestValidEpoch!)
         : BIGINT_ZERO) + BIGINT_ONE
     );
     globalState.latestValidEpoch = newEpoch.id;
-
-    message.merkleRoot = changetype<Bytes>(
-      data.slice(bytesRead, bytesRead + 32)
-    );
-    bytesRead += 32;
-    let accelerations: Array<BigInt> = [];
-    for (let i = 0; i < globalState.activeNetworkCount; i++) {
-      let readAcceleration = decodePrefixVarIntI64(data, bytesRead); // we should check for errors here
-      bytesRead += readAcceleration[1] as i32;
-      accelerations.push(BigInt.fromI64(readAcceleration[0]));
-
-      // Create new NetworkEpochBlockNumber
-      createOrUpdateNetworkEpochBlockNumber(
-        i.toString(),
-        newEpoch.epochNumber,
-        BigInt.fromI64(readAcceleration[0])
-      );
-    }
-
-    message.accelerations = accelerations;
-    message.data = changetype<Bytes>(data.slice(0, bytesRead));
-    message.save();
-  } else {
-    let readCount = decodePrefixVarIntU64(data, bytesRead); // we should check for errors here
-    message.count = BigInt.fromU64(readCount[0]);
-    bytesRead += readCount[1] as i32;
-    message.save();
-
-    log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
-      message.count!.toString()
-    ]);
-
-    for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
-      log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
-      let newEpoch = getOrCreateEpoch(
-        (globalState.latestValidEpoch != null
-          ? BigInt.fromString(globalState.latestValidEpoch!)
-          : BIGINT_ZERO) + BIGINT_ONE
-      );
-      globalState.latestValidEpoch = newEpoch.id;
-    }
-    log.warning("AFTER EPOCH LOOP", []);
   }
-  return bytesRead;
+  log.warning("AFTER EPOCH LOOP", []);
 }
 
 function executeCorrectEpochsMessage(
   message: CorrectEpochsMessage,
   globalState: GlobalState,
-  data: Bytes
-): i32 {
-  let bytesRead = 0;
-  // To Do
-  return bytesRead;
+  reader: BytesReader
+): void {
+  // TODO.
 }
 
 function executeUpdateVersionsMessage(
   message: UpdateVersionsMessage,
   globalState: GlobalState,
-  data: Bytes
-): i32 {
-  let bytesRead = 0;
-  // To Do
-  return bytesRead;
+  reader: BytesReader
+): void {
+  // TODO.
 }
 
 function executeRegisterNetworksMessage(
   message: RegisterNetworksMessage,
   globalState: GlobalState,
-  data: Bytes
-): i32 {
-  let bytesRead = 0;
-  // get remove length
-  let readRemoveLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
-  bytesRead += readRemoveLength[1] as i32;
-
+  reader: BytesReader
+): void {
   let networks = getNetworkList(globalState);
   let removedNetworks: Array<Network> = [];
 
-  // now get all the removed network ids and apply the changes to the pre-loaded list
-  for (let i = 0; i < (readRemoveLength[0] as i32); i++) {
-    let readRemove = decodePrefixVarIntU64(data, bytesRead);
-    bytesRead += readRemove[1] as i32;
-    // check network to remove is within bounds
-    if (
-      networks.length <= (readRemove[0] as i32) ||
-      (readRemove[1] as i32) == 0
-    ) {
-      // trigger error here
-    }
-    let networkToRemoveID = readRemove[0] as i32;
-    networks[networkToRemoveID].removedAt = message.id;
-    removedNetworks.push(swapAndPop(networkToRemoveID, networks));
+  // Get the number of networks to remove.
+  let numRemovals = decodePrefixVarIntU64(reader) as i32;
+  if (!reader.ok) {
+    return;
   }
 
-  let readAddLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
-  bytesRead += readAddLength[1] as i32;
+  // now get all the removed network ids and apply the changes to the pre-loaded list
+  for (let i = 0; i < numRemovals; i++) {
+    let networkId = decodePrefixVarIntU64(reader) as i32;
+    // Besides checking that the decoding was successful, we must perform a
+    // bounds check over the newly provided network ID.
+    if (!reader.ok || networkId >= networks.length) {
+      return;
+    }
+
+    networks[networkId].removedAt = message.id;
+    removedNetworks.push(swapAndPop(networkId, networks));
+  }
+
+  let numInsertions = decodePrefixVarIntU64(reader) as i32;
+  if (!reader.ok) {
+    return;
+  }
 
   // now get all the add network strings
-  for (let i = 0; i < (readAddLength[0] as i32); i++) {
-    let readStrLength = decodePrefixVarIntU64(data, bytesRead); // we should check errors here
-    bytesRead += readStrLength[1] as i32;
+  for (let i = 0; i < numInsertions; i++) {
+    let chainId = decodePrefixVarIntString(reader);
+    if (!reader.ok) {
+      return;
+    }
 
-    let chainID = getStringFromBytes(data, bytesRead, readStrLength[0] as u32);
-    bytesRead += readStrLength[0] as i32;
-
-    let network = new Network(chainID);
+    let network = new Network(chainId);
     network.addedAt = message.id;
     network.save();
-
-    globalState.networkCount += 1;
-
     networks.push(network);
   }
 
+  globalState.activeNetworkCount += numInsertions;
+  globalState.activeNetworkCount -= numRemovals;
+  globalState.networkCount += numInsertions;
+
   commitNetworkChanges(removedNetworks, networks, globalState);
 
-  message.data = changetype<Bytes>(data.slice(0, bytesRead));
-  message.removeCount = BigInt.fromU64(readRemoveLength[0]);
-  message.addCount = BigInt.fromU64(readAddLength[0]);
-  message.save();
-
-  return bytesRead;
+  message.removeCount = BigInt.fromU64(numRemovals);
+  message.addCount = BigInt.fromU64(numInsertions);
 }

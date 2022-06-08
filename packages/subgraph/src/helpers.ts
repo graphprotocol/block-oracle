@@ -8,6 +8,61 @@ import {
 import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH, BIGINT_ONE } from "./constants";
 import { log } from "@graphprotocol/graph-ts";
 
+export class BytesReader {
+  bytes: Bytes;
+  offset: u32;
+  ok: boolean;
+
+  constructor(bytes: Bytes) {
+    this.bytes = bytes;
+    this.offset = 0;
+    this.ok = true;
+  }
+
+  snapshot(): BytesReader {
+    let r = new BytesReader(this.bytes);
+    r.offset = this.offset;
+    r.ok = this.ok;
+    return r;
+  }
+
+  diff(snapshot: BytesReader): Bytes {
+    return changetype<Bytes>(this.bytes.slice(snapshot.offset, this.offset));
+  }
+
+  data(): Bytes {
+    return changetype<Bytes>(this.bytes.slice(this.offset));
+  }
+
+  length(): u32 {
+    return this.bytes.length - this.offset;
+  }
+
+  advance(n: u32): Bytes {
+    if (n > this.length()) {
+      this.ok = false;
+      return Bytes.empty();
+    }
+
+    this.offset += n as u32;
+    return changetype<Bytes>(this.bytes.slice(this.offset - n, this.offset));
+  }
+
+  peek(i: u32): u64 {
+    if (i >= this.length()) {
+      this.ok = false;
+      return 0;
+    } else {
+      return this.bytes[this.offset + i] as u64;
+    }
+  }
+
+  fail(): this {
+    this.ok = false;
+    return this;
+  }
+}
+
 export enum MessageTag {
   SetBlockNumbersForEpochMessage = 0,
   CorrectEpochsMessage,
@@ -130,106 +185,100 @@ function getTag(preamble: Bytes, index: i32): MessageTag {
 }
 
 // Returns the decoded i64 and the amount of bytes read. [0,0] -> Error
-export function decodePrefixVarIntI64(bytes: Bytes, offset: u32): Array<i64> {
-  let result: i64 = 0;
-
+export function decodePrefixVarIntI64(reader: BytesReader): i64 {
   // First we need to decode the raw bytes into a u64 and check that it didn't error out
-  let zigZagDecodeInput = decodePrefixVarIntU64(bytes, offset);
-  if (zigZagDecodeInput[1] != 0) {
-    // Then we need to decode the U64 with ZigZag
-    result = zigZagDecode(zigZagDecodeInput[0]);
-  }
-  return [result, zigZagDecodeInput[1]];
+  // Then we need to decode the U64 with ZigZag.
+  return zigZagDecode(decodePrefixVarIntU64(reader));
 }
 
 // Returns the decoded u64 and the amount of bytes read. [0,0] -> Error
-export function decodePrefixVarIntU64(bytes: Bytes, offset: u32): Array<u64> {
-  let first = bytes[offset];
-  // shift can't be more than 8, but AS compiles u8 to an i32 in bytecode, so ctz acts weirdly here without the min.
+export function decodePrefixVarIntU64(reader: BytesReader): u64 {
+  // Please note that `BytesReader` never throws an exception on out-of-bounds
+  // access, but it simply marks `reader.ok` as false and returns fake data.
+  // This means we can simply ignore bounds checks, and let the caller deal
+  // with it.
+
+  let first = reader.peek(0);
+  // shift can't be more than 8, but AS compiles u8 to an i32 in bytecode, so
+  // ctz acts weirdly here without the min.
   let shift = min(ctz(first), 8);
 
-  // Checking for invalid inputs that would break the algorithm
-  if (((offset + shift) as i32) >= bytes.length) {
-    return [0, 0];
-  }
-
-  let result: u64;
+  let num: u64 = 0;
   if (shift == 0) {
-    result = (first >> 1) as u64;
+    num = first >> 1;
   } else if (shift == 1) {
-    result = ((first >> 2) as u64) | ((bytes[offset + 1] as u64) << 6);
+    num = (first >> 2) | (reader.peek(1) << 6);
   } else if (shift == 2) {
-    result =
+    num =
       ((first >> 3) as u64) |
-      ((bytes[offset + 1] as u64) << 5) |
-      ((bytes[offset + 2] as u64) << 13);
+      (reader.peek(1) << 5) |
+      (reader.peek(2) << 13);
   } else if (shift == 3) {
-    result =
+    num =
       ((first >> 4) as u64) |
-      ((bytes[offset + 1] as u64) << 4) |
-      ((bytes[offset + 2] as u64) << 12) |
-      ((bytes[offset + 3] as u64) << 20);
+      (reader.peek(1) << 4) |
+      (reader.peek(2) << 12) |
+      (reader.peek(3) << 20);
   } else if (shift == 4) {
-    result =
+    num =
       ((first >> 5) as u64) |
-      ((bytes[offset + 1] as u64) << 3) |
-      ((bytes[offset + 2] as u64) << 11) |
-      ((bytes[offset + 3] as u64) << 19) |
-      ((bytes[offset + 4] as u64) << 27);
+      (reader.peek(1) << 3) |
+      (reader.peek(2) << 11) |
+      (reader.peek(3) << 19) |
+      (reader.peek(4) << 27);
   } else if (shift == 5) {
-    result =
+    num =
       ((first >> 6) as u64) |
-      ((bytes[offset + 1] as u64) << 2) |
-      ((bytes[offset + 2] as u64) << 10) |
-      ((bytes[offset + 3] as u64) << 18) |
-      ((bytes[offset + 4] as u64) << 26) |
-      ((bytes[offset + 5] as u64) << 34);
+      (reader.peek(1) << 2) |
+      (reader.peek(2) << 10) |
+      (reader.peek(3) << 18) |
+      (reader.peek(4) << 26) |
+      (reader.peek(5) << 34);
   } else if (shift == 6) {
-    result =
+    num =
       ((first >> 7) as u64) |
-      ((bytes[offset + 1] as u64) << 1) |
-      ((bytes[offset + 2] as u64) << 9) |
-      ((bytes[offset + 3] as u64) << 17) |
-      ((bytes[offset + 4] as u64) << 25) |
-      ((bytes[offset + 5] as u64) << 33) |
-      ((bytes[offset + 6] as u64) << 41);
+      (reader.peek(1) << 1) |
+      (reader.peek(2) << 9) |
+      (reader.peek(3) << 17) |
+      (reader.peek(4) << 25) |
+      (reader.peek(5) << 33) |
+      (reader.peek(6) << 41);
   } else if (shift == 7) {
-    result =
-      (bytes[offset + 1] as u64) |
-      ((bytes[offset + 2] as u64) << 8) |
-      ((bytes[offset + 3] as u64) << 16) |
-      ((bytes[offset + 4] as u64) << 24) |
-      ((bytes[offset + 5] as u64) << 32) |
-      ((bytes[offset + 6] as u64) << 40) |
-      ((bytes[offset + 7] as u64) << 48);
+    num =
+      (reader.peek(1) << 0) |
+      (reader.peek(2) << 8) |
+      (reader.peek(3) << 16) |
+      (reader.peek(4) << 24) |
+      (reader.peek(5) << 32) |
+      (reader.peek(6) << 40) |
+      (reader.peek(7) << 48);
   } else if (shift == 8) {
-    result =
-      (bytes[offset + 1] as u64) |
-      ((bytes[offset + 2] as u64) << 8) |
-      ((bytes[offset + 3] as u64) << 16) |
-      ((bytes[offset + 4] as u64) << 24) |
-      ((bytes[offset + 5] as u64) << 32) |
-      ((bytes[offset + 6] as u64) << 40) |
-      ((bytes[offset + 7] as u64) << 48) |
-      ((bytes[offset + 8] as u64) << 56);
+    num =
+      (reader.peek(1) << 0) |
+      (reader.peek(2) << 8) |
+      (reader.peek(3) << 16) |
+      (reader.peek(4) << 24) |
+      (reader.peek(5) << 32) |
+      (reader.peek(6) << 40) |
+      (reader.peek(7) << 48) |
+      (reader.peek(8) << 56);
   }
 
-  return [result, shift + 1];
+  reader.advance((shift as u32) + 1);
+  return num;
 }
 
 export function zigZagDecode(input: u64): i64 {
   return ((input >> 1) ^ -(input & 1)) as i64;
 }
 
-export function getStringFromBytes(
-  bytes: Bytes,
-  offset: u32,
-  stringLength: u32
-): String {
-  let slicedBytes = changetype<Bytes>(
-    bytes.slice(offset, offset + stringLength)
-  );
-  return slicedBytes.toString();
+export function decodePrefixVarIntString(reader: BytesReader): string {
+  let length = decodePrefixVarIntU64(reader);
+  if (!reader.ok) {
+    return "";
+  }
+
+  return reader.advance(length as u32).toString();
 }
 
 export function getNetworkList(state: GlobalState): Array<Network> {

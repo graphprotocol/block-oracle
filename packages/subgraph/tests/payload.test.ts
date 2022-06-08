@@ -1,8 +1,6 @@
 import { clearStore, test, assert } from "matchstick-as/assembly/index";
-import { logStore } from "matchstick-as/assembly/store";
 import { processPayload } from "../src/mapping";
-import { log } from "@graphprotocol/graph-ts";
-import { Bytes, BigInt } from "@graphprotocol/graph-ts";
+import { Bytes } from "@graphprotocol/graph-ts";
 
 test("Payload empty blocknums", () => {
   let payloadBytes = Bytes.fromHexString("0x00") as Bytes;
@@ -24,8 +22,8 @@ test("Payload processing latest example", () => {
   let txHash = "0x00";
 
   processPayload(submitter, payloadBytes, txHash);
-  
-    // To Do add asserts
+
+  // To Do add asserts
 
   clearStore();
 });
