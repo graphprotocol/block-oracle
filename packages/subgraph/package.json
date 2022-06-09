@@ -3,20 +3,20 @@
   "license": "MIT",
   "scripts": {
     "prepare": "./scripts/prepare.sh",
-    "codegen": "graph codegen",
-    "test": "graph test",
-    "build": "yarn prepare && graph build",
-    "deploy": "yarn prep:prod && graph deploy --node https://api.thegraph.com/deploy/ edgeandnode/block-oracle",
+    "codegen": "yarn && graph codegen",
+    "test": "yarn codegen && graph test",
+    "build": "yarn && yarn prepare && graph build",
+    "deploy": "yarn codegen && yarn prep:prod && graph deploy --node https://api.thegraph.com/deploy/ edgeandnode/block-oracle",
     "create-local": "graph create --node http://127.0.0.1:8020/ edgeandnode/block-oracle",
     "remove-local": "graph remove --node http://127.0.0.1:8020/ edgeandnode/block-oracle",
-    "deploy-local": "graph deploy --node http://127.0.0.1:8020/ --ipfs http://localhost:${IPFS_PORT} edgeandnode/block-oracle --version-label 0.1.0",
+    "deploy-local": "yarn codegen && graph deploy --node http://127.0.0.1:8020/ --ipfs http://localhost:${IPFS_PORT} edgeandnode/block-oracle --version-label 0.1.0",
     "prep:local": "mustache ./config/local.json subgraph.template.yaml > subgraph.yaml",
     "prep:prod": "mustache ./config/prod.json subgraph.template.yaml > subgraph.yaml"
   },
   "devDependencies": {
-    "matchstick-as": "^0.4.1",
-    "@graphprotocol/graph-cli": "0.29.0",
-    "@graphprotocol/graph-ts": "0.26.0",
+    "@graphprotocol/graph-cli": "^0.30.4",
+    "@graphprotocol/graph-ts": "^0.27.0",
+    "matchstick-as": "^0.5.0",
     "mustache": "^4.0.1"
   }
 }

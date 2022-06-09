@@ -169,6 +169,7 @@ function executeSetBlockNumbersForEpochMessage(
   let bytesRead = 0;
 
   if (globalState.activeNetworkCount != 0) {
+    let networks = getNetworkList(globalState);
     let newEpoch = getOrCreateEpoch(
       (globalState.latestValidEpoch != null
         ? BigInt.fromString(globalState.latestValidEpoch!)
@@ -188,7 +189,7 @@ function executeSetBlockNumbersForEpochMessage(
 
       // Create new NetworkEpochBlockNumber
       createOrUpdateNetworkEpochBlockNumber(
-        i.toString(),
+        networks[i].id,
         newEpoch.epochNumber,
         BigInt.fromI64(readAcceleration[0])
       );
@@ -242,7 +243,7 @@ function executeUpdateVersionsMessage(
     return 0;
   }
 
-  globalState.encodingVersion = readVersion[0];
+  globalState.encodingVersion = readVersion[0] as i32;
   bytesRead += readVersion[1] as i32;
   return bytesRead;
 }

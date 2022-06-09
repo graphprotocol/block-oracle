@@ -30,6 +30,9 @@ export function getGlobalState(): GlobalState {
   let state = GlobalState.load("0");
   if (state == null) {
     state = new GlobalState("0");
+    state.networkCount = 0;
+    state.activeNetworkCount = 0;
+    state.encodingVersion = 0;
     state.save();
   }
   return state;
@@ -39,6 +42,9 @@ export function getAuxGlobalState(): GlobalState {
   let state = GlobalState.load("1");
   if (state == null) {
     state = new GlobalState("1");
+    state.networkCount = 0;
+    state.activeNetworkCount = 0;
+    state.encodingVersion = 0;
     state.save();
   }
   return state;
@@ -254,10 +260,7 @@ export function getNetworkList(state: GlobalState): Array<Network> {
   return result;
 }
 
-export function swapAndPop(
-  index: i32,
-  networks: Array<Network>
-): Network {
+export function swapAndPop(index: i32, networks: Array<Network>): Network {
   if (index >= networks.length) {
     log.warning("[popAndSwap] Index out of bounds. Index {}, list length: {}", [
       index.toString(),
@@ -265,11 +268,11 @@ export function swapAndPop(
     ]);
   }
 
-  let tail = networks[-1]
-  let elementToRemove = networks[index]
+  let tail = networks[networks.length - 1];
+  let elementToRemove = networks[index];
 
-  networks[index] = tail
-  networks[-1] = elementToRemove
+  networks[index] = tail;
+  networks[networks.length - 1] = elementToRemove;
 
   return networks.pop();
 }
@@ -280,24 +283,25 @@ export function commitNetworkChanges(
   state: GlobalState
 ): void {
   for (let i = 0; i < removedNetworks.length; i++) {
-    removedNetworks[i].state = null
-    removedNetworks[i].nextArrayElement = null
-    removedNetworks[i].arrayIndex = null
-    removedNetworks[i].save()
+    removedNetworks[i].state = null;
+    removedNetworks[i].nextArrayElement = null;
+    removedNetworks[i].arrayIndex = null;
+    removedNetworks[i].save();
   }
 
   for (let i = 0; i < newNetworksList.length; i++) {
-    newNetworksList[i].state = state.id
-    newNetworksList[i].nextArrayElement = i < newNetworksList.length - 1 ? newNetworksList[i + 1].id : null
-    newNetworksList[i].arrayIndex = i
-    newNetworksList[i].save()
+    newNetworksList[i].state = state.id;
+    newNetworksList[i].nextArrayElement =
+      i < newNetworksList.length - 1 ? newNetworksList[i + 1].id : null;
+    newNetworksList[i].arrayIndex = i;
+    newNetworksList[i].save();
   }
 
   if (newNetworksList.length > 0) {
-    state.networkArrayHead = newNetworksList[0].id
+    state.networkArrayHead = newNetworksList[0].id;
   } else {
-    state.networkArrayHead = null
+    state.networkArrayHead = null;
   }
-  state.activeNetworkCount = newNetworksList.length
-  state.save()
+  state.activeNetworkCount = newNetworksList.length;
+  state.save();
 }
