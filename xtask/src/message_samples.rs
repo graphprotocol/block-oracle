@@ -3,18 +3,21 @@ use glob::glob;
 use std::fs::write;
 use xshell::{cmd, Shell};
 
-const SAMPLES_DIRECTORY: &'static str = "crates/oracle-encoder/examples";
+const SAMPLES_DIRECTORY: &'static str = "crates/oracle-encoder/examples/jsonnet-examples";
 
 fn compile() -> anyhow::Result<()> {
     let sh = Shell::new()?;
     for jsonnet_file in glob(&format!("{}/*.jsonnet", SAMPLES_DIRECTORY))? {
-        let mut jsonnet_path = jsonnet_file?;
+        let jsonnet_path = jsonnet_file?;
         let json = cmd!(sh, "jsonnet {jsonnet_path}")
             .read()
             .context("jsonnet failed")?;
         let target_file_name = {
-            jsonnet_path.set_extension("json");
-            jsonnet_path
+            let mut base_path = jsonnet_path.parent().unwrap().parent().unwrap().to_owned();
+            let jsonnet_file_name = jsonnet_path.file_name().unwrap().to_string_lossy();
+            let json_file_name = jsonnet_file_name.trim_end_matches("net");
+            base_path.push(json_file_name);
+            base_path
         };
         write(target_file_name, json)?;
     }
