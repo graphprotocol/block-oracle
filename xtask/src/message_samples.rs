@@ -7,7 +7,6 @@ const SAMPLES_DIRECTORY: &'static str = "crates/oracle-encoder/examples";
 
 fn compile() -> anyhow::Result<()> {
     let sh = Shell::new()?;
-
     for jsonnet_file in glob(&format!("{}/*.jsonnet", SAMPLES_DIRECTORY))? {
         let mut jsonnet_path = jsonnet_file?;
         let json = cmd!(sh, "jsonnet {jsonnet_path}")
