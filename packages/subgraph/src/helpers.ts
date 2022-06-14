@@ -81,10 +81,10 @@ export namespace MessageTag {
   }
 }
 
-export function getGlobalState(): GlobalState {
-  let state = GlobalState.load("0");
+function getOrCreateGlobalState(id: string): GlobalState {
+  let state = GlobalState.load(id);
   if (state == null) {
-    state = new GlobalState("0");
+    state = new GlobalState(id);
     state.networkCount = 0;
     state.activeNetworkCount = 0;
     state.encodingVersion = 0;
@@ -93,16 +93,12 @@ export function getGlobalState(): GlobalState {
   return state;
 }
 
+export function getGlobalState(): GlobalState {
+  return getOrCreateGlobalState("0");
+}
+
 export function getAuxGlobalState(): GlobalState {
-  let state = GlobalState.load("1");
-  if (state == null) {
-    state = new GlobalState("1");
-    state.networkCount = 0;
-    state.activeNetworkCount = 0;
-    state.encodingVersion = 0;
-    state.save();
-  }
-  return state;
+  return getOrCreateGlobalState("1");
 }
 
 export function commitToGlobalState(state: GlobalState): void {
