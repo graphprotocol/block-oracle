@@ -41,6 +41,8 @@ bin/
 # Subgraph
 generated/
 subgraph.yaml
+debug.log
+.latest.json
 
 # oracle encoder json samples
 crates/oracle-encoder/examples/*.json

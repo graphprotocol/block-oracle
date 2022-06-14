@@ -18,6 +18,7 @@ import {
   decodePrefixVarIntU64,
   decodePrefixVarIntI64,
   getAuxGlobalState,
+  rollbackToGlobalState,
   commitToGlobalState,
   getOrCreateEpoch,
   createOrUpdateNetworkEpochBlockNumber,
@@ -82,10 +83,12 @@ export function processPayload(
     processMessageBlock(globalState, messageBlock, reader);
     if (!reader.ok) {
       log.error("Failed to process message block num. {}", [i]);
+      rollbackToGlobalState(globalState)
       return;
     }
 
     log.warning("Finished processing message block num. {}", [i]);
+    messageBlock.save();
     blockIdx++;
   }
 
@@ -146,6 +149,10 @@ export function processMessage(
   if (tag == MessageTag.SetBlockNumbersForEpochMessage) {
     executeSetBlockNumbersForEpochMessage(
       changetype<SetBlockNumbersForEpochMessage>(message), globalState, reader
+    );
+  } else if (tag == MessageTag.CorrectEpochsMessage) {
+    executeCorrectEpochsMessage(
+      changetype<CorrectEpochsMessage>(message), globalState, reader
     );
   } else if (tag == MessageTag.CorrectEpochsMessage) {
     executeCorrectEpochsMessage(
@@ -269,7 +276,12 @@ function executeUpdateVersionsMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
-  // TODO.
+  let version = decodePrefixVarIntU64(reader);
+  if (!reader.ok) {
+    return;
+  }
+
+  globalState.encodingVersion = version as i32;
 }
 
 function executeRegisterNetworksMessage(
