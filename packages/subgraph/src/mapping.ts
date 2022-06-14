@@ -27,7 +27,8 @@ import {
   swapAndPop,
   commitNetworkChanges,
   BytesReader,
-  decodePrefixVarIntString
+  decodePrefixVarIntString,
+  nextEpochId
 } from "./helpers";
 import {
   BIGINT_ZERO,
@@ -193,11 +194,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
-  let newEpoch = getOrCreateEpoch(
-    (globalState.latestValidEpoch != null
-      ? BigInt.fromString(globalState.latestValidEpoch!)
-      : BIGINT_ZERO) + BIGINT_ONE
-  );
+  let newEpoch = getOrCreateEpoch(nextEpochId(globalState));
   globalState.latestValidEpoch = newEpoch.id;
 
   let merkleRoot = reader.advance(32);

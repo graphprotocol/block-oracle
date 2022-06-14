@@ -126,6 +126,14 @@ export function rollbackToGlobalState(state: GlobalState): void {
   state.save();
 }
 
+export function nextEpochId(globalState: GlobalState): BigInt {
+  if (globalState.latestValidEpoch == null) {
+    return BIGINT_ONE;
+  } else {
+    return BigInt.fromString(globalState.latestValidEpoch!) + BIGINT_ONE;
+  }
+}
+
 export function getOrCreateEpoch(epochId: BigInt): Epoch {
   let epoch = Epoch.load(epochId.toString());
   if (epoch == null) {
@@ -137,7 +145,7 @@ export function getOrCreateEpoch(epochId: BigInt): Epoch {
 }
 
 export function createOrUpdateNetworkEpochBlockNumber(
-  networkId: String,
+  networkId: string,
   epochId: BigInt,
   acceleration: BigInt
 ): NetworkEpochBlockNumber {
