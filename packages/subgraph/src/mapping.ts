@@ -273,10 +273,6 @@ function executeUpdateVersionsMessage(
   reader: BytesReader
 ): void {
   let version = decodePrefixVarIntU64(reader);
-  if (!reader.ok) {
-    return;
-  }
-
   globalState.encodingVersion = version as i32;
 }
 
