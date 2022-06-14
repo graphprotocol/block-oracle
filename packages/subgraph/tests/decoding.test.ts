@@ -1,9 +1,9 @@
 import { test, assert, describe } from "matchstick-as/assembly/index";
 import {
-  decodePrefixVarIntU64,
-  zigZagDecode,
-  BytesReader
-} from "../src/helpers";
+  BytesReader,
+  decodeU64,
+  decodeZigZag,
+} from "../src/decoding";
 import { Bytes, BigInt } from "@graphprotocol/graph-ts";
 import { BIGINT_ZERO } from "../src/constants";
 
@@ -65,7 +65,7 @@ describe("ZigZag", () => {
 function testU64(hexString: string, expected: u64): void {
   let encoded = Bytes.fromHexString(hexString);
   let reader = new BytesReader(encoded);
-  let decoded = decodePrefixVarIntU64(reader);
+  let decoded = decodeU64(reader);
   // Assert successful decoding.
   assert.assertTrue(reader.ok);
   // Assert decoded value.
@@ -77,11 +77,11 @@ function testU64(hexString: string, expected: u64): void {
 function testU64Invalid(hexString: string): void {
   let encoded = Bytes.fromHexString(hexString);
   let reader = new BytesReader(encoded);
-  let decoded = decodePrefixVarIntU64(reader);
+  let decoded = decodeU64(reader);
   // Assert decoding field.
   assert.assertTrue(!reader.ok);
 };
 
 function testZigZag(unsigned: u64, expected: u64): void {
-  assert.bigIntEquals(BigInt.fromI64(zigZagDecode(unsigned)), BigInt.fromI64(expected));
+  assert.bigIntEquals(BigInt.fromI64(decodeZigZag(unsigned)), BigInt.fromI64(expected));
 };
