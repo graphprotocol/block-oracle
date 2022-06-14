@@ -135,8 +135,6 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch, SetBlockNumbersForNextEpoc
 
   processPayload(submitter, payloadBytes, txHash);
 
-  // To Do add asserts
-
   // Check counts
   assert.entityCount("Epoch", 3);
   assert.entityCount("Network", 4);
