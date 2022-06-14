@@ -107,8 +107,6 @@ export function processMessageBlock(
 
   for (let i = 0; i < tags.length; i++) {
     if (reader.length() == 0) {
-      log.error("Expected a message but no data left", []);
-      reader.ok = false;
       return;
     }
 
