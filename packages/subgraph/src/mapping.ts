@@ -191,6 +191,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
+  let networks = getNetworkList(globalState);
   let newEpoch = getOrCreateEpoch(nextEpochId(globalState));
   globalState.latestValidEpoch = newEpoch.id;
 
@@ -214,7 +215,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
 
     // Create new NetworkEpochBlockNumber
     createOrUpdateNetworkEpochBlockNumber(
-      i.toString(),
+      networks[i].id,
       newEpoch.epochNumber,
       acceleration
     );
