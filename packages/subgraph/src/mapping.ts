@@ -14,20 +14,20 @@ import {
   Network
 } from "../generated/schema";
 import {
-  getTags,
-  decodePrefixVarIntU64,
-  decodePrefixVarIntI64,
-  getAuxGlobalState,
-  rollbackToGlobalState,
-  commitToGlobalState,
+  BytesReader,
+  decodeI64,
+  decodeU64,
+  decodeString,
+  decodeTags
+} from "./decoding";
+import {
+  AuxGlobalState,
   getOrCreateEpoch,
   createOrUpdateNetworkEpochBlockNumber,
   MessageTag,
   getNetworkList,
   swapAndPop,
   commitNetworkChanges,
-  BytesReader,
-  decodePrefixVarIntString,
   nextEpochId
 } from "./helpers";
 import {
@@ -62,7 +62,7 @@ export function processPayload(
   txHash: string
 ): void {
   // Load auxiliary GlobalState for rollback capabilities.
-  let globalState = getAuxGlobalState();
+  let globalState = AuxGlobalState.get();
 
   // Save raw payload.
   let payload = new Payload(txHash);
@@ -82,7 +82,7 @@ export function processPayload(
     processMessageBlock(globalState, messageBlock, reader);
     if (!reader.ok) {
       log.error("Failed to process message block num. {}", [i]);
-      rollbackToGlobalState(globalState)
+      AuxGlobalState.rollback(globalState);
       return;
     }
 
@@ -91,7 +91,7 @@ export function processPayload(
     blockIdx++;
   }
 
-  commitToGlobalState(globalState);
+  AuxGlobalState.commit(globalState);
 }
 
 export function processMessageBlock(
@@ -99,10 +99,7 @@ export function processMessageBlock(
   messageBlock: MessageBlock,
   reader: BytesReader
 ): void {
-  let preamble = reader.advance(PREAMBLE_BYTE_LENGTH);
-  let tags = getTags(preamble);
-
-  log.warning("The message block preamble is {}", [preamble.toHexString()]);
+  let tags = decodeTags(reader);
 
   for (let i = 0; i < tags.length; i++) {
     if (reader.length() == 0) {
@@ -206,7 +203,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
 
   let accelerations: Array<BigInt> = [];
   for (let i = 0; i < globalState.activeNetworkCount; i++) {
-    let acceleration = BigInt.fromI64(decodePrefixVarIntI64(reader));
+    let acceleration = BigInt.fromI64(decodeI64(reader));
     if (!reader.ok) {
       log.warning("Failed to decode acceleration num. {}", [i.toString()]);
       return;
@@ -232,7 +229,7 @@ function executeEmptySetBlockNumbersForEpochMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
-  let numNetworks = BigInt.fromU64(decodePrefixVarIntU64(reader));
+  let numNetworks = BigInt.fromU64(decodeU64(reader));
   if (!reader.ok) {
     return;
   }
@@ -246,11 +243,7 @@ function executeEmptySetBlockNumbersForEpochMessage(
 
   for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
     log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
-    let newEpoch = getOrCreateEpoch(
-      (globalState.latestValidEpoch != null
-        ? BigInt.fromString(globalState.latestValidEpoch!)
-        : BIGINT_ZERO) + BIGINT_ONE
-    );
+    let newEpoch = getOrCreateEpoch(nextEpochId(globalState));
     globalState.latestValidEpoch = newEpoch.id;
   }
   log.warning("AFTER EPOCH LOOP", []);
@@ -269,7 +262,7 @@ function executeUpdateVersionsMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
-  let version = decodePrefixVarIntU64(reader);
+  let version = decodeU64(reader);
   globalState.encodingVersion = version as i32;
 }
 
@@ -282,14 +275,14 @@ function executeRegisterNetworksMessage(
   let removedNetworks: Array<Network> = [];
 
   // Get the number of networks to remove.
-  let numRemovals = decodePrefixVarIntU64(reader) as i32;
+  let numRemovals = decodeU64(reader) as i32;
   if (!reader.ok) {
     return;
   }
 
   // now get all the removed network ids and apply the changes to the pre-loaded list
   for (let i = 0; i < numRemovals; i++) {
-    let networkId = decodePrefixVarIntU64(reader) as i32;
+    let networkId = decodeU64(reader) as i32;
     // Besides checking that the decoding was successful, we must perform a
     // bounds check over the newly provided network ID.
     if (!reader.ok || networkId >= networks.length) {
@@ -300,14 +293,14 @@ function executeRegisterNetworksMessage(
     removedNetworks.push(swapAndPop(networkId, networks));
   }
 
-  let numInsertions = decodePrefixVarIntU64(reader) as i32;
+  let numInsertions = decodeU64(reader) as i32;
   if (!reader.ok) {
     return;
   }
 
   // now get all the add network strings
   for (let i = 0; i < numInsertions; i++) {
-    let chainId = decodePrefixVarIntString(reader);
+    let chainId = decodeString(reader);
     if (!reader.ok) {
       return;
     }
