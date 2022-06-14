@@ -4,10 +4,7 @@ import {
   assert,
   afterEach
 } from "matchstick-as/assembly/index";
-import { log } from "matchstick-as/assembly/log";
-import { logStore } from "matchstick-as/assembly/store";
 import { processPayload } from "../src/mapping";
-import { log } from "@graphprotocol/graph-ts";
 import { Bytes, BigInt } from "@graphprotocol/graph-ts";
 import { Network } from "../generated/schema";
 
