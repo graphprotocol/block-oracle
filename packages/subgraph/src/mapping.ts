@@ -38,23 +38,21 @@ import {
 export function handleLogCrossChainEpochOracle(
   event: Log
 ): void {
-  // Read input vars
-  let submitter = event.transaction.from.toHexString();
-  let payloadBytes = event.params.data;
-  let txHash = event.transaction.hash.toHexString();
-
-  processPayload(submitter, payloadBytes, txHash);
+  processPayload(
+    event.transaction.from.toHexString(),
+    event.params.data,
+    event.transaction.hash.toHexString(),
+  );
 }
 
 export function handleCrossChainEpochOracle(
   call: CrossChainEpochOracleCall
 ): void {
-  // Read input vars
-  let submitter = call.transaction.from.toHexString();
-  let payloadBytes = call.inputs._payload;
-  let txHash = call.transaction.hash.toHexString();
-
-  processPayload(submitter, payloadBytes, txHash);
+  processPayload(
+    call.transaction.from.toHexString(),
+    call.inputs._payload,
+    call.transaction.hash.toHexString(),
+  );
 }
 
 export function processPayload(
