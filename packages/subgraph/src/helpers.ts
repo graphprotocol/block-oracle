@@ -5,7 +5,7 @@ import {
   NetworkEpochBlockNumber,
   Network
 } from "../generated/schema";
-import { BIGINT_ONE } from "./constants";
+import { BIGINT_ONE, INITIAL_ENCODING_VERSION } from "./constants";
 
 export enum MessageTag {
   SetBlockNumbersForEpochMessage = 0,
@@ -25,45 +25,15 @@ export namespace MessageTag {
   }
 }
 
-export namespace AuxGlobalState {
-  export function get(): GlobalState {
-    return getOrCreateGlobalState("1");
-  }
-
-  export function commit(aux: GlobalState): void {
-    let real = getRealGlobalState();
-    let networks = getActiveNetworks(aux);
-    commitNetworkChanges([], networks, real);
-    real.networkCount = aux.networkCount;
-    real.activeNetworkCount = aux.activeNetworkCount;
-    real.latestValidEpoch = aux.latestValidEpoch;
-    real.save();
-    aux.save();
-  }
-
-  export function rollback(aux: GlobalState): void {
-    // ToDo: Add rollback of network entities here...
-    let real = getRealGlobalState();
-    aux.networkCount = real.networkCount;
-    aux.activeNetworkCount = real.activeNetworkCount;
-    aux.networkArrayHead = real.networkArrayHead;
-    aux.latestValidEpoch = real.latestValidEpoch;
-    aux.save();
-  }
-}
-
-function getRealGlobalState(): GlobalState {
-  return getOrCreateGlobalState("0");
-}
-
-function getOrCreateGlobalState(id: string): GlobalState {
+export function getGlobalState(): GlobalState {
+  let id = "0"
   let state = GlobalState.load(id);
   if (state == null) {
     state = new GlobalState(id);
     state.networkCount = 0;
     state.activeNetworkCount = 0;
-    state.encodingVersion = 0;
-    state.save();
+    state.encodingVersion = INITIAL_ENCODING_VERSION;
+    state.networks = [];
   }
   return state;
 }
@@ -72,7 +42,7 @@ export function nextEpochId(globalState: GlobalState): BigInt {
   if (globalState.latestValidEpoch == null) {
     return BIGINT_ONE;
   } else {
-    return BigInt.fromString(globalState.latestValidEpoch!) + BIGINT_ONE;
+    return BigInt.fromString(globalState.latestValidEpoch!).plus(BIGINT_ONE);
   }
 }
 
@@ -92,37 +62,30 @@ export function createOrUpdateNetworkEpochBlockNumber(
   acceleration: BigInt
 ): NetworkEpochBlockNumber {
   let id = epochBlockNumberId(epochId, networkId);
-  let previousId = epochBlockNumberId(epochId - BIGINT_ONE, networkId);
+  let previousId = epochBlockNumberId(epochId.minus(BIGINT_ONE), networkId);
 
-  let networkEpochBlockNumber = NetworkEpochBlockNumber.load(id);
-  if (networkEpochBlockNumber == null) {
-    networkEpochBlockNumber = new NetworkEpochBlockNumber(id);
-    networkEpochBlockNumber.network = networkId;
-    networkEpochBlockNumber.epoch = epochId.toString();
+  let blockNum = NetworkEpochBlockNumber.load(id);
+  if (blockNum == null) {
+    blockNum = new NetworkEpochBlockNumber(id);
+    blockNum.network = networkId;
+    blockNum.epoch = epochId.toString();
   }
-  networkEpochBlockNumber.acceleration = acceleration;
+  blockNum.acceleration = acceleration;
 
-  let previousNetworkEpochBlockNumber = NetworkEpochBlockNumber.load(
-    previousId
-  );
-  if (previousNetworkEpochBlockNumber != null) {
-    networkEpochBlockNumber.delta = previousNetworkEpochBlockNumber.delta.plus(
-      acceleration
-    );
-    networkEpochBlockNumber.blockNumber = previousNetworkEpochBlockNumber.blockNumber.plus(
-      networkEpochBlockNumber.delta
-    );
+  let previous = NetworkEpochBlockNumber.load(previousId);
+  if (previous != null) {
+    blockNum.delta = previous.delta.plus(acceleration);
+    blockNum.blockNumber = previous.blockNumber.plus(blockNum.delta);
   } else {
     // If there's no previous entity then we consider the previous delta 0
     // There might be an edge case if the previous entity isn't 1 epoch behind
     // in case where a network is removed and then re-added
     // (^ Should we retain the progress of the network if it's removed?)
-    networkEpochBlockNumber.delta = acceleration;
-    networkEpochBlockNumber.blockNumber = networkEpochBlockNumber.delta;
+    blockNum.delta = acceleration;
+    blockNum.blockNumber = blockNum.delta;
   }
-  networkEpochBlockNumber.save();
 
-  return networkEpochBlockNumber;
+  return blockNum;
 }
 
 export function getActiveNetworks(state: GlobalState): Array<Network> {

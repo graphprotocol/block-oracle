@@ -1,5 +1,13 @@
 import { BigInt } from "@graphprotocol/graph-ts";
 
+export const ENTITY_MESSAGE_BLOCK = "MessageBlock";
+export const ENTITY_GLOBAL_STATE = "GlobalState";
+export const ENTITY_NETWORK = "Network";
+export const ENTITY_PAYLOAD = "Payload";
+export const ENTITY_NETWORK_EPOCH_BLOCK_NUMBER = "NetworkEpochBlockNumber";
+
+export const INITIAL_ENCODING_VERSION = 0;
+
 export const PREAMBLE_BIT_LENGTH = 8;
 export const PREAMBLE_BYTE_LENGTH = PREAMBLE_BIT_LENGTH / 8;
 export const TAG_BIT_LENGTH = 4;

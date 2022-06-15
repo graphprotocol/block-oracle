@@ -2,7 +2,7 @@ import {
   CrossChainEpochOracleCall,
   Log
 } from "../generated/DataEdge/DataEdge";
-import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
+import { Bytes, BigInt, log, store } from "@graphprotocol/graph-ts";
 import {
   SetBlockNumbersForEpochMessage,
   CorrectEpochsMessage,
@@ -21,18 +21,26 @@ import {
   decodeTags
 } from "./decoding";
 import {
-  AuxGlobalState,
   getOrCreateEpoch,
   createOrUpdateNetworkEpochBlockNumber,
   MessageTag,
+  getGlobalState,
   getActiveNetworks,
   swapAndPop,
   commitNetworkChanges,
-  nextEpochId
+  nextEpochId,
 } from "./helpers";
+import {
+  DirtyChanges
+} from "./dirty";
 import {
   BIGINT_ZERO,
   BIGINT_ONE,
+  ENTITY_MESSAGE_BLOCK,
+  ENTITY_NETWORK,
+  ENTITY_PAYLOAD,
+  ENTITY_GLOBAL_STATE,
+  ENTITY_NETWORK_EPOCH_BLOCK_NUMBER,
 } from "./constants";
 
 export function handleLogCrossChainEpochOracle(
@@ -60,37 +68,42 @@ export function processPayload(
   payloadBytes: Bytes,
   txHash: string
 ): void {
-  // Load auxiliary GlobalState for rollback capabilities.
-  let globalState = AuxGlobalState.get();
+  let state = getGlobalState();
+  DirtyChanges.set(ENTITY_GLOBAL_STATE, state);
 
-  // Save raw payload.
+  // Prepare the raw `Payload` entity.
   let payload = new Payload(txHash);
   payload.data = payloadBytes;
   payload.submitter = submitter;
-  payload.save();
+  payload.messageBlocks = [];
+  DirtyChanges.set(ENTITY_PAYLOAD, payload);
 
   let reader = new BytesReader(payloadBytes);
-  let blockIdx = 0;
 
   while (reader.length() > 0) {
-    let i = blockIdx.toString();
+    let i = payload.messageBlocks.length.toString();
     log.info("New message block (num. {}) with remaining data: {}", [i, reader.data().toHexString()]);
 
-    // Save raw message.
     let messageBlock = new MessageBlock([txHash, i].join("-"));
-    processMessageBlock(globalState, messageBlock, reader);
+    messageBlock.payload = payload.id;
+    messageBlock.messages = [];
+    processMessageBlock(state, messageBlock, reader);
+
     if (!reader.ok) {
       log.error("Failed to process message block num. {}", [i]);
-      AuxGlobalState.rollback(globalState);
+      // We only persist the `Payload` in case of failure, without any
+      // `GlobalState` changes nor `MessageBlock`s.
+      payload.messageBlocks = [];
+      payload.save();
       return;
     }
 
     log.info("Finished processing message block num. {}", [i]);
-    messageBlock.save();
-    blockIdx++;
+    payload.messageBlocks.push(messageBlock.id);
+    DirtyChanges.set(ENTITY_MESSAGE_BLOCK, messageBlock);
   }
 
-  AuxGlobalState.commit(globalState);
+  DirtyChanges.persist();
 }
 
 export function processMessageBlock(
@@ -98,6 +111,7 @@ export function processMessageBlock(
   messageBlock: MessageBlock,
   reader: BytesReader
 ): void {
+  let snapshot = reader.snapshot();
   let tags = decodeTags(reader);
 
   for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
@@ -109,10 +123,11 @@ export function processMessageBlock(
       reader
     );
   }
+
+  messageBlock.data = reader.diff(snapshot);
 }
 
-// Finishes decoding the message, executes it, and finally returns the amount
-// of bytes read.
+// Finishes decoding the message and executes it.
 export function processMessage(
   globalState: GlobalState,
   messageBlock: MessageBlock,
@@ -129,7 +144,6 @@ export function processMessage(
 
   // The message type can then be changed according to the tag.
   let message = new SetBlockNumbersForEpochMessage(id);
-  message.block = messageBlock.id;
 
   log.info("Executing message {}", [MessageTag.toString(tag)]);
   if (tag == MessageTag.SetBlockNumbersForEpochMessage) {
@@ -150,12 +164,14 @@ export function processMessage(
     );
   } else {
     reader.fail();
-    log.error("Unknown message tag '{}'. This is most likely a bug!", [MessageTag.toString(tag)]);
+    log.error("Unknown message tag '{}'", [MessageTag.toString(tag)]);
     return;
   }
 
+  message.block = messageBlock.id;
   message.data = reader.diff(snapshot);
-  message.save();
+  DirtyChanges.set(MessageTag.toString(tag), message);
+  messageBlock.messages.push(message.id);
 }
 
 function executeSetBlockNumbersForEpochMessage(
@@ -202,14 +218,15 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
     accelerations.push(acceleration);
 
     // Create new NetworkEpochBlockNumber
-    createOrUpdateNetworkEpochBlockNumber(
+    let blockNum = createOrUpdateNetworkEpochBlockNumber(
       networks[i].id,
       newEpoch.epochNumber,
       acceleration
     );
+    DirtyChanges.set(ENTITY_NETWORK_EPOCH_BLOCK_NUMBER, blockNum);
   }
 
-  log.info("Successfullly decocoded accelerations", []);
+  log.info("Successfully decocoded accelerations", []);
   message.accelerations = accelerations;
 }
 
@@ -224,13 +241,12 @@ function executeEmptySetBlockNumbersForEpochMessage(
   }
 
   message.count = numNetworks;
-  message.save();
 
   log.info("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
     message.count!.toString()
   ]);
 
-  for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
+  for (let i = BIGINT_ZERO; i < message.count!; i = i.plus(BIGINT_ONE)) {
     log.info("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
     let newEpoch = getOrCreateEpoch(nextEpochId(globalState));
     globalState.latestValidEpoch = newEpoch.id;
@@ -296,7 +312,7 @@ function executeRegisterNetworksMessage(
 
     let network = new Network(chainId);
     network.addedAt = message.id;
-    network.save();
+    DirtyChanges.set(ENTITY_NETWORK, network);
     networks.push(network);
   }
 
