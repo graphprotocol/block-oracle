@@ -25,7 +25,7 @@ import {
   getOrCreateEpoch,
   createOrUpdateNetworkEpochBlockNumber,
   MessageTag,
-  getNetworkList,
+  getActiveNetworks,
   swapAndPop,
   commitNetworkChanges,
   nextEpochId
@@ -191,7 +191,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
-  let networks = getNetworkList(globalState);
+  let networks = getActiveNetworks(globalState);
   let newEpoch = getOrCreateEpoch(nextEpochId(globalState));
   globalState.latestValidEpoch = newEpoch.id;
 
@@ -272,7 +272,7 @@ function executeRegisterNetworksMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
-  let networks = getNetworkList(globalState);
+  let networks = getActiveNetworks(globalState);
   let removedNetworks: Array<Network> = [];
 
   // Get the number of networks to remove.
