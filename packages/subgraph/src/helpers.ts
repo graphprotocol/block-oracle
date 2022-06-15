@@ -92,8 +92,8 @@ export function createOrUpdateNetworkEpochBlockNumber(
   epochId: BigInt,
   acceleration: BigInt
 ): NetworkEpochBlockNumber {
-  let id = [epochId.toString(), networkId].join("-");
-  let previousId = [(epochId - BIGINT_ONE).toString(), networkId].join("-");
+  let id = epochBlockNumberId(epochId, networkId);
+  let previousId = epochBlockNumberId(epochId - BIGINT_ONE, networkId);
 
   let networkEpochBlockNumber = NetworkEpochBlockNumber.load(id);
   if (networkEpochBlockNumber == null) {
@@ -189,4 +189,8 @@ export function commitNetworkChanges(
   }
   state.activeNetworkCount = newNetworksList.length;
   state.save();
+}
+
+function epochBlockNumberId(epochId: BigInt, networkId: string): string {
+  return [epochId.toString(), networkId].join("-");
 }
