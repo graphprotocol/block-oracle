@@ -146,7 +146,6 @@ export function getActiveNetworks(state: GlobalState): Array<Network> {
   return networks;
 }
 
-
 export function swapAndPop(index: u32, networks: Array<Network>): Network {
   assert(
     index < (networks.length as u32),
