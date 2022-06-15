@@ -140,10 +140,6 @@ export function processMessage(
     executeCorrectEpochsMessage(
       changetype<CorrectEpochsMessage>(message), globalState, reader
     );
-  } else if (tag == MessageTag.CorrectEpochsMessage) {
-    executeCorrectEpochsMessage(
-      changetype<CorrectEpochsMessage>(message), globalState, reader
-    );
   } else if (tag == MessageTag.UpdateVersionsMessage) {
     executeUpdateVersionsMessage(
       changetype<UpdateVersionsMessage>(message), globalState, reader
