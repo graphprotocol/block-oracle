@@ -1,12 +1,11 @@
-import { Bytes, BigInt } from "@graphprotocol/graph-ts";
+import { BigInt } from "@graphprotocol/graph-ts";
 import {
   GlobalState,
   Epoch,
   NetworkEpochBlockNumber,
   Network
 } from "../generated/schema";
-import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH, BIGINT_ONE } from "./constants";
-import { log } from "@graphprotocol/graph-ts";
+import { BIGINT_ONE } from "./constants";
 
 export enum MessageTag {
   SetBlockNumbersForEpochMessage = 0,

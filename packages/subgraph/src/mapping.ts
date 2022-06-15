@@ -33,7 +33,6 @@ import {
 import {
   BIGINT_ZERO,
   BIGINT_ONE,
-  PREAMBLE_BYTE_LENGTH
 } from "./constants";
 
 export function handleLogCrossChainEpochOracle(
