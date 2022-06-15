@@ -100,11 +100,7 @@ export function processMessageBlock(
 ): void {
   let tags = decodeTags(reader);
 
-  for (let i = 0; i < tags.length; i++) {
-    if (reader.length() == 0) {
-      return;
-    }
-
+  for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     processMessage(
       globalState,
       messageBlock,
@@ -112,9 +108,6 @@ export function processMessageBlock(
       tags[i],
       reader
     );
-    if (!reader.ok) {
-      return;
-    }
   }
 }
 
