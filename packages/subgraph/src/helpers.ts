@@ -1,12 +1,11 @@
-import { Bytes, BigInt } from "@graphprotocol/graph-ts";
+import { BigInt } from "@graphprotocol/graph-ts";
 import {
   GlobalState,
   Epoch,
   NetworkEpochBlockNumber,
   Network
 } from "../generated/schema";
-import { PREAMBLE_BIT_LENGTH, TAG_BIT_LENGTH, BIGINT_ONE } from "./constants";
-import { log } from "@graphprotocol/graph-ts";
+import { BIGINT_ONE } from "./constants";
 
 export enum MessageTag {
   SetBlockNumbersForEpochMessage = 0,
@@ -33,7 +32,7 @@ export namespace AuxGlobalState {
 
   export function commit(aux: GlobalState): void {
     let real = getRealGlobalState();
-    let networks = getNetworkList(aux);
+    let networks = getActiveNetworks(aux);
     commitNetworkChanges([], networks, real);
     real.networkCount = aux.networkCount;
     real.activeNetworkCount = aux.activeNetworkCount;
@@ -92,8 +91,8 @@ export function createOrUpdateNetworkEpochBlockNumber(
   epochId: BigInt,
   acceleration: BigInt
 ): NetworkEpochBlockNumber {
-  let id = [epochId.toString(), networkId].join("-");
-  let previousId = [(epochId - BIGINT_ONE).toString(), networkId].join("-");
+  let id = epochBlockNumberId(epochId, networkId);
+  let previousId = epochBlockNumberId(epochId - BIGINT_ONE, networkId);
 
   let networkEpochBlockNumber = NetworkEpochBlockNumber.load(id);
   if (networkEpochBlockNumber == null) {
@@ -126,35 +125,32 @@ export function createOrUpdateNetworkEpochBlockNumber(
   return networkEpochBlockNumber;
 }
 
-export function getNetworkList(state: GlobalState): Array<Network> {
-  let result: Array<Network> = [];
-  if (state.networkArrayHead != null) {
-    let currentElement = Network.load(state.networkArrayHead!)!;
-    result.push(currentElement);
-    while (currentElement.nextArrayElement != null) {
-      currentElement = Network.load(currentElement.nextArrayElement!)!;
-      result.push(currentElement);
-      if (result.length > state.activeNetworkCount) {
-        log.warning(
-          "[getNetworkList] Network list processed is longer than activeNetworkCount. Network list length: {}, activeNetworkCount: {}",
-          [
-            result.length.toString(),
-            state.activeNetworkCount.toString(),
-          ]
-        );
-      }
+export function getActiveNetworks(state: GlobalState): Array<Network> {
+  let networks = new Array<Network>();
+  let nextId = state.networkArrayHead;
+
+  while (nextId != null) {
+    let network = Network.load(nextId!)!;
+    let isActive = network.removedAt == null;
+    if (isActive) {
+      networks.push(network);
     }
+    nextId = network.nextArrayElement;
   }
-  return result;
+
+  assert(
+    networks.length == state.activeNetworkCount,
+    `Found ${networks.length} active networks but ${state.activeNetworkCount} were expected. This is a bug!`,
+  );
+  return networks;
 }
 
-export function swapAndPop(index: i32, networks: Array<Network>): Network {
-  if (index >= networks.length) {
-    log.warning("[popAndSwap] Index out of bounds. Index {}, list length: {}", [
-      index.toString(),
-      networks.length.toString()
-    ]);
-  }
+export function swapAndPop(index: u32, networks: Array<Network>): Network {
+  assert(
+    index < (networks.length as u32),
+    `Tried to pop network at index ${index.toString()} but ` +
+    `there are only ${networks.length.toString()} active networks. This is a bug!`
+  );
 
   let tail = networks[networks.length - 1];
   let elementToRemove = networks[index];
@@ -192,4 +188,8 @@ export function commitNetworkChanges(
   }
   state.activeNetworkCount = newNetworksList.length;
   state.save();
+}
+
+function epochBlockNumberId(epochId: BigInt, networkId: string): string {
+  return [epochId.toString(), networkId].join("-");
 }

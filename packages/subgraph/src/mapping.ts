@@ -25,7 +25,7 @@ import {
   getOrCreateEpoch,
   createOrUpdateNetworkEpochBlockNumber,
   MessageTag,
-  getNetworkList,
+  getActiveNetworks,
   swapAndPop,
   commitNetworkChanges,
   nextEpochId
@@ -33,7 +33,6 @@ import {
 import {
   BIGINT_ZERO,
   BIGINT_ONE,
-  PREAMBLE_BYTE_LENGTH
 } from "./constants";
 
 export function handleLogCrossChainEpochOracle(
@@ -101,11 +100,7 @@ export function processMessageBlock(
 ): void {
   let tags = decodeTags(reader);
 
-  for (let i = 0; i < tags.length; i++) {
-    if (reader.length() == 0) {
-      return;
-    }
-
+  for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     processMessage(
       globalState,
       messageBlock,
@@ -113,9 +108,6 @@ export function processMessageBlock(
       tags[i],
       reader
     );
-    if (!reader.ok) {
-      return;
-    }
   }
 }
 
@@ -143,10 +135,6 @@ export function processMessage(
   if (tag == MessageTag.SetBlockNumbersForEpochMessage) {
     executeSetBlockNumbersForEpochMessage(
       changetype<SetBlockNumbersForEpochMessage>(message), globalState, reader
-    );
-  } else if (tag == MessageTag.CorrectEpochsMessage) {
-    executeCorrectEpochsMessage(
-      changetype<CorrectEpochsMessage>(message), globalState, reader
     );
   } else if (tag == MessageTag.CorrectEpochsMessage) {
     executeCorrectEpochsMessage(
@@ -191,7 +179,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
-  let networks = getNetworkList(globalState);
+  let networks = getActiveNetworks(globalState);
   let newEpoch = getOrCreateEpoch(nextEpochId(globalState));
   globalState.latestValidEpoch = newEpoch.id;
 
@@ -272,7 +260,7 @@ function executeRegisterNetworksMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
-  let networks = getNetworkList(globalState);
+  let networks = getActiveNetworks(globalState);
   let removedNetworks: Array<Network> = [];
 
   // Get the number of networks to remove.

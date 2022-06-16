@@ -54,7 +54,7 @@ test("(SetBlockNumbersForNextEpoch) EMPTY", () => {
 //   ]
 // ]
 
-test("RegisterNetworks, SetBlockNumbersForNextEpoch)", () => {
+test("(RegisterNetworks, SetBlockNumbersForNextEpoch)", () => {
   let payloadBytes = Bytes.fromHexString(
     "0x030103034166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc493d"
   ) as Bytes;
