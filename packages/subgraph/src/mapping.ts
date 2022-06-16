@@ -78,6 +78,7 @@ export function processPayload(
 
     // Save raw message.
     let messageBlock = new MessageBlock([txHash, i].join("-"));
+    messageBlock.payload = payload.id;
     processMessageBlock(globalState, messageBlock, reader);
     if (!reader.ok) {
       log.error("Failed to process message block num. {}", [i]);
@@ -99,6 +100,7 @@ export function processMessageBlock(
   reader: BytesReader
 ): void {
   let tags = decodeTags(reader);
+  let snapshot = reader.snapshot()
 
   for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     processMessage(
@@ -109,6 +111,7 @@ export function processMessageBlock(
       reader
     );
   }
+  messageBlock.data = reader.diff(snapshot);
 }
 
 // Finishes decoding the message, executes it, and finally returns the amount
