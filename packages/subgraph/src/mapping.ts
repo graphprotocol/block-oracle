@@ -99,8 +99,8 @@ export function processMessageBlock(
   messageBlock: MessageBlock,
   reader: BytesReader
 ): void {
-  let tags = decodeTags(reader);
   let snapshot = reader.snapshot()
+  let tags = decodeTags(reader);
 
   for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     processMessage(
