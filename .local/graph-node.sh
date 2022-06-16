@@ -21,8 +21,8 @@ echo "IPFS is up"
 await "curl --silent --fail localhost:$POSTGRES_PORT" 52
 echo "Postgres is up"
 
-dropdb -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" "$POSTGRES_DB" || true
-createdb -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" "$POSTGRES_DB"
+dropdb -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" "$POSTGRES_DB" --no-password || true
+createdb -h "$POSTGRES_HOST" -p "$POSTGRES_PORT" -U "$POSTGRES_USER" "$POSTGRES_DB" --no-password
 
 echo "Created database"
 
