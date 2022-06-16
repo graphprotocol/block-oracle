@@ -74,7 +74,7 @@ export function processPayload(
 
   while (reader.length() > 0) {
     let i = blockIdx.toString();
-    log.info("New message block (num. {}) with remaining data: {}", [i, reader.data().toHexString()]);
+    log.warning("New message block (num. {}) with remaining data: {}", [i, reader.data().toHexString()]);
 
     // Save raw message.
     let messageBlock = new MessageBlock([txHash, i].join("-"));
@@ -85,7 +85,7 @@ export function processPayload(
       return;
     }
 
-    log.info("Finished processing message block num. {}", [i]);
+    log.warning("Finished processing message block num. {}", [i]);
     messageBlock.save();
     blockIdx++;
   }
@@ -120,7 +120,7 @@ export function processMessage(
   tag: MessageTag,
   reader: BytesReader
 ): void {
-  log.info("Processing new message with tag {}. The remaining payload is {}", [
+  log.warning("Processing new message with tag {}. The remaining payload is {}", [
     MessageTag.toString(tag),
     reader.data().toHexString()
   ]);
@@ -131,7 +131,7 @@ export function processMessage(
   let message = new SetBlockNumbersForEpochMessage(id);
   message.block = messageBlock.id;
 
-  log.info("Executing message {}", [MessageTag.toString(tag)]);
+  log.warning("Executing message {}", [MessageTag.toString(tag)]);
   if (tag == MessageTag.SetBlockNumbersForEpochMessage) {
     executeSetBlockNumbersForEpochMessage(
       changetype<SetBlockNumbersForEpochMessage>(message), globalState, reader
@@ -163,7 +163,7 @@ function executeSetBlockNumbersForEpochMessage(
   globalState: GlobalState,
   reader: BytesReader
 ): void {
-  log.info("There are {} currently active networks", [
+  log.warning("There are {} currently active networks", [
     globalState.activeNetworkCount.toString()
   ]);
 
@@ -185,19 +185,19 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
 
   let merkleRoot = reader.advance(32);
   message.merkleRoot = merkleRoot;
-  log.info("The Merkle root of the new epoch is {}", [
+  log.warning("The Merkle root of the new epoch is {}", [
     merkleRoot.toHexString()
   ]);
-  log.info("Now decoding block updates: {}", [reader.data().toHexString()]);
+  log.warning("Now decoding block updates: {}", [reader.data().toHexString()]);
 
   let accelerations: Array<BigInt> = [];
   for (let i = 0; i < globalState.activeNetworkCount; i++) {
     let acceleration = BigInt.fromI64(decodeI64(reader));
     if (!reader.ok) {
-      log.info("Failed to decode acceleration num. {}", [i.toString()]);
+      log.warning("Failed to decode acceleration num. {}", [i.toString()]);
       return;
     }
-    log.info("Decoded acceleration num. {} with value {}", [i.toString(), acceleration.toString()]);
+    log.warning("Decoded acceleration num. {} with value {}", [i.toString(), acceleration.toString()]);
 
     accelerations.push(acceleration);
 
@@ -209,7 +209,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
     );
   }
 
-  log.info("Successfullly decocoded accelerations", []);
+  log.warning("Successfullly decocoded accelerations", []);
   message.accelerations = accelerations;
 }
 
@@ -226,16 +226,16 @@ function executeEmptySetBlockNumbersForEpochMessage(
   message.count = numNetworks;
   message.save();
 
-  log.info("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
+  log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
     message.count!.toString()
   ]);
 
   for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
-    log.info("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
+    log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
     let newEpoch = getOrCreateEpoch(nextEpochId(globalState));
     globalState.latestValidEpoch = newEpoch.id;
   }
-  log.info("AFTER EPOCH LOOP", []);
+  log.warning("AFTER EPOCH LOOP", []);
 }
 
 function executeCorrectEpochsMessage(
