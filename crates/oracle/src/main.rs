@@ -162,17 +162,17 @@ impl<'a> Oracle<'a> {
                 // Each network has an array of block numbers, one for each epoch, but we are
                 // only interested on the most recent one.
                 let block_number =
-                    network
+                    &network
                         .block_numbers
                         .iter()
-                        .max_by_key(|block_number| block_number.epoch.epoch_number)
+                        .max_by_key(|block_number| &block_number.epoch.epoch_number)
                         .expect(
                             &format!("expected at least one block number for network '{chain_id}', but found none"),
                         ).block_number;
                 networks.insert(
                     chain_id.clone(),
-                    u32::try_from(block_number).expect(&format!(
-                        "expected a block number that would fit in a `u32`, but found {block_number}"
+                    block_number.parse().expect(&format!(
+                        "expected a block number that can be represented as a `u32`, but found {block_number}"
                     )),
                 );
             }
@@ -204,7 +204,8 @@ impl<'a> Oracle<'a> {
         let latest_blocks = self.event_source.get_latest_blocks().await?;
         messages.push(latest_blocks_to_message(latest_blocks));
 
-        let available_networks = vec![];
+        let available_networks: Vec<(String, epoch_encoding::Network)> =
+            todo!("intersect networks from config and subgraph");
         debug!(
             messages = ?messages,
             messages_count = messages.len(),

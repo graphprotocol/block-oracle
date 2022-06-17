@@ -89,15 +89,15 @@ type GlobalState {
 
 type Epoch {
   id: ID!
-  epochNumber: BigInt!
+  epochNumber: String!
   blockNumbers: [NetworkEpochBlockNumber!]!
 }
 
 type NetworkEpochBlockNumber {
   id: ID!
-  acceleration: BigInt!
-  delta: BigInt!
-  blockNumber: BigInt!
+  acceleration: String!
+  delta: String!
+  blockNumber: String!
   network: Network!
   epoch: Epoch!
 }

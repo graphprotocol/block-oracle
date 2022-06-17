@@ -1,6 +1,5 @@
 use crate::error_handling::format_slice;
 use crate::{Config, SubgraphApi};
-use anyhow::Context;
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
@@ -57,9 +56,7 @@ impl SubgraphApi for SubgraphQuery {
     type State = Vec<subgraph_state::SubgraphStateNetworks>;
 
     async fn get_subgraph_state(&self) -> anyhow::Result<Self::State> {
-        let response = query(self.url.clone())
-            .await
-            .context("querying Epoch Subgraph")?;
+        let response = query(self.url.clone()).await?;
         let ResponseData { networks } = response;
         Ok(networks)
     }
