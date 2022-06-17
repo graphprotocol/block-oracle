@@ -22,7 +22,7 @@ use epoch_tracker::EpochTrackerError;
 use event_source::{EventSource, EventSourceError};
 use lazy_static::lazy_static;
 use models::Caip2ChainId;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use tracing::{debug, error, info};
 
 pub use config::Config;
@@ -148,38 +148,48 @@ impl<'a> Oracle<'a> {
         Ok(())
     }
 
-    async fn registered_networks(&self) -> Result<HashMap<Caip2ChainId, u32>, Error> {
-        if self.subgraph_state.is_valid() {
-            let subgraph_networks = self
-                .subgraph_state
-                .data()
-                .expect("expected data from a valid subgraph state, but found none");
-
-            let mut networks: HashMap<Caip2ChainId, u32> = HashMap::new();
-            for network in subgraph_networks {
-                let chain_id: Caip2ChainId =
-                    network.id.parse().expect("expected a valid CAIP2 name");
-                // Each network has an array of block numbers, one for each epoch, but we are
-                // only interested on the most recent one.
-                let block_number =
-                    &network
-                        .block_numbers
-                        .iter()
-                        .max_by_key(|block_number| &block_number.epoch.epoch_number)
-                        .expect(
-                            &format!("expected at least one block number for network '{chain_id}', but found none"),
-                        ).block_number;
-                networks.insert(
-                    chain_id.clone(),
-                    block_number.parse().expect(&format!(
-                        "expected a block number that can be represented as a `u32`, but found {block_number}"
-                    )),
-                );
-            }
-            Ok(networks)
-        } else {
-            todo!("Handle this as error")
+    async fn registered_networks(
+        &self,
+    ) -> Result<HashMap<Caip2ChainId, epoch_encoding::Network>, Error> {
+        if !self.subgraph_state.is_valid() {
+            todo!("Handle this as an error")
         }
+        let subgraph_networks = self
+            .subgraph_state
+            .data()
+            .expect("expected data from a valid subgraph state, but found none");
+        let mut networks = HashMap::new();
+        for network in subgraph_networks {
+            let chain_id: Caip2ChainId = network.id.parse().expect("expected a valid CAIP2 name");
+            // Each network has an array of block numbers and epochs, but we are only interested on
+            // the most recent ones.
+            let (block_number, delta): (u64, i64) = {
+                let latest = &network
+                    .block_numbers
+                    .iter()
+                    .max_by_key(|block_number| &block_number.epoch.epoch_number)
+                    .expect(&format!(
+                        "expected at least one block number for network '{chain_id}', but found none"
+                    ));
+                let block_number: u64 = latest.block_number.parse().expect(&format!(
+                    "expected a number, got '{}' instead",
+                    latest.block_number
+                ));
+                let delta: i64 = latest.block_number.parse().expect(&format!(
+                    "expected a number, got '{}' instead",
+                    latest.delta
+                ));
+                (block_number, delta)
+            };
+            networks.insert(
+                chain_id.clone(),
+                epoch_encoding::Network {
+                    block_number,
+                    block_delta: delta,
+                },
+            );
+        }
+        Ok(networks)
     }
 
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
@@ -190,7 +200,20 @@ impl<'a> Oracle<'a> {
 
         // First, we need to make sure that there are no pending
         // `RegisterNetworks` messages.
-        let networks_diff = NetworksDiff::calculate(registered_networks, &CONFIG);
+        let networks_diff = {
+            // `NetworksDiff::calculate` uses u32's but `registered_networks` has u64's
+            let networks_and_block_numbers = registered_networks
+                .iter()
+                .map(|(chain_id, network)| {
+                    let block_number = u32::try_from(network.block_number).expect(&format!(
+                        "expected a block number that would fit a u32, but found {}",
+                        network.block_number
+                    ));
+                    (chain_id.clone(), block_number)
+                })
+                .collect();
+            NetworksDiff::calculate(networks_and_block_numbers, &CONFIG)
+        };
         info!(
             created = networks_diff.insertions.len(),
             deleted = networks_diff.deletions.len(),
@@ -204,8 +227,25 @@ impl<'a> Oracle<'a> {
         let latest_blocks = self.event_source.get_latest_blocks().await?;
         messages.push(latest_blocks_to_message(latest_blocks));
 
-        let available_networks: Vec<(String, epoch_encoding::Network)> =
-            todo!("intersect networks from config and subgraph");
+        let available_networks: Vec<(String, epoch_encoding::Network)> = {
+            // intersect networks from config and subgraph
+            let config_chain_ids: HashSet<&Caip2ChainId> = CONFIG
+                .indexed_chains
+                .iter()
+                .map(|chain| chain.id())
+                .collect();
+            registered_networks
+                .into_iter()
+                .filter_map(|(chain_id, network)| {
+                    if config_chain_ids.contains(&chain_id) {
+                        Some((chain_id.as_str().to_owned(), network))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        };
+
         debug!(
             messages = ?messages,
             messages_count = messages.len(),
