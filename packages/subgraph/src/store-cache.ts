@@ -48,6 +48,7 @@ export class StoreCache {
       state.networkCount = 0;
       state.activeNetworkCount = 0;
       state.encodingVersion = 0;
+      state.save()
     }
     this.state = state;
     this.networks = new SafeMap<String, Network>();

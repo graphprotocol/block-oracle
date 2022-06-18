@@ -43,6 +43,7 @@ test("(SetBlockNumbersForNextEpoch) EMPTY", () => {
   assert.entityCount("Epoch", 100);
 
   // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
   assert.entityCount("MessageBlock", 1);
   assert.entityCount("SetBlockNumbersForEpochMessage", 1);
   assert.entityCount("RegisterNetworksMessage", 0);
@@ -53,11 +54,43 @@ test("(SetBlockNumbersForNextEpoch) EMPTY", () => {
   assert.fieldEquals("GlobalState", "0", "latestValidEpoch", "100");
   assert.fieldEquals("Epoch", "100", "id", "100"); // assert that Epoch 100 exists
 
-  assert.fieldEquals("SetBlockNumbersForEpochMessage", "0x00-0-0", "id", "0x00-0-0")
-  assert.fieldEquals("SetBlockNumbersForEpochMessage", "0x00-0-0", "block", "0x00-0")
+  assert.fieldEquals(
+    "SetBlockNumbersForEpochMessage",
+    "0x00-0-0",
+    "id",
+    "0x00-0-0"
+  );
+  assert.fieldEquals(
+    "SetBlockNumbersForEpochMessage",
+    "0x00-0-0",
+    "block",
+    "0x00-0"
+  );
 
-  assert.fieldEquals("MessageBlock", "0x00-0", "payload", "0x00")
-  assert.fieldEquals("MessageBlock", "0x00-0", "data", "0x00c9")
+  assert.fieldEquals("MessageBlock", "0x00-0", "payload", "0x00");
+  assert.fieldEquals("MessageBlock", "0x00-0", "data", "0x00c9");
+  assert.fieldEquals("Payload", "0x00", "valid", "true");
+});
+
+test("(SetBlockNumbersForNextEpoch) EMPTY but invalid", () => {
+  let payloadBytes = Bytes.fromHexString("0x00c900") as Bytes;
+  let submitter = "0x00";
+  let txHash = "0x00";
+
+  processPayload(submitter, payloadBytes, txHash);
+
+  assert.entityCount("Epoch", 0);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 0);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+
+  assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "0");
+  assert.fieldEquals("Payload", "0x00", "valid", "false");
 });
 
 // crates/oracle-encoder/examples/02-register-networks-and-set-block-numbers-same-payload.json
