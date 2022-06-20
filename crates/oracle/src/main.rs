@@ -98,8 +98,7 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-/// FIXME: Using this type for now, but we might want to change to a more specific type later.
-type SubgraphStateData = Vec<subgraph::subgraph_state::SubgraphStateNetworks>;
+type SubgraphStateData = subgraph::subgraph_state::SubgraphStateGlobalState;
 
 /// The main application in-memory state
 struct Oracle<'a> {
@@ -151,14 +150,19 @@ impl<'a> Oracle<'a> {
     async fn registered_networks(
         &self,
     ) -> Result<HashMap<Caip2ChainId, epoch_encoding::Network>, Error> {
-        if !self.subgraph_state.is_valid() {
+        if self.subgraph_state.is_failed() {
             todo!("Handle this as an error")
         }
-        let subgraph_networks = self
+        if self.subgraph_state.is_uninitialized() {
+            info!("Epoch Subgraph contains no initial state");
+            return Ok(Default::default());
+        };
+        let mut networks = HashMap::new();
+        let subgraph_networks = &self
             .subgraph_state
             .data()
-            .expect("expected data from a valid subgraph state, but found none");
-        let mut networks = HashMap::new();
+            .expect("expected data from a valid subgraph state, but found none")
+            .networks;
         for network in subgraph_networks {
             let chain_id: Caip2ChainId = network.id.parse().expect("expected a valid CAIP2 name");
             // Each network has an array of block numbers and epochs, but we are only interested on
@@ -193,7 +197,7 @@ impl<'a> Oracle<'a> {
     }
 
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
-        info!("A new epoch started in the protocol chain.");
+        info!("A new epoch started in the protocol chain");
         let registered_networks = self.registered_networks().await?;
 
         let mut messages = vec![];

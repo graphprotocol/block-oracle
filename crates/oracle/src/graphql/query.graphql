@@ -1,20 +1,21 @@
 query SubgraphState {
-  networks {
-    id
-    removedAt {
+  globalState(id: "0") {
+    activeNetworkCount
+    networks(orderBy: arrayIndex, orderDirection: asc) {
       id
-    }
-    blockNumbers {
-      id
-      acceleration
-      delta
-      blockNumber
-      epoch {
-        epochNumber
+      arrayIndex
+      blockNumbers(first: 1, orderBy: blockNumber, orderDirection: desc) {
+        blockNumber
+        acceleration
+        delta
+        epoch {
+          epochNumber
+        }
       }
     }
-    nextArrayElement
-    arrayIndex
-    state
+    encodingVersion
+    latestValidEpoch {
+      epochNumber
+    }
   }
 }

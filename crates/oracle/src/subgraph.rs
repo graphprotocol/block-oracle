@@ -53,20 +53,18 @@ impl From<&Config> for SubgraphQuery {
 
 #[async_trait]
 impl SubgraphApi for SubgraphQuery {
-    type State = Vec<subgraph_state::SubgraphStateNetworks>;
+    type State = subgraph_state::SubgraphStateGlobalState;
 
-    async fn get_subgraph_state(&self) -> anyhow::Result<Self::State> {
-        let response = query(self.url.clone()).await?;
-        let ResponseData { networks } = response;
-        Ok(networks)
+    async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>> {
+        Ok(query(self.url.clone()).await?)
     }
 }
 
 fn validate_subgraph_state(
-    registered_networks: &[subgraph_state::SubgraphStateNetworks],
+    state: &subgraph_state::SubgraphStateGlobalState,
 ) -> Result<(), SubgraphQueryError> {
     // 1. Validate against  duplicate chain ids (keys)
-    let duplicate_network_ids = helpers::duplicates(registered_networks.iter().map(|a| &a.id));
+    let duplicate_network_ids = helpers::duplicates(state.networks.iter().map(|a| &a.id));
     if !duplicate_network_ids.is_empty() {
         let duplicates = duplicate_network_ids.into_iter().cloned().collect();
         return Err(SubgraphQueryError::DuplicatedNetworkIds(duplicates));
@@ -74,7 +72,7 @@ fn validate_subgraph_state(
     // 2. Validate against duplicate array indices
     // Indices are wrapped in Options, so we must unpack them before checking for duplicates
     let mut unpacked_indices = vec![];
-    for network in registered_networks.into_iter() {
+    for network in state.networks.iter() {
         match network.array_index {
             Some(index) => unpacked_indices.push(index),
             None => {
@@ -93,7 +91,9 @@ fn validate_subgraph_state(
     Ok(())
 }
 
-pub async fn query(url: Url) -> Result<subgraph_state::ResponseData, SubgraphQueryError> {
+pub async fn query(
+    url: Url,
+) -> Result<Option<subgraph_state::SubgraphStateGlobalState>, SubgraphQueryError> {
     // TODO: authentication token.
     let client = reqwest::Client::builder()
         .user_agent("block-oracle")
@@ -103,13 +103,20 @@ pub async fn query(url: Url) -> Result<subgraph_state::ResponseData, SubgraphQue
     let request = client.post(url).json(&request_body);
     let response = request.send().await?;
     let response_body: Response<subgraph_state::ResponseData> = response.json().await?;
-
     match response_body.errors.as_deref() {
         None | Some(&[]) => {
             // Unwrap: We just checked that there are no errors
-            let data = response_body.data.unwrap();
-            validate_subgraph_state(&data.networks)?;
-            Ok(data)
+            let data = response_body
+                .data
+                .expect("expected data in the GraphQL query response, but got none");
+
+            if let Some(global_state) = data.global_state {
+                validate_subgraph_state(&global_state)?;
+                Ok(Some(global_state))
+            } else {
+                // Subgraph is in a initial state and has no GlobalState yet
+                Ok(None)
+            }
         }
         Some([e]) if e.message == "indexing_error" => Err(SubgraphQueryError::IndexingError),
         Some(errs) => Err(SubgraphQueryError::Other {
