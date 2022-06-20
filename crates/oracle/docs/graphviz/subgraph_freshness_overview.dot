@@ -1,4 +1,4 @@
-digraph subgraph_freshness {
+digraph subgraph_freshness_overview {
     // General Graph Display
     rankdir=LR
     fontname="Helvetica,Arial,sans-serif"
