@@ -1,0 +1,129 @@
+digraph trigger_message {
+    // General Graph Display
+    newrank=true;
+    rankdir=LR
+    fontname="Helvetica,Arial,sans-serif"
+    edge [fontname="Helvetica,Arial,sans-serif"]
+    node [fontname="Helvetica,Arial,sans-serif", shape=rect,
+          style=filled, fillcolor="whitesmoke"]
+
+    // Protocol Chain Blocks
+    MB1  [label="B1"]
+    MB2  [label="B2"]
+    MB3  [label="B3"]
+    MB4  [label="B4"]
+    MB5  [label="B5"]
+    MB6  [label="B6"]
+    MB7  [label="B7"]
+    MB8  [label="B8"]
+    MB9  [label="B9"]
+    MB10 [label="B10"]
+    MB11 [label="B11"]
+    MB12 [label="B12"]
+
+    // Epoch Manager Nodes
+    MEB1  [label="E1", fillcolor=lightsteelblue]
+    MEB2  [label="E1", fillcolor=lightsteelblue]
+    MEB3  [label="E1", fillcolor=lightsteelblue]
+    MEB4  [label="E2", fillcolor=lemonchiffon]
+    MEB5  [label="E2", fillcolor=lemonchiffon]
+    MEB6  [label="E2", fillcolor=lemonchiffon]
+    MEB7  [label="E3", fillcolor=lightsteelblue]
+    MEB8  [label="E3", fillcolor=lightsteelblue]
+    MEB9  [label="E3", fillcolor=lightsteelblue]
+    MEB10 [label="E4", fillcolor=lemonchiffon]
+    MEB11 [label="E4", fillcolor=lemonchiffon]
+    MEB12 [label="E4", fillcolor=lemonchiffon]
+
+    // Block Oracle Nodes
+    BM0 [label="Msg"]
+    BT0 [label="Txn"]
+    BM1 [label="Msg"]
+    BT1 [label="Txn"]
+    BM2 [label="Msg"]
+    BT2 [label="Txn"]
+    BM3 [label="Msg"]
+    BT3 [label="Txn"]
+
+    // Epoch Subgraph Nodes
+    SEB1  [label="E0", fillcolor="lemonchiffon"]
+    SEB2  [label="E1", fillcolor=lightsteelblue]
+    SEB3  [label="E1", fillcolor=lightsteelblue]
+    SEB4  [label="E1", fillcolor=lightsteelblue]
+    SEB5  [label="E2", fillcolor=lemonchiffon]
+    SEB6  [label="E2", fillcolor=lemonchiffon]
+    SEB7  [label="E2", fillcolor=lemonchiffon]
+    SEB8  [label="E3", fillcolor=lightsteelblue]
+    SEB9  [label="E3", fillcolor=lightsteelblue]
+    SEB10 [label="E3", fillcolor=lightsteelblue]
+    SEB11 [label="E4", fillcolor=lemonchiffon]
+    SEB12 [label="E4", fillcolor=lemonchiffon]
+
+    subgraph cluster_protocol_chain {
+        label="Protocol Chain"
+        style=filled
+        color=grey78
+        MB1 -> MB2 -> MB3 -> MB4 -> MB5 -> MB6 -> MB7 -> MB8 -> MB9 -> MB10 -> MB11 -> MB12
+    }
+
+    subgraph cluster_epoch_manager {
+        label="Epoch Manager"
+        style=filled
+        color=grey82
+        MEB1 -> MEB2 -> MEB3 -> MEB4 -> MEB5 -> MEB6 -> MEB7 -> MEB8 -> MEB9 -> MEB10 -> MEB11 -> MEB12
+    }
+
+    subgraph cluster_block_oracle {
+        label="Block Oracle"
+        style=filled
+        color=grey86
+        BM0 -> BT0
+        BM1 -> BT1
+        BM2 -> BT2
+        BM3 -> BT3
+        PHANTOM [label="", style=invis]
+    }
+
+    subgraph cluster_epoch {
+        label="Epoch Subgraph"
+        style=filled
+        color=grey90
+        SEB1 -> SEB2 -> SEB3 -> SEB4 -> SEB5 -> SEB6 -> SEB7 -> SEB8 -> SEB9 -> SEB10 -> SEB11 -> SEB12
+    }
+
+    // Alignment
+    { rank=same; MB1;  MEB1; SEB1; }
+    { rank=same; MB2;  MEB2; SEB2; }
+    { rank=same; MB3;  MEB3; SEB3; }
+    { rank=same; MB4;  MEB4; SEB4; }
+    { rank=same; MB5;  MEB5; SEB5; }
+    { rank=same; MB6;  MEB6; SEB6; }
+    { rank=same; MB7;  MEB7; SEB7; }
+    { rank=same; MB8;  MEB8; SEB8; }
+    { rank=same; MB9;  MEB9; SEB9; }
+    { rank=same; MB10; MEB10; SEB10; }
+    { rank=same; MB11; MEB11; SEB11; }
+    { rank=same; MB12; MEB12; SEB12; PHANTOM}
+
+
+    {rank=same; BM0; MB1}
+    {rank=same; BT0; MB2}
+    {rank=same; BM1; MB4}
+    {rank=same; BT1; MB5}
+    {rank=same; BM2; MB7}
+    {rank=same; BT2; MB8}
+    {rank=same; BM3; MB10}
+    {rank=same; BT3; MB11}
+
+    // Triggers
+    MEB1  -> BM0 [color=red]
+    MEB4  -> BM1 [color=red]
+    MEB7  -> BM2 [color=red]
+    MEB10 -> BM3 [color=red]
+
+    BT0 -> SEB2  [color=red]
+    BT1 -> SEB5  [color=red]
+    BT2 -> SEB8  [color=red]
+    BT3 -> SEB11 [color=red]
+
+}

@@ -1,0 +1,47 @@
+digraph subgraph_freshness_overview {
+    // General Graph Display
+    rankdir=LR
+    fontname="Helvetica,Arial,sans-serif"
+    edge [fontname="Helvetica,Arial,sans-serif"]
+    node [fontname="Helvetica,Arial,sans-serif", shape=ellipse,
+          style=filled, fillcolor="white"]
+
+    // Node Definitions
+    ENTRY [shape=point, fillcolor="black"]
+    NewEpoch [label="New\nEpoch", shape=doublecircle, fillcolor="lightsteelblue"]
+    QuerySubgraph [label="Query\nSubgraph"]
+    CreateMessage [label="Create\nMessage"]
+    BroadcastTransaction [label="Broadcast\nTransaction", shape=doublecircle, fillcolor=lightsteelblue]
+    Sleep
+
+    EventSource [label=<<I><B>Component:</B></I><BR/>Event Source>, shape=rect, fillcolor=darkolivegreen1]
+
+    COND_IS_FRESH_1 [label=<<I><B>Check:</B></I><BR/>is the Epoch<BR/>Subgraph fresh?>, shape=rect, fillcolor=lightgray]
+    COND_IS_FRESH_2 [label=<<I><B>Check:</B></I><BR/>is the Epoch<BR/>Subgraph fresh?>, shape=rect, fillcolor=lightgray]
+    COND_TIMEOUT [label="Timed\nOut?", shape=rect, fillcolor=lightgray]
+
+    ErrorTimeout [label="Timeout\nError", shape=doublecircle, fillcolor=gold]
+
+
+    // Transitions
+    ENTRY -> NewEpoch
+
+    NewEpoch -> QuerySubgraph
+    QuerySubgraph -> COND_IS_FRESH_1
+
+    COND_IS_FRESH_1 -> CreateMessage [label="Yes"]
+    COND_IS_FRESH_1 -> Sleep [label="No"]
+
+    CreateMessage -> COND_IS_FRESH_2
+
+    COND_IS_FRESH_2 -> BroadcastTransaction [label="Yes"]
+    COND_IS_FRESH_2 -> Sleep [label="No"]
+
+    Sleep -> COND_TIMEOUT
+    COND_TIMEOUT -> QuerySubgraph [label="No"]
+    COND_TIMEOUT -> ErrorTimeout [label="Yes"]
+
+    EventSource -> COND_IS_FRESH_1
+    EventSource -> COND_IS_FRESH_2
+    EventSource -> CreateMessage
+}

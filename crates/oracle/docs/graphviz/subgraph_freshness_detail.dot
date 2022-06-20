@@ -1,0 +1,64 @@
+digraph subgraph_freshness_detail {
+    // General Graph Display
+    newrank=true;
+    rankdir=LR
+    fontname="Helvetica,Arial,sans-serif"
+    edge [fontname="Helvetica,Arial,sans-serif"]
+    node [fontname="Helvetica,Arial,sans-serif", shape=rect,
+          style=filled, fillcolor="whitesmoke"]
+
+    // Protocol Chain Blocks
+    CB1  [label="B1"]
+    CB2  [label="B2"]
+    CB3  [label="B3"]
+    CB4  [label="B4", fillcolor=gold]
+    CB5  [label="B5", fillcolor=gold]
+    CB6  [label="B6", fillcolor=gold]
+
+    // Epoch Subgraph Nodes
+    SB1  [style=invis]
+    SB2  [style=invis]
+    SB3  [label="Latest\nIndexed\nBlock", fontsize=12]
+    SB4  [style=invis]
+    SB5  [style=invis]
+    SB6  [style=invis]
+
+    Scan [shape=ellipse, fillcolor=darkolivegreen1, label=<<B>SCAN</B>>]
+    COND_HAS_TRANSACTIONS [shape=diamond, label="Has\ncalls?", fillcolor=gray]
+    Fresh [shape=doublecircle, fillcolor=lightsteelblue]
+    NotFresh [shape=doublecircle, label="Not\nFresh", fillcolor=lightsteelblue]
+
+
+    subgraph cluster_protocol_chain {
+        label="Protocol Chain"
+        style=filled
+        color=grey78
+        CB1 -> CB2 -> CB3 -> CB4 -> CB5 -> CB6
+    }
+
+    subgraph cluster_epoch {
+        label="Epoch Subgraph"
+        style=filled
+        color=grey90
+        SB1 -> SB2 -> SB3 -> SB4 -> SB5 -> SB6 [style=invis]
+    }
+
+    // Alignment
+    { rank=same; CB1; SB1; }
+    { rank=same; CB2; SB2; }
+    { rank=same; CB3; SB3; }
+    { rank=same; CB4; SB4; NotFresh}
+    { rank=same; CB5; SB5; }
+    { rank=same; CB6; SB6; Fresh }
+    { rank=same; Scan; CB5; COND_HAS_TRANSACTIONS}
+
+    // Arrows
+    SB3 -> CB3 [color=red]
+    Scan -> CB4 [arrowhead=none]
+    Scan -> CB5 [arrowhead=none]
+    Scan -> CB6 [arrowhead=none]
+
+    Scan -> COND_HAS_TRANSACTIONS
+    COND_HAS_TRANSACTIONS -> Fresh [label="No"]
+    COND_HAS_TRANSACTIONS -> NotFresh [label="Yes"]
+}
