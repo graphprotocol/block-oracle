@@ -1,0 +1,25 @@
+#+title: Subgraph Freshness
+#+date: [2022-06-15 Wed 10:00]
+#+filetags: :block-oracle:
+
+The Epoch Block Oracle must ensure the freshness of Epoch Subgraph’s data at each *read* and *write* operation.
+
+This means that it must perform a *Freshness Check* right after each query and just before broadcasting a message.
+
+* Overview
+
+#+CAPTION: Subgraph Freshness Overview
+[[https://raw.githubusercontent.com/edgeandnode/block-oracle/main/crates/oracle/docs/graphviz/subgraph_freshness_overview.png]]
+
+* Freshness Check
+The Epoch Subgraph is considered fresh if it has processed all relevant transactions targeting the *DataEdge* contract.
+
+To assert that, the Oracle needs to fetch the latest block from the Protocol Chain and compare its number with the subgraph’s current block. If they diverge, then it means that the subgraph might not be fresh.
+
+If the block distance is under a certain threshold, the Oracle scans the blocks in between to make sure they’re not relevant for the *DataEdge* contract.
+
+#+CAPTION: Subgraph Freshness Detail
+[[https://raw.githubusercontent.com/edgeandnode/block-oracle/main/crates/oracle/docs/graphviz/subgraph_freshness_detail.png]]
+
+* References
+- [[https://github.com/edgeandnode/block-oracle/issues/38][GitHub Issue]]
