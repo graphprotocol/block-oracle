@@ -18,8 +18,16 @@ To assert that, the Oracle needs to fetch the latest block from the Protocol Cha
 
 If the block distance is under a certain threshold, the Oracle scans the blocks in between to make sure they’re not relevant for the *DataEdge* contract.
 
+** Example
+
 #+CAPTION: Subgraph Freshness Detail
 [[https://raw.githubusercontent.com/edgeandnode/block-oracle/main/crates/oracle/docs/graphviz/subgraph_freshness_detail.png]]
+
+In the diagram above, the chain head is at *Block 6*, but the Epoch Subgraph has only indexed up to *Block 3*. In this case, the Oracle would scan the block range =[B4:B6]= for any calls to the *DataEdge* contract.
+
+If the block distance /(which in this case is equal to 3)/ were to be greater than a reasonable size, the freshness check could just assume that the Epoch Subgraph is not fresh without scanning any blocks.
+
+
 
 * References
 - [[https://github.com/edgeandnode/block-oracle/issues/38][GitHub Issue]]
