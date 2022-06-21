@@ -1,0 +1,34 @@
+#+title: Event Sourcing
+#+date: [2022-06-20 Mon 19:19]
+
+The *Event Source* is the component designated to poll the Epoch Block Oracle's *Indexed Chains* periodically and get their latest block numbers, so it can later assemble *Messages* to be sent in a transaction to the *DataEdge* smart contract.
+
+* Cycles
+The Epoch Block Oracle operations can take place in two different cycles: a longer cycle that encompasses one epoch at the *Protocol Chain* and a smaller cycle that is used to poll all *Indexed Chains*, also called the poll cycle.
+
+At each poll cycle, the Oracle will interact with all JSON RPC endpoints and try to obtain the latest block number for each *Indexed Chain* and updtate its in-memory state.
+
+At the beginning of each epoch cycle, the Oracle will then use the collected block numbers to assemble a new *Message* to the *DataEdge* smart contract.
+
+[[graphviz/event_sourcing.png]]
+
+* Indexed Chain Selection
+The *Indexed Chains* must be declared in the Block Oracle configuration file as an associative array where =CAIP-2= chain identifiers are the /keys/ and an array of JSON RPC endpoints are the /values/.
+
+The Oracle will ignore any chain that were *unregistered* by the Epoch Subgraph, and will not attempt to interact with their JSON RPC endpoints nor it will keep hold information about their latest block numbers.
+
+* Error Cases
+There are several ways where event sourcing can fail.
+
+** TODO Transport failure
+How to deal with failed requests when fetching the latest block number from one, multiple or all JSON RPC providers for a given chain?
+
+** TODO Chain Head Consensus
+How to obtain consensus if the latest block number diverges between the JSON RPC providers for the same chain?
+
+** TODO Reorgs
+How to detect and deal with reorgs among the *Indexed Chains*?
+
+
+* References
+- [[https://github.com/ChainAgnostic/CAIPs/blob/master/CAIPs/caip-2.md][CAIP-2 - Blockchain ID Specification]]
