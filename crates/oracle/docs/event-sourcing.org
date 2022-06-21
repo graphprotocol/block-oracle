@@ -6,7 +6,7 @@ The *Event Source* is the component designated to poll the Epoch Block Oracle's 
 * Cycles
 The Epoch Block Oracle operations can take place in two different cycles: a longer cycle that encompasses one epoch at the *Protocol Chain* and a smaller cycle that is used to poll all *Indexed Chains*, also called the poll cycle.
 
-At each poll cycle, the Oracle will interact with all JSON RPC endpoints and try to obtain the latest block number for each *Indexed Chain* and updtate its in-memory state.
+At each poll cycle, the Oracle will interact with all JSON RPC endpoints and try to obtain the latest block number for each *Indexed Chain* and update its in-memory state.
 
 At the beginning of each epoch cycle, the Oracle will then use the collected block numbers to assemble a new *Message* to the *DataEdge* smart contract.
 
@@ -22,6 +22,8 @@ There are several ways where event sourcing can fail.
 
 ** TODO Transport failure
 How to deal with failed requests when fetching the latest block number from one, multiple or all JSON RPC providers for a given chain?
+
+Since the Event Source will poll the latest block numbers continuously, it could hold the latest valid block number from previous attempts, but what if the latest obtained data is not fresh enough? Even worse, what if a chain stops receiving updates for a whole epoch?
 
 ** TODO Chain Head Consensus
 How to obtain consensus if the latest block number diverges between the JSON RPC providers for the same chain?
