@@ -15,27 +15,27 @@ At the beginning of each epoch cycle, the Oracle will then use the collected blo
 * Indexed Chain Selection
 The *Indexed Chains* must be declared in the Block Oracle configuration file as an associative array where =CAIP-2= chain identifiers are the /keys/ and an array of JSON RPC endpoints are the /values/.
 
-The Oracle will ignore any chain that were *unregistered* by the Epoch Subgraph, and will not attempt to interact with their JSON RPC endpoints nor it will keep hold information about their latest block numbers.
+The Oracle will ignore any chain that was  *unregistered* by the Epoch Subgraph and will not attempt to interact with their JSON RPC endpoints, nor will it hold information about their latest block numbers.
 
 * Error Cases
 There are several ways where event sourcing can fail.
 
 ** Transport failure
-How to deal with failed requests when fetching the latest block number from one, multiple or all JSON RPC providers for a given chain?
+How to deal with failed requests when fetching the latest block number from one, multiple, or all JSON RPC providers for a given chain?
 
-Since the Event Source will poll the latest block numbers continuously, it could hold the latest valid block number from previous attempts, but what if the latest obtained data is not fresh enough? Even worse, what if a chain stops receiving updates for a whole epoch?
+Since the Event Source will poll the latest block numbers continuously, it could hold the latest valid block number from previous attempts, but what if the latest obtained data is not fresh enough? What if a chain stops receiving updates for a whole epoch?
 
 *** Proposed Solution
-The Oracle uses a exponential backoff retry strategy for all JSON RPC requests to address short-term networking problems.
+The Oracle uses an exponential backoff retry strategy for all JSON RPC requests to address short-term networking problems.
 
-Sice the Event Source is constantly polling for new block numbers, it holds the latest information it retrieved for each chain, so all Messages to the *DataEdge* contract will reference that.
+Since the Event Source is constantly polling for new block numbers, it holds the latest retrieved information for each chain, so all Messages to the *DataEdge* contract will reference that.
 
-If all providers for a given chain fail to provide a recent block for an extended period of time, the Event Source could fall back to using the previous epoch’s block number or removing the network if the situation persists for longer than a specified number of epochs.
+Suppose all providers for a given chain fail to provide a recent block for an extended period. In that case, the Event Source could fall back to using the previous epoch's block number or removing the network if the situation persists for longer than a specified number of epochs.
 
 #+begin_quote
 [[graphviz/event_sourcing_transport_errors.png]]
 
-The picture above shows how blocks are selected for the *Indexed Chains* at each epoch. Numbered boxes represent attempts to fetch the latest block numbers at a polling cycle. Failed attempts are marked with an "X".
+The picture above shows how blocks are selected for the *Indexed Chains* at each epoch. Numbered boxes represent attempts to fetch the latest block numbers at a polling cycle, and failed attempts are marked with an "X".
 #+end_quote
 
 **** Alerting
@@ -47,7 +47,7 @@ How to detect and deal with re-orgs among the *Indexed Chains*?
 *** Proposed Solution
 The Epoch Block Oracle will not seek to detect re-orgs.
 
-Instead it will wait a given amount of time to allow for re-orgs and only submit a probabilistically final, "re-org safe", block. That block should be distant from the chain head and recognized by the majority of the providers.
+Instead, it will wait a given amount of time to allow for re-orgs and only submit a probabilistically final, "re-org safe" block. That block should be distant from the chain head and recognized by the majority of the providers.
 
 **** Keeping a distance from the chain head
 Each chain must be configured with a number expressing the distance from the chain head. This number will be subtracted from all polled block numbers from all JSON RPC requests.
@@ -56,7 +56,7 @@ Each chain must be configured with a number expressing the distance from the cha
 How to obtain consensus if the latest block number diverges between the JSON RPC providers for the same chain?
 
 *** Proposed Solution
-Since polled block numbers can vary between different providers for the same network, the Event Source must seek consensus on the right block to select.
+Since polled block numbers can vary between providers for the same network, the Event Source must seek consensus on the right block to select.
 
 The consensus check verifies that the *block hash* for the earliest block received is consistent across the simple majority of the providers. This routine will vary according to the number of configured JSON RPC endpoints for each network:
 
@@ -67,12 +67,12 @@ The consensus check verifies that the *block hash* for the earliest block receiv
 + Three or more ::
   A set with more than three block numbers will have its outliers filtered using [[https://en.wikipedia.org/wiki/Outlier#Tukey's_fences][Tukey's fences method]], and providers must agree on the block hash of the oldest block in the set.
 
-If providers do not consent on the selected block, then previous blocks will be selected and verified until consensus is reached under a time limit, in whch case the polling operation will be considered as failed.
+If providers do not consent on the selected block, then previous blocks will be selected and verified until consensus is reached under a time limit, in which case the polling operation will be considered as failed.
 
 **** Alerting
 A tolerable block distance can be configured for each chain to trigger a warning in case providers return widely differing block numbers.
-+ For two providers, this value will be interpreted the absolute difference between returned block numbers.
-+ For three or more providers, it will be seen as the absolute number of standard deviations.
++ For two providers, this value will be interpreted as the absolute difference between returned block numbers.
++ For three or more providers, it will be used as the number of standard deviations.
 
 * References
 - [[https://github.com/ChainAgnostic/CAIPs/blob/master/CAIPs/caip-2.md][CAIP-2 - Blockchain ID Specification]]
