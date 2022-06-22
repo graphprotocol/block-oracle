@@ -29,6 +29,7 @@ web3 = { version = "0.18.0", features = ["signing"] }
 hex = "0.4.3"
 anyhow = "1.0.57"
 async-trait = "0.1.53"
+itertools = "0.10.3"
 
 [dev-dependencies]
 rand = "0.8"

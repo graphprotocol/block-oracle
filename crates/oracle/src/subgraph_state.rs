@@ -37,7 +37,7 @@ impl crate::MainLoopFlow for SubgraphStateError {
 /// Errors will not be moved out of this type, so we use [`anyhow::Error`] because we only need to
 /// log and/or display them.
 enum State<S> {
-    /// Initial internal state when the Oracle starts up.
+    /// Initial internal state when the Oracle starts up and/or the subgraph holds no data yet.
     ///
     /// Will carry errors if initialization fails, and is always considered invalid.
     ///
@@ -66,7 +66,7 @@ enum State<S> {
 #[async_trait]
 pub trait SubgraphApi {
     type State: Send;
-    async fn get_subgraph_state(&self) -> anyhow::Result<Self::State>;
+    async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>>;
 }
 
 /// Coordinates the retrieval of subgraph data and the transition of its own internal [`State`].
@@ -96,6 +96,14 @@ where
         matches!(self.inner, State::Valid { .. })
     }
 
+    pub fn is_uninitialized(&self) -> bool {
+        matches!(self.inner, State::Uninitialized { .. })
+    }
+
+    pub fn is_failed(&self) -> bool {
+        matches!(self.inner, State::Failed { .. })
+    }
+
     pub fn data(&self) -> Option<&S> {
         match &self.inner {
             Valid { state } => Some(state),
@@ -117,10 +125,15 @@ where
         debug!("Fetching latest subgraph state");
         let new_state = self.subgraph_api.get_subgraph_state().await;
         self.inner = match (&self.inner, new_state) {
-            (_, Ok(state)) => {
+            // Valid transitions :: Success
+            (_, Ok(Some(state))) => {
                 info!("Retrieved new subgraph state");
                 Valid { state }
             }
+
+            (Uninitialized { .. }, Ok(None)) => Uninitialized { error: None },
+
+            // Valid transitions :: Errors
             (Uninitialized { .. }, Err(error)) => Uninitialized {
                 error: Some(Arc::new(error)),
             },
@@ -135,6 +148,14 @@ where
                 previous: state.clone(),
                 error: Arc::new(error),
             },
+
+            // Invalid transitions
+            (Valid { .. }, Ok(None)) => {
+                panic!("Bad transition: State can't change from Valid to Uninitialized")
+            }
+            (Failed { .. }, Ok(None)) => {
+                panic!("Bad transition: State can't change from Failed to Uninitialized")
+            }
         }
     }
 
@@ -152,6 +173,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use actix_web::test::status_service;
     use anyhow::anyhow;
     use std::sync::Mutex;
 
@@ -168,7 +190,8 @@ mod tests {
 
     struct FakeApi {
         state: Arc<Mutex<FakeInnerState>>,
-        switch: bool,
+        error_switch: bool,
+        data_switch: bool,
         error_description: &'static str,
     }
 
@@ -176,7 +199,8 @@ mod tests {
         fn new() -> Self {
             Self {
                 state: Arc::new(Mutex::new(FakeInnerState { counter: 0 })),
-                switch: true,
+                error_switch: true,
+                data_switch: false,
                 error_description: "oops",
             }
         }
@@ -185,9 +209,14 @@ mod tests {
             self.state.lock().unwrap().bump();
         }
 
+        /// Passing 'true` will cause the fake api to send data in the next operation
+        fn toggle_data(&mut self, switch: bool) {
+            self.data_switch = switch;
+        }
+
         /// Passing 'true` will cause the fake api to fail on the next operation
         fn toggle_errors(&mut self, switch: bool) {
-            self.switch = !switch;
+            self.error_switch = switch;
         }
 
         fn set_error(&mut self, text: &'static str) {
@@ -199,18 +228,20 @@ mod tests {
     impl SubgraphApi for FakeApi {
         type State = FakeInnerState;
 
-        async fn get_subgraph_state(&self) -> anyhow::Result<Self::State> {
-            if self.switch {
-                self.bump_state_counter();
-                Ok(self.state.lock().unwrap().clone())
-            } else {
-                Err(anyhow!(self.error_description))
+        async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>> {
+            match (self.error_switch, self.data_switch) {
+                (false, true) => {
+                    self.bump_state_counter();
+                    Ok(Some(self.state.lock().unwrap().clone()))
+                }
+                (false, false) => Ok(None),
+                (true, _) => Err(anyhow!(self.error_description)),
             }
         }
     }
 
     #[tokio::test]
-    async fn state_transitions() {
+    async fn valid_state_transitions() {
         let api = FakeApi::new();
         let mut state_tracker = SubgraphStateTracker::new(api);
 
@@ -234,8 +265,20 @@ mod tests {
             State::Uninitialized { error: Some(_) }
         ));
 
-        // Once initialized to a valid state, we have data.
+        // Even if the API is responsive, it might still send us no data and we will stay in the
+        // Uninitialized state. All previous errors will be removed.
         state_tracker.subgraph_api.toggle_errors(false);
+        state_tracker.refresh().await;
+        assert!(state_tracker.data().is_none());
+        assert!(state_tracker.error().is_none());
+        assert!(!state_tracker.is_valid());
+        assert!(matches!(
+            state_tracker.inner,
+            State::Uninitialized { error: None }
+        ));
+
+        // Once the subgraph has valid data, the state tracker can yield it.
+        state_tracker.subgraph_api.toggle_data(true);
         state_tracker.refresh().await;
         assert!(state_tracker.data().is_some());
         assert!(state_tracker.error().is_none());
@@ -277,5 +320,38 @@ mod tests {
         assert!(state_tracker.is_valid());
         assert!(matches!(state_tracker.inner, State::Valid { .. }));
         assert_eq!(state_tracker.data().unwrap().counter, 3);
+    }
+
+    #[tokio::test]
+    #[should_panic]
+    async fn invalid_state_transition_valid_to_uninitialized() {
+        let api = FakeApi::new();
+        let mut state_tracker = SubgraphStateTracker::new(api);
+
+        state_tracker.subgraph_api.toggle_errors(false);
+        state_tracker.subgraph_api.toggle_data(true);
+        state_tracker.refresh().await;
+
+        assert!(matches!(state_tracker.inner, State::Valid { .. }));
+
+        // A Valid state can't transition to Uninitialized
+        state_tracker.subgraph_api.toggle_data(false);
+        state_tracker.refresh().await; // This should panic
+    }
+
+    #[tokio::test]
+    #[should_panic]
+    async fn invalid_state_transition_failed_to_uninitialized() {
+        let api = FakeApi::new();
+        let mut state_tracker = SubgraphStateTracker::new(api);
+
+        state_tracker.subgraph_api.toggle_errors(true);
+        state_tracker.refresh().await;
+
+        assert!(matches!(state_tracker.inner, State::Failed { .. }));
+
+        // A Falied state can't transition to Uninitialized
+        state_tracker.subgraph_api.toggle_data(false);
+        state_tracker.refresh().await; // This should panic
     }
 }

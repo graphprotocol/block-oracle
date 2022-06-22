@@ -1,10 +1,11 @@
 use crate::error_handling::format_slice;
 use crate::{Config, SubgraphApi};
-use anyhow::Context;
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
+use itertools::Itertools;
 use reqwest::Url;
 use serde::{de, Deserialize, Deserializer};
+use std::collections::HashSet;
 use std::fmt;
 
 use self::subgraph_state::ResponseData;
@@ -18,6 +19,12 @@ pub enum SubgraphQueryError {
     Transport(#[from] reqwest::Error),
     #[error("The subgraph is in a failed state")]
     IndexingError,
+    #[error("Found duplicated network ids in subgraph state")]
+    DuplicatedNetworkIds(HashSet<String>),
+    #[error("Found duplicated network indices in subgraph state")]
+    DuplicatedNetworkIndices(HashSet<i64>),
+    #[error("Found a registered network without an index")]
+    NetworkWithMissingIndex(String),
     #[error("Unknown subgraph error(s): {}", format_slice(messages))]
     Other { messages: Vec<String> },
 }
@@ -46,18 +53,49 @@ impl From<&Config> for SubgraphQuery {
 
 #[async_trait]
 impl SubgraphApi for SubgraphQuery {
-    type State = Vec<subgraph_state::SubgraphStateNetworks>;
+    type State = subgraph_state::SubgraphStateGlobalState;
 
-    async fn get_subgraph_state(&self) -> anyhow::Result<Self::State> {
-        let response = query(self.url.clone())
-            .await
-            .context("querying Epoch Subgraph")?;
-        let ResponseData { networks } = response;
-        Ok(networks)
+    async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>> {
+        Ok(query(self.url.clone()).await?)
     }
 }
 
-pub async fn query(url: Url) -> Result<subgraph_state::ResponseData, SubgraphQueryError> {
+fn validate_subgraph_state(
+    state: &subgraph_state::SubgraphStateGlobalState,
+) -> Result<(), SubgraphQueryError> {
+    // 1. Validate against  duplicate chain ids (keys)
+    let duplicate_network_ids: HashSet<_> =
+        state.networks.iter().map(|a| &a.id).duplicates().collect();
+    if !duplicate_network_ids.is_empty() {
+        let duplicates = duplicate_network_ids.into_iter().cloned().collect();
+        return Err(SubgraphQueryError::DuplicatedNetworkIds(duplicates));
+    }
+    // 2. Validate against duplicate array indices
+    // Indices are wrapped in Options, so we must unpack them before checking for duplicates
+    let mut unpacked_indices = vec![];
+    for network in state.networks.iter() {
+        match network.array_index {
+            Some(index) => unpacked_indices.push(index),
+            None => {
+                return Err(SubgraphQueryError::NetworkWithMissingIndex(
+                    network.id.clone(),
+                ))
+            }
+        }
+    }
+    let duplicate_network_indices: HashSet<_> =
+        unpacked_indices.iter().copied().duplicates().collect();
+    if !duplicate_network_indices.is_empty() {
+        return Err(SubgraphQueryError::DuplicatedNetworkIndices(
+            duplicate_network_indices,
+        ));
+    }
+    Ok(())
+}
+
+pub async fn query(
+    url: Url,
+) -> Result<Option<subgraph_state::SubgraphStateGlobalState>, SubgraphQueryError> {
     // TODO: authentication token.
     let client = reqwest::Client::builder()
         .user_agent("block-oracle")
@@ -67,9 +105,21 @@ pub async fn query(url: Url) -> Result<subgraph_state::ResponseData, SubgraphQue
     let request = client.post(url).json(&request_body);
     let response = request.send().await?;
     let response_body: Response<subgraph_state::ResponseData> = response.json().await?;
-
     match response_body.errors.as_deref() {
-        None | Some(&[]) => Ok(response_body.data.unwrap()),
+        None | Some(&[]) => {
+            // Unwrap: We just checked that there are no errors
+            let data = response_body
+                .data
+                .expect("expected data in the GraphQL query response, but got none");
+
+            if let Some(global_state) = data.global_state {
+                validate_subgraph_state(&global_state)?;
+                Ok(Some(global_state))
+            } else {
+                // Subgraph is in a initial state and has no GlobalState yet
+                Ok(None)
+            }
+        }
         Some([e]) if e.message == "indexing_error" => Err(SubgraphQueryError::IndexingError),
         Some(errs) => Err(SubgraphQueryError::Other {
             messages: errs.into_iter().map(|e| e.message.clone()).collect(),

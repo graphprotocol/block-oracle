@@ -1,103 +1,30 @@
-scalar ID
-scalar Bytes
-scalar BigInt
-
 type Query {
-  networks: [Network!]!
-}
-
-type DataEdge {
-  id: ID!
-  owner: Bytes!
-}
-
-type Payload {
-  id: ID!
-  data: Bytes!
-  submitter: String!
-  messageBlocks: [MessageBlock!]!
-}
-
-type MessageBlock {
-  id: ID!
-  data: Bytes!
-  payload: Payload!
-  messages: [Message!]!
-}
-
-interface Message {
-  id: ID!
-  block: MessageBlock!
-  "data is optional since it might be an empty message"
-  data: Bytes
-}
-
-type SetBlockNumbersForEpochMessage implements Message {
-  id: ID!
-  block: MessageBlock!
-  data: Bytes
-  merkleRoot: Bytes
-  accelerations: [BigInt!]
-  count: BigInt
-}
-
-type CorrectEpochsMessage implements Message {
-  id: ID!
-  block: MessageBlock!
-  data: Bytes
-}
-
-type UpdateVersionsMessage implements Message {
-  id: ID!
-  block: MessageBlock!
-  data: Bytes
-}
-
-type RegisterNetworksMessage implements Message {
-  id: ID!
-  block: MessageBlock!
-  data: Bytes
-  removeCount: BigInt!
-  addCount: BigInt!
-  networksRemoved: [Network!]!
-  networksAdded: [Network!]!
-}
-
-type Network {
-  id: ID! # chainID now
-  #chainID: String!
-  addedAt: RegisterNetworksMessage!
-  removedAt: RegisterNetworksMessage
-  blockNumbers: [NetworkEpochBlockNumber!]!
-  # Linked-list implementation for pop-and-swap
-  "Next element on the linked-list implementation for networks. Used for list recreation"
-  nextArrayElement: Network
-  "Index number on the linked list"
-  arrayIndex: Int
-  # Link to global state to be able to recreate the list on query time for the GlobalState entity
-  state: GlobalState
+  globalState(id: String!): GlobalState
 }
 
 type GlobalState {
-  id: ID!
-  networkCount: Int!
+  id: String!
   activeNetworkCount: Int!
-  networkArrayHead: Network
+  encodingVersion: Int!
   latestValidEpoch: Epoch
   networks: [Network!]!
 }
 
 type Epoch {
-  id: ID!
-  epochNumber: BigInt!
+  id: String!
+  epochNumber: String!
+}
+
+type Network {
+  id: String!
   blockNumbers: [NetworkEpochBlockNumber!]!
+  arrayIndex: Int
 }
 
 type NetworkEpochBlockNumber {
-  id: ID!
-  acceleration: BigInt!
-  delta: BigInt!
-  blockNumber: BigInt!
-  network: Network!
+  id: String!
+  acceleration: String!
+  delta: String!
+  blockNumber: String!
   epoch: Epoch!
 }
