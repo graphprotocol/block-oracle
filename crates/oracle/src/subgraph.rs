@@ -64,7 +64,8 @@ fn validate_subgraph_state(
     state: &subgraph_state::SubgraphStateGlobalState,
 ) -> Result<(), SubgraphQueryError> {
     // 1. Validate against  duplicate chain ids (keys)
-    let duplicate_network_ids = helpers::duplicates(state.networks.iter().map(|a| &a.id));
+    let duplicate_network_ids: HashSet<_> =
+        state.networks.iter().map(|a| &a.id).duplicates().collect();
     if !duplicate_network_ids.is_empty() {
         let duplicates = duplicate_network_ids.into_iter().cloned().collect();
         return Err(SubgraphQueryError::DuplicatedNetworkIds(duplicates));
@@ -82,7 +83,8 @@ fn validate_subgraph_state(
             }
         }
     }
-    let duplicate_network_indices = helpers::duplicates(unpacked_indices);
+    let duplicate_network_indices: HashSet<_> =
+        unpacked_indices.iter().copied().duplicates().collect();
     if !duplicate_network_indices.is_empty() {
         return Err(SubgraphQueryError::DuplicatedNetworkIndices(
             duplicate_network_indices,
@@ -254,34 +256,4 @@ where
     }
 
     de.deserialize_string(HexStringVisitor)
-}
-
-mod helpers {
-    use super::*;
-    pub fn duplicates<I, J>(elements: I) -> HashSet<J>
-    where
-        I: IntoIterator<Item = J>,
-        J: Ord + Eq + Clone + std::hash::Hash,
-    {
-        let sorted = elements.into_iter().sorted();
-        let mut duplicates = HashSet::new();
-        for (a, b) in sorted.tuple_windows() {
-            if a == b {
-                duplicates.insert(a);
-            }
-        }
-        duplicates
-    }
-
-    #[test]
-    fn test_duplicates() {
-        let no_dupes = [1, 2, 3, 4, 5];
-        assert!(duplicates(&no_dupes).is_empty());
-
-        let one_dupe = [1, 1, 2, 3];
-        assert_eq!(1, duplicates(&one_dupe).len());
-
-        let two_dupes = [1, 1, 2, 2];
-        assert_eq!(2, duplicates(&two_dupes).len());
-    }
 }
