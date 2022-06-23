@@ -5,6 +5,8 @@ import {
   NetworkEpochBlockNumber,
   Network
 } from "../generated/schema";
+import { StoreCache
+} from "./store-cache";
 import { BIGINT_ONE } from "./constants";
 
 export enum MessageTag {
@@ -25,87 +27,30 @@ export namespace MessageTag {
   }
 }
 
-export namespace AuxGlobalState {
-  export function get(): GlobalState {
-    return getOrCreateGlobalState("1");
-  }
-
-  export function commit(aux: GlobalState): void {
-    let real = getRealGlobalState();
-    let networks = getActiveNetworks(aux);
-    commitNetworkChanges([], networks, real);
-    real.networkCount = aux.networkCount;
-    real.activeNetworkCount = aux.activeNetworkCount;
-    real.latestValidEpoch = aux.latestValidEpoch;
-    real.save();
-    aux.save();
-  }
-
-  export function rollback(aux: GlobalState): void {
-    // ToDo: Add rollback of network entities here...
-    let real = getRealGlobalState();
-    aux.networkCount = real.networkCount;
-    aux.activeNetworkCount = real.activeNetworkCount;
-    aux.networkArrayHead = real.networkArrayHead;
-    aux.latestValidEpoch = real.latestValidEpoch;
-    aux.save();
-  }
-}
-
-function getRealGlobalState(): GlobalState {
-  return getOrCreateGlobalState("0");
-}
-
-function getOrCreateGlobalState(id: string): GlobalState {
-  let state = GlobalState.load(id);
-  if (state == null) {
-    state = new GlobalState(id);
-    state.networkCount = 0;
-    state.activeNetworkCount = 0;
-    state.encodingVersion = 0;
-    state.save();
-  }
-  return state;
-}
-
-export function nextEpochId(globalState: GlobalState): BigInt {
-  if (globalState.latestValidEpoch == null) {
+export function nextEpochId(state: GlobalState): BigInt {
+  if (state.latestValidEpoch == null) {
     return BIGINT_ONE;
   } else {
-    return BigInt.fromString(globalState.latestValidEpoch!) + BIGINT_ONE;
+    return BigInt.fromString(state.latestValidEpoch!) + BIGINT_ONE;
   }
-}
-
-export function getOrCreateEpoch(epochId: BigInt): Epoch {
-  let epoch = Epoch.load(epochId.toString());
-  if (epoch == null) {
-    epoch = new Epoch(epochId.toString());
-    epoch.epochNumber = epochId;
-    epoch.save();
-  }
-  return epoch;
 }
 
 export function createOrUpdateNetworkEpochBlockNumber(
   networkId: string,
   epochId: BigInt,
-  acceleration: BigInt
+  acceleration: BigInt,
+  cache: StoreCache
 ): NetworkEpochBlockNumber {
   let id = epochBlockNumberId(epochId, networkId);
   let previousId = epochBlockNumberId(epochId - BIGINT_ONE, networkId);
 
-  let networkEpochBlockNumber = NetworkEpochBlockNumber.load(id);
-  if (networkEpochBlockNumber == null) {
-    networkEpochBlockNumber = new NetworkEpochBlockNumber(id);
-    networkEpochBlockNumber.network = networkId;
-    networkEpochBlockNumber.epoch = epochId.toString();
-  }
+  let networkEpochBlockNumber = cache.getNetworkEpochBlockNumber(id)
+  networkEpochBlockNumber.network = networkId;
+  networkEpochBlockNumber.epoch = epochId.toString();
   networkEpochBlockNumber.acceleration = acceleration;
 
-  let previousNetworkEpochBlockNumber = NetworkEpochBlockNumber.load(
-    previousId
-  );
-  if (previousNetworkEpochBlockNumber != null) {
+  if (cache.hasNetworkEpochBlockNumber(previousId)) {
+    let previousNetworkEpochBlockNumber = cache.getNetworkEpochBlockNumber(previousId)
     networkEpochBlockNumber.delta = previousNetworkEpochBlockNumber.delta.plus(
       acceleration
     );
@@ -120,17 +65,17 @@ export function createOrUpdateNetworkEpochBlockNumber(
     networkEpochBlockNumber.delta = acceleration;
     networkEpochBlockNumber.blockNumber = networkEpochBlockNumber.delta;
   }
-  networkEpochBlockNumber.save();
 
   return networkEpochBlockNumber;
 }
 
-export function getActiveNetworks(state: GlobalState): Array<Network> {
+export function getActiveNetworks(cache: StoreCache): Array<Network> {
+  let state = cache.getGlobalState()
   let networks = new Array<Network>();
   let nextId = state.networkArrayHead;
 
   while (nextId != null) {
-    let network = Network.load(nextId!)!;
+    let network = cache.getNetwork(nextId!);
     let isActive = network.removedAt == null;
     if (isActive) {
       networks.push(network);
@@ -170,7 +115,6 @@ export function commitNetworkChanges(
     removedNetworks[i].state = null;
     removedNetworks[i].nextArrayElement = null;
     removedNetworks[i].arrayIndex = null;
-    removedNetworks[i].save();
   }
 
   for (let i = 0; i < newNetworksList.length; i++) {
@@ -178,7 +122,6 @@ export function commitNetworkChanges(
     newNetworksList[i].nextArrayElement =
       i < newNetworksList.length - 1 ? newNetworksList[i + 1].id : null;
     newNetworksList[i].arrayIndex = i;
-    newNetworksList[i].save();
   }
 
   if (newNetworksList.length > 0) {
@@ -187,7 +130,6 @@ export function commitNetworkChanges(
     state.networkArrayHead = null;
   }
   state.activeNetworkCount = newNetworksList.length;
-  state.save();
 }
 
 function epochBlockNumberId(epochId: BigInt, networkId: string): string {
