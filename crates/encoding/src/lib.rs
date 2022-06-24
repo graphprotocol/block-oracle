@@ -16,6 +16,7 @@ pub const CURRENT_ENCODING_VERSION: u64 = 0;
 pub enum Error {
     UnsupportedEncodingVersion(u64),
     MessageAfterEncodingVersionChange,
+    InvalidNetworkName(String),
     NegativeDelta {
         network_name: String,
         original_block_num: u64,
@@ -54,6 +55,15 @@ impl Encoder {
             networks,
             compressed: Vec::new(),
         })
+    }
+
+    /// Gets the network's index from the name, if exists.
+    pub fn network_id(&self, network_name: &str) -> Option<NetworkId> {
+        self.networks
+            .iter()
+            .enumerate()
+            .find(|(_, (name, _))| name == network_name)
+            .map(|(i, _)| i as NetworkId)
     }
 
     /// Returns the latest encoding version used by this [`Encoder`].
@@ -137,24 +147,35 @@ impl Encoder {
         self.networks.swap_remove(i as usize);
     }
 
-    fn compress_block_ptrs(&mut self, block_ptrs: &HashMap<String, BlockPtr>) -> Result<(), Error> {
-        // Sort the block pointers by network id.
-        let block_ptrs_by_id: HashMap<NetworkId, BlockPtr> = block_ptrs
+    fn sort_chain_data_by_id<T>(&self, chain_data: &HashMap<String, T>) -> Result<Vec<T>, Error>
+    where
+        T: Clone,
+    {
+        let mut sorted: Vec<(NetworkId, T)> = chain_data
             .iter()
-            .map(|(network_name, block_ptr)| {
-                let network_id = self
-                    .networks
-                    .iter()
-                    .position(|(s, _)| s == network_name)
-                    .expect(format!("Network named '{}' not found", network_name).as_str());
-                (network_id as NetworkId, *block_ptr)
+            .map(|(name, data)| {
+                Ok((
+                    self.network_id(name)
+                        .ok_or_else(|| Error::InvalidNetworkName(name.to_string()))?,
+                    data.clone(),
+                ))
             })
-            .collect();
+            .collect::<Result<Vec<(NetworkId, T)>, Error>>()?;
+        // Sort by network id.
+        sorted.sort_by(|(id1, _), (id2, _)| id1.cmp(id2));
+        // Now remove the network id, which is implied by the array index.
+        Ok(sorted.into_iter().map(|(_, x)| x).collect())
+    }
 
-        // Get accelerations and merkle leaves based on previous deltas.
+    fn compress_block_ptrs(&mut self, block_ptrs: &HashMap<String, BlockPtr>) -> Result<(), Error> {
+        // Prepare to get accelerations and merkle leaves based on previous deltas.
         let mut accelerations = Vec::with_capacity(block_ptrs.len());
         let mut merkle_leaves = Vec::with_capacity(block_ptrs.len());
-        for (id, ptr) in block_ptrs_by_id.into_iter() {
+
+        // Sort the block pointers by network id.
+        let block_ptrs_by_id = self.sort_chain_data_by_id(block_ptrs)?;
+
+        for (id, ptr) in block_ptrs_by_id.into_iter().enumerate() {
             let network_data = &self.networks[id as usize].1;
             if ptr.number < network_data.block_number {
                 return Err(Error::NegativeDelta {
@@ -174,7 +195,7 @@ impl Encoder {
 
             accelerations.push(acceleration);
             merkle_leaves.push(MerkleLeaf {
-                network_id: id,
+                network_id: id as NetworkId,
                 block_hash: ptr.hash,
                 block_number: ptr.number,
             });

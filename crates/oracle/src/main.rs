@@ -158,6 +158,7 @@ impl<'a> Oracle<'a> {
             return Ok(Default::default());
         };
         let mut networks = HashMap::new();
+        info!("subgraph data is {:?}", self.subgraph_state.data());
         let subgraph_networks = &self
             .subgraph_state
             .data()
