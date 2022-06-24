@@ -283,8 +283,8 @@ mod tests {
             messages.push(Message::SetBlockNumbersForNextEpoch(nums));
         }
 
-        let mut engine = Encoder::new(0, networks);
-        engine.encode(&messages[..]);
+        let mut engine = Encoder::new(0, networks).unwrap();
+        engine.encode(&messages[..]).unwrap();
 
         // FIXME
         //assert!(matches!(
