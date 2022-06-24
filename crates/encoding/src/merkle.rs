@@ -1,10 +1,10 @@
 use super::Bytes32;
-use crate::NetworkId;
+use crate::NetworkIndex;
 use tiny_keccak::{Hasher, Keccak};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MerkleLeaf {
-    pub network_id: NetworkId,
+    pub network_index: NetworkIndex,
     pub block_number: u64,
     pub block_hash: Bytes32,
 }
@@ -12,7 +12,7 @@ pub struct MerkleLeaf {
 impl MerkleLeaf {
     fn hash(&self) -> Bytes32 {
         keccak([
-            &self.network_id.to_le_bytes(),
+            &self.network_index.to_le_bytes(),
             &self.block_number.to_le_bytes(),
             &self.block_hash,
         ])
@@ -69,7 +69,7 @@ mod tests {
     #[test]
     fn merkle_root_with_one_leaf() {
         let leaf = MerkleLeaf {
-            network_id: 42,
+            network_index: 42,
             block_number: 1337,
             block_hash: [9; 32],
         };

@@ -16,9 +16,9 @@ pub const CURRENT_ENCODING_VERSION: u64 = 0;
 pub enum Error {
     UnsupportedEncodingVersion(u64),
     MessageAfterEncodingVersionChange,
-    InvalidNetworkName(String),
+    InvalidNetworkId(String),
     NegativeDelta {
-        network_name: String,
+        network_id: String,
         original_block_num: u64,
         new_block_num: u64,
     },
@@ -57,13 +57,13 @@ impl Encoder {
         })
     }
 
-    /// Gets the network's index from the name, if exists.
-    pub fn network_id(&self, network_name: &str) -> Option<NetworkId> {
+    /// Gets the network's index from the ID, if the network exists.
+    pub fn network_index(&self, network_id: &str) -> Option<NetworkIndex> {
         self.networks
             .iter()
             .enumerate()
-            .find(|(_, (name, _))| name == network_name)
-            .map(|(i, _)| i as NetworkId)
+            .find(|(_, (id, _))| id == network_id)
+            .map(|(i, _)| i as NetworkIndex)
     }
 
     /// Returns the latest encoding version used by this [`Encoder`].
@@ -105,11 +105,11 @@ impl Encoder {
                 }
             }
             Message::RegisterNetworks { remove, add } => {
-                for id in remove {
-                    self.remove_network(*id);
+                for index in remove {
+                    self.remove_network(*index);
                 }
-                for name in add {
-                    self.add_network(name);
+                for id in add {
+                    self.add_network(id);
                 }
 
                 self.compressed.push(CompressedMessage::RegisterNetworks {
@@ -139,31 +139,36 @@ impl Encoder {
         })
     }
 
-    fn add_network(&mut self, name: &str) {
-        self.networks.push((name.to_string(), Network::default()));
+    fn add_network(&mut self, id: &str) {
+        self.networks.push((id.to_string(), Network::default()));
     }
 
-    fn remove_network(&mut self, i: NetworkId) {
+    fn remove_network(&mut self, i: NetworkIndex) {
         self.networks.swap_remove(i as usize);
     }
 
-    fn sort_chain_data_by_id<T>(&self, chain_data: &HashMap<String, T>) -> Result<Vec<T>, Error>
+    /// Takes in some network data by network ID and turns it into a [`Vec`] with the correct
+    /// network indices.
+    fn sort_network_data_by_index<T>(
+        &self,
+        chain_data: &HashMap<String, T>,
+    ) -> Result<Vec<T>, Error>
     where
         T: Clone,
     {
-        let mut sorted: Vec<(NetworkId, T)> = chain_data
+        let mut sorted: Vec<(NetworkIndex, T)> = chain_data
             .iter()
-            .map(|(name, data)| {
+            .map(|(id, data)| {
                 Ok((
-                    self.network_id(name)
-                        .ok_or_else(|| Error::InvalidNetworkName(name.to_string()))?,
+                    self.network_index(id)
+                        .ok_or_else(|| Error::InvalidNetworkId(id.to_string()))?,
                     data.clone(),
                 ))
             })
-            .collect::<Result<Vec<(NetworkId, T)>, Error>>()?;
-        // Sort by network id.
-        sorted.sort_by(|(id1, _), (id2, _)| id1.cmp(id2));
-        // Now remove the network id, which is implied by the array index.
+            .collect::<Result<Vec<(NetworkIndex, T)>, Error>>()?;
+        // Sort by network index.
+        sorted.sort_by(|(i, _), (j, _)| i.cmp(j));
+        // Now remove the network index, which is implied by element positioning within the vector.
         Ok(sorted.into_iter().map(|(_, x)| x).collect())
     }
 
@@ -172,14 +177,14 @@ impl Encoder {
         let mut accelerations = Vec::with_capacity(block_ptrs.len());
         let mut merkle_leaves = Vec::with_capacity(block_ptrs.len());
 
-        // Sort the block pointers by network id.
-        let block_ptrs_by_id = self.sort_chain_data_by_id(block_ptrs)?;
+        // Sort the block pointers by network index.
+        let sorted_block_ptrs = self.sort_network_data_by_index(block_ptrs)?;
 
-        for (id, ptr) in block_ptrs_by_id.into_iter().enumerate() {
-            let network_data = &self.networks[id as usize].1;
+        for (i, ptr) in sorted_block_ptrs.into_iter().enumerate() {
+            let network_data = &self.networks[i].1;
             if ptr.number < network_data.block_number {
                 return Err(Error::NegativeDelta {
-                    network_name: self.networks[id as usize].0.clone(),
+                    network_id: self.networks[i as usize].0.clone(),
                     original_block_num: network_data.block_number,
                     new_block_num: ptr.number,
                 });
@@ -188,14 +193,14 @@ impl Encoder {
             let delta = (ptr.number - network_data.block_number) as i64;
             let acceleration = delta - network_data.block_delta;
 
-            self.networks[id as usize].1 = Network {
+            self.networks[i].1 = Network {
                 block_number: ptr.number,
                 block_delta: delta,
             };
 
             accelerations.push(acceleration);
             merkle_leaves.push(MerkleLeaf {
-                network_id: id as NetworkId,
+                network_index: i as NetworkIndex,
                 block_hash: ptr.hash,
                 block_number: ptr.number,
             });

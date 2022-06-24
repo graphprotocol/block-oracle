@@ -1,4 +1,4 @@
-use crate::{messages::*, NetworkId};
+use crate::{messages::*, NetworkIndex};
 
 const PREAMBLE_BIT_LENGTH: usize = 8;
 const TAG_BIT_LENGTH: usize = 4;
@@ -62,7 +62,7 @@ fn serialize_set_block_numbers_for_next_block(
     }
 }
 
-fn serialize_register_networks(add: &[String], remove: &[NetworkId], bytes: &mut Vec<u8>) {
+fn serialize_register_networks(add: &[String], remove: &[NetworkIndex], bytes: &mut Vec<u8>) {
     serialize_u64(remove.len() as u64, bytes);
     for id in remove {
         // TODO: Compression - could delta encode series here. Probably not worth it.
