@@ -11,13 +11,32 @@ pub use serialize::serialize_messages;
 
 pub const CURRENT_ENCODING_VERSION: u64 = 0;
 
+/// Something that went wrong when using the [`Encoder`].
+#[derive(Debug)]
+pub enum Error {
+    UnsupportedEncodingVersion(u64),
+    MessageAfterEncodingVersionChange,
+    InvalidNetworkId(String),
+    NegativeDelta {
+        network_id: String,
+        original_block_num: u64,
+        new_block_num: u64,
+    },
+}
+
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
 pub struct Network {
     pub block_number: u64,
     pub block_delta: i64,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// The [`Encoder`]'s job is to take in sequences of high-level [`Message`]s, compress them,
+/// perform validation, and spit out bytes.
+///
+/// # Panics
+///
+/// The [`Encoder`] should never panic on malformed [`Message`]s, but rather return an [`Error`].
+#[derive(Clone, Debug)]
 pub struct Encoder {
     networks: Vec<(String, Network)>,
     encoding_version: u64,
@@ -25,12 +44,26 @@ pub struct Encoder {
 }
 
 impl Encoder {
-    pub fn new(encoding_version: u64, networks: Vec<(String, Network)>) -> Self {
-        Self {
+    /// Creates a new [`Encoder`] with the specificied initial state.
+    pub fn new(encoding_version: u64, networks: Vec<(String, Network)>) -> Result<Self, Error> {
+        if encoding_version != CURRENT_ENCODING_VERSION {
+            return Err(Error::UnsupportedEncodingVersion(encoding_version));
+        }
+
+        Ok(Self {
             encoding_version,
             networks,
             compressed: Vec::new(),
-        }
+        })
+    }
+
+    /// Gets the network's index from the ID, if the network exists.
+    pub fn network_index(&self, network_id: &str) -> Option<NetworkIndex> {
+        self.networks
+            .iter()
+            .enumerate()
+            .find(|(_, (id, _))| id == network_id)
+            .map(|(i, _)| i as NetworkIndex)
     }
 
     /// Returns the latest encoding version used by this [`Encoder`].
@@ -41,11 +74,11 @@ impl Encoder {
     /// Encoding is a stateful operation. After this call, the [`Encoder`] is
     /// ready to be used again and some of its internal state might have
     /// changed.
-    pub fn encode(&mut self, messages: &[Message]) -> Vec<u8> {
+    pub fn encode(&mut self, messages: &[Message]) -> Result<Vec<u8>, Error> {
         for m in messages {
-            self.compress(m);
+            self.compress(m)?;
         }
-        self.serialize()
+        Ok(self.serialize())
     }
 
     fn serialize(&mut self) -> Vec<u8> {
@@ -55,29 +88,28 @@ impl Encoder {
         bytes
     }
 
-    fn compress(&mut self, message: &Message) {
+    fn compress(&mut self, message: &Message) -> Result<(), Error> {
         // After updating the encoding version, no more messages can be encoded
         // in the same batch.
-        assert!(!matches!(
-            self.compressed.last(),
-            Some(CompressedMessage::UpdateVersion { .. })
-        ));
+        if let Some(CompressedMessage::UpdateVersion { .. }) = self.compressed.last() {
+            return Err(Error::MessageAfterEncodingVersionChange);
+        }
 
-        match message {
+        Ok(match message {
             Message::SetBlockNumbersForNextEpoch(block_ptrs) => {
                 // There are separate cases for empty sets and non-empty sets.
                 if block_ptrs.is_empty() {
                     self.compress_empty_block_ptrs();
                 } else {
-                    self.compress_block_ptrs(block_ptrs);
+                    self.compress_block_ptrs(block_ptrs)?;
                 }
             }
             Message::RegisterNetworks { remove, add } => {
-                for id in remove {
-                    self.remove_network(*id);
+                for index in remove {
+                    self.remove_network(*index);
                 }
-                for name in add {
-                    self.add_network(name);
+                for id in add {
+                    self.add_network(id);
                 }
 
                 self.compressed.push(CompressedMessage::RegisterNetworks {
@@ -91,6 +123,10 @@ impl Encoder {
                 });
             }
             Message::UpdateVersion { version_number } => {
+                if *version_number != CURRENT_ENCODING_VERSION {
+                    return Err(Error::UnsupportedEncodingVersion(*version_number));
+                }
+
                 self.encoding_version = *version_number;
                 self.compressed.push(CompressedMessage::UpdateVersion {
                     version_number: *version_number,
@@ -100,47 +136,71 @@ impl Encoder {
                 self.networks.clear();
                 self.compressed.push(CompressedMessage::Reset);
             }
-        }
+        })
     }
 
-    fn add_network(&mut self, name: &str) {
-        self.networks.push((name.to_string(), Network::default()));
+    fn add_network(&mut self, id: &str) {
+        self.networks.push((id.to_string(), Network::default()));
     }
 
-    fn remove_network(&mut self, i: NetworkId) {
+    fn remove_network(&mut self, i: NetworkIndex) {
         self.networks.swap_remove(i as usize);
     }
 
-    fn compress_block_ptrs(&mut self, block_ptrs: &HashMap<String, BlockPtr>) {
-        // Sort the block pointers by network id.
-        let block_ptrs_by_id: HashMap<NetworkId, BlockPtr> = block_ptrs
+    /// Takes in some network data by network ID and turns it into a [`Vec`] with the correct
+    /// network indices.
+    fn sort_network_data_by_index<T>(
+        &self,
+        chain_data: &HashMap<String, T>,
+    ) -> Result<Vec<T>, Error>
+    where
+        T: Clone,
+    {
+        let mut sorted: Vec<(NetworkIndex, T)> = chain_data
             .iter()
-            .map(|(network_name, block_ptr)| {
-                let network_id = self
-                    .networks
-                    .iter()
-                    .position(|(s, _)| s == network_name)
-                    .expect(format!("Network named '{}' not found", network_name).as_str());
-                (network_id as NetworkId, *block_ptr)
+            .map(|(id, data)| {
+                Ok((
+                    self.network_index(id)
+                        .ok_or_else(|| Error::InvalidNetworkId(id.to_string()))?,
+                    data.clone(),
+                ))
             })
-            .collect();
+            .collect::<Result<Vec<(NetworkIndex, T)>, Error>>()?;
+        // Sort by network index.
+        sorted.sort_by(|(i, _), (j, _)| i.cmp(j));
+        // Now remove the network index, which is implied by element positioning within the vector.
+        Ok(sorted.into_iter().map(|(_, x)| x).collect())
+    }
 
-        // Get accelerations and merkle leaves based on previous deltas.
+    fn compress_block_ptrs(&mut self, block_ptrs: &HashMap<String, BlockPtr>) -> Result<(), Error> {
+        // Prepare to get accelerations and merkle leaves based on previous deltas.
         let mut accelerations = Vec::with_capacity(block_ptrs.len());
         let mut merkle_leaves = Vec::with_capacity(block_ptrs.len());
-        for (id, ptr) in block_ptrs_by_id.into_iter() {
-            let network_data = &self.networks[id as usize].1;
+
+        // Sort the block pointers by network index.
+        let sorted_block_ptrs = self.sort_network_data_by_index(block_ptrs)?;
+
+        for (i, ptr) in sorted_block_ptrs.into_iter().enumerate() {
+            let network_data = &self.networks[i].1;
+            if ptr.number < network_data.block_number {
+                return Err(Error::NegativeDelta {
+                    network_id: self.networks[i as usize].0.clone(),
+                    original_block_num: network_data.block_number,
+                    new_block_num: ptr.number,
+                });
+            }
+
             let delta = (ptr.number - network_data.block_number) as i64;
             let acceleration = delta - network_data.block_delta;
 
-            self.networks[id as usize].1 = Network {
+            self.networks[i].1 = Network {
                 block_number: ptr.number,
                 block_delta: delta,
             };
 
             accelerations.push(acceleration);
             merkle_leaves.push(MerkleLeaf {
-                network_id: id,
+                network_index: i as NetworkIndex,
                 block_hash: ptr.hash,
                 block_number: ptr.number,
             });
@@ -153,6 +213,8 @@ impl Encoder {
                     root: merkle_root(&merkle_leaves),
                 },
             ));
+
+        Ok(())
     }
 
     fn compress_empty_block_ptrs(&mut self) {
@@ -221,8 +283,8 @@ mod tests {
             messages.push(Message::SetBlockNumbersForNextEpoch(nums));
         }
 
-        let mut engine = Encoder::new(0, networks);
-        engine.encode(&messages[..]);
+        let mut engine = Encoder::new(0, networks).unwrap();
+        engine.encode(&messages[..]).unwrap();
 
         // FIXME
         //assert!(matches!(

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-pub type NetworkId = u64;
+pub type NetworkIndex = u64;
 pub type Bytes32 = [u8; 32];
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -15,13 +15,13 @@ pub enum Message {
     SetBlockNumbersForNextEpoch(HashMap<String, BlockPtr>),
     RegisterNetworks {
         // Remove is by index
-        remove: Vec<NetworkId>,
+        remove: Vec<NetworkIndex>,
         // Add is by name
         add: Vec<String>,
     },
     CorrectEpochs {
         // TODO: include hash, count, and (if count is nonzero) merkle root
-        data_by_network_id: HashMap<NetworkId, EpochDetails>,
+        data_by_network_id: HashMap<NetworkIndex, EpochDetails>,
     },
     UpdateVersion {
         version_number: u64,
@@ -33,7 +33,7 @@ pub enum Message {
 pub enum CompressedMessage {
     SetBlockNumbersForNextEpoch(CompressedSetBlockNumbersForNextEpoch),
     CorrectEpochs {
-        data_by_network_id: HashMap<NetworkId, EpochDetails>,
+        data_by_network_id: HashMap<NetworkIndex, EpochDetails>,
     },
     RegisterNetworks {
         remove: Vec<u64>,

@@ -158,6 +158,7 @@ impl<'a> Oracle<'a> {
             return Ok(Default::default());
         };
         let mut networks = HashMap::new();
+        info!("subgraph data is {:?}", self.subgraph_state.data());
         let subgraph_networks = &self
             .subgraph_state
             .data()
@@ -257,8 +258,11 @@ impl<'a> Oracle<'a> {
             "Compressing message(s)."
         );
 
-        let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks);
-        let encoded = compression_engine.encode(&messages[..]);
+        let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks)
+            .expect(format!("Can't prepare for encoding because something went wrong",).as_str());
+        let encoded = compression_engine
+            .encode(&messages[..])
+            .expect(format!("Encoding failed: {:?}", messages).as_str());
         debug!(encoded = ?encoded, "Successfully encoded message(s).");
 
         self.submit_oracle_messages(encoded).await?;
