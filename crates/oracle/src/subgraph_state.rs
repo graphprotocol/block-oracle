@@ -29,16 +29,10 @@ impl crate::MainLoopFlow for SubgraphStateError {
     }
 }
 
-/// Represents Subgraph states.
-pub struct State<S, E> {
-    last_state: Option<S>,
-    error: Option<Arc<E>>,
-}
-
 /// Retrieves the latest state from a subgraph.
 #[async_trait]
 pub trait SubgraphApi {
-    type State: Send;
+    type State;
 
     async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>>;
 }
@@ -49,7 +43,8 @@ where
     A: SubgraphApi,
     A::State: Clone,
 {
-    inner: State<A::State, anyhow::Error>,
+    last_state: Option<A::State>,
+    error: Option<Arc<anyhow::Error>>,
     subgraph_api: A,
 }
 
@@ -59,34 +54,31 @@ where
     A::State: Clone,
 {
     pub fn new(api: A) -> Self {
-        let initial = State {
+        Self {
             last_state: None,
             error: None,
-        };
-        Self {
-            inner: initial,
             subgraph_api: api,
         }
     }
 
     pub fn is_valid(&self) -> bool {
-        self.inner.error.is_none() && self.inner.last_state.is_some()
+        self.error.is_none() && self.last_state.is_some()
     }
 
     pub fn is_uninitialized(&self) -> bool {
-        self.inner.last_state.is_none()
+        self.last_state.is_none()
     }
 
     pub fn is_failed(&self) -> bool {
-        self.inner.error.is_some() && self.inner.last_state.is_some()
+        self.error.is_some() && self.last_state.is_some()
     }
 
     pub fn data(&self) -> Option<&A::State> {
-        self.inner.last_state.as_ref()
+        self.last_state.as_ref()
     }
 
     pub fn error(&self) -> Option<Arc<anyhow::Error>> {
-        self.inner.error.clone()
+        self.error.clone()
     }
 
     /// Handles the retrieval of new subgraph state and the transition of its internal [`State`]
@@ -95,20 +87,20 @@ where
 
         match self.subgraph_api.get_subgraph_state().await {
             Ok(s) => {
-                self.inner.last_state = s;
-                self.inner.error = None;
+                self.last_state = s;
+                self.error = None;
             }
             Err(err) => {
                 if self.is_failed() {
                     error!("Failed to retrieve state from a previously failed subgraph");
                 }
-                self.inner.error = Some(Arc::new(err));
+                self.error = Some(Arc::new(err));
             }
         }
     }
 
     pub(crate) fn error_for_state(&self) -> Result<(), SubgraphStateError> {
-        match (&self.inner.last_state, &self.inner.error) {
+        match (&self.last_state, &self.error) {
             (_, None) => Ok(()),
             (None, Some(e)) => Err(SubgraphStateError::Uninitialized(e.clone())),
             (Some(_), Some(e)) => Err(SubgraphStateError::Failed(e.clone())),
