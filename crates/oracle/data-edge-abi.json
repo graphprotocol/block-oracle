@@ -1,0 +1,19 @@
+[
+  {
+    "stateMutability": "nonpayable",
+    "type": "fallback"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "bytes",
+        "name": "payload",
+        "type": "bytes"
+      }
+    ],
+    "name": "crossChainEpochOracle",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
+]

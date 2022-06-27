@@ -101,15 +101,15 @@ async fn main() -> Result<(), Error> {
 type SubgraphStateData = subgraph::subgraph_state::SubgraphStateGlobalState;
 
 /// The main application in-memory state
-struct Oracle<'a> {
-    emitter: Emitter<'a>,
+struct Oracle {
+    emitter: Emitter,
     epoch_tracker: EpochTracker,
     event_source: EventSource,
     subgraph_state: SubgraphStateTracker<SubgraphStateData, SubgraphQuery>,
 }
 
-impl<'a> Oracle<'a> {
-    pub fn new(config: &'a Config) -> Result<Self, Error> {
+impl Oracle {
+    pub fn new(config: &Config) -> Result<Self, Error> {
         let event_source = EventSource::new(config);
         let emitter = Emitter::new(config);
         let epoch_tracker = EpochTracker::new(config);

@@ -5,10 +5,8 @@ use std::time::Duration;
 use tracing::error;
 use url::Url;
 use web3::{
-    types::{
-        SignedTransaction, Transaction, TransactionParameters, TransactionReceipt, H160, H256,
-        U256, U64,
-    },
+    api::Eth,
+    types::{SignedTransaction, Transaction, TransactionParameters, H160, H256, U64},
     Web3,
 };
 
@@ -16,24 +14,14 @@ use web3::{
 pub struct ProtocolChain {
     chain_id: Caip2ChainId,
     web3: Web3<JsonRpcExponentialBackoff>,
-    transaction_confirmation_poll_interval_in_seconds: u64,
-    transaction_confirmation_count: usize,
 }
+
 impl ProtocolChain {
-    pub fn new(
-        chain_id: Caip2ChainId,
-        jrpc_url: Url,
-        retry_wait_time: Duration,
-        transaction_confirmation_poll_interval_in_seconds: u64,
-        transaction_confirmation_count: usize,
-    ) -> Self {
-        let web3 = Web3::new(JsonRpcExponentialBackoff::http(jrpc_url, retry_wait_time));
-        Self {
-            chain_id,
-            web3,
-            transaction_confirmation_poll_interval_in_seconds,
-            transaction_confirmation_count,
-        }
+    pub fn new(chain_id: Caip2ChainId, jrpc_url: Url, retry_wait_time: Duration) -> Self {
+        let transport = JsonRpcExponentialBackoff::http(jrpc_url, retry_wait_time);
+        let web3 = Web3::new(transport);
+
+        Self { chain_id, web3 }
     }
 
     pub async fn sign_transaction(
@@ -47,25 +35,8 @@ impl ProtocolChain {
             .await
     }
 
-    pub async fn send_transaction(
-        &self,
-        signed_transaction: SignedTransaction,
-    ) -> Result<TransactionReceipt, web3::Error> {
-        self.web3
-            .send_raw_transaction_with_confirmation(
-                signed_transaction.raw_transaction,
-                Duration::from_secs(5), // TODO: set this as a configurable value
-                0,                      // TODO: set this as a configurable value
-            )
-            .await
-    }
-
     pub async fn get_latest_block(&self) -> Result<U64, web3::Error> {
         self.web3.eth().block_number().await
-    }
-
-    pub async fn get_latest_nonce(&self, address: H160) -> Result<U256, web3::Error> {
-        self.web3.eth().transaction_count(address, None).await
     }
 
     /// Get a reference to the protocol chain client's chain id.
@@ -128,5 +99,9 @@ impl ProtocolChain {
         }
 
         Ok(filtered_transactions)
+    }
+
+    pub fn eth(&self) -> Eth<JsonRpcExponentialBackoff> {
+        self.web3.eth().clone()
     }
 }

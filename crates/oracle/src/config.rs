@@ -73,8 +73,6 @@ impl Config {
                 config_file.protocol_chain.name,
                 config_file.protocol_chain.jrpc,
                 retry_strategy_max_wait_time,
-                config_file.transaction_confirmation_poll_interval_in_seconds,
-                config_file.transaction_confirmation_count,
             )),
         }
     }
