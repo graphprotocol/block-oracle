@@ -52,6 +52,7 @@ impl From<&Config> for SubgraphQuery {
 #[async_trait]
 impl SubgraphApi for SubgraphQuery {
     type State = subgraph_state::SubgraphStateGlobalState;
+    type Error = anyhow::Error;
 
     async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>> {
         Ok(query(self.url.clone()).await?)

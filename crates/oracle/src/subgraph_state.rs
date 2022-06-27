@@ -33,15 +33,15 @@ impl crate::MainLoopFlow for SubgraphStateError {
 #[async_trait]
 pub trait SubgraphApi {
     type State;
+    type Error;
 
-    async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>>;
+    async fn get_subgraph_state(&self) -> Result<Option<Self::State>, Self::Error>;
 }
 
 /// Coordinates the retrieval of subgraph data and the transition of its own internal [`State`].
 pub struct SubgraphStateTracker<A>
 where
     A: SubgraphApi,
-    A::State: Clone,
 {
     last_state: Option<A::State>,
     error: Option<Arc<anyhow::Error>>,
@@ -50,7 +50,7 @@ where
 
 impl<A> SubgraphStateTracker<A>
 where
-    A: SubgraphApi,
+    A: SubgraphApi<Error = anyhow::Error>,
     A::State: Clone,
 {
     pub fn new(api: A) -> Self {
@@ -164,6 +164,7 @@ mod tests {
     #[async_trait]
     impl SubgraphApi for FakeApi {
         type State = FakeInnerState;
+        type Error = anyhow::Error;
 
         async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>> {
             match (self.error_switch, self.data_switch) {
