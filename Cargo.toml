@@ -1,7 +1,2 @@
 [workspace]
-members = [
-  "crates/oracle",
-  "crates/encoding",
-  "crates/oracle-encoder",
-  "xtask",
-]
+members = ["crates/*"]
