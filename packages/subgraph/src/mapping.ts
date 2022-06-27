@@ -23,15 +23,19 @@ import {
   getActiveNetworks,
   swapAndPop,
   commitNetworkChanges,
-  nextEpochId
+  nextEpochId,
+  parseCalldata
 } from "./helpers";
 import { StoreCache } from "./store-cache";
 import { BIGINT_ZERO, BIGINT_ONE } from "./constants";
 
 export function handleLogCrossChainEpochOracle(event: Log): void {
+  // this is only used in local development, and needs to strip the calldata to only
+  // get the actual payload data we care about, without the selector and argument descriptors
+  let data = parseCalldata(event.params.data);
   processPayload(
     event.transaction.from.toHexString(),
-    event.params.data,
+    data,
     event.transaction.hash.toHexString()
   );
 }

@@ -5,6 +5,7 @@ import {
   afterEach
 } from "matchstick-as/assembly/index";
 import { processPayload } from "../src/mapping";
+import { parseCalldata } from "../src/helpers";
 import { Bytes, BigInt } from "@graphprotocol/graph-ts";
 import { Network } from "../generated/schema";
 
@@ -31,6 +32,15 @@ import { Network } from "../generated/schema";
 
 afterEach(() => {
   clearStore();
+});
+
+test("parseCalldata", () => {
+  let calldataBytes = Bytes.fromHexString("0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000a0011223344556677889900000000000000000000000000000000000000000000") as Bytes;
+  let expectedPayloadBytes = Bytes.fromHexString("0x00112233445566778899") as Bytes;
+
+  let parsedPayloadBytes = parseCalldata(calldataBytes);
+
+  assert.bytesEquals(expectedPayloadBytes, parsedPayloadBytes);
 });
 
 test("(SetBlockNumbersForNextEpoch) EMPTY", () => {

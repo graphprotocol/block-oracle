@@ -1,4 +1,4 @@
-import { BigInt } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes } from "@graphprotocol/graph-ts";
 import {
   GlobalState,
   Epoch,
@@ -134,4 +134,11 @@ export function commitNetworkChanges(
 
 function epochBlockNumberId(epochId: BigInt, networkId: string): string {
   return [epochId.toString(), networkId].join("-");
+}
+
+export function parseCalldata(calldata: Bytes): Bytes {
+  // hardcoded values to decode only the crossChainEpochOracle calldata
+  // on the local development EventfulDataEdge contract
+  let length = BigInt.fromUnsignedBytes(changetype<Bytes>(calldata.slice(36, 68).reverse()))
+  return changetype<Bytes>(calldata.slice(68, 68+length.toI32()))
 }
