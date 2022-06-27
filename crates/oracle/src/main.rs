@@ -103,14 +103,12 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-type SubgraphStateData = subgraph::subgraph_state::SubgraphStateGlobalState;
-
 /// The main application in-memory state
 struct Oracle {
     emitter: Emitter,
     epoch_tracker: EpochTracker,
     event_source: EventSource,
-    subgraph_state: SubgraphStateTracker<SubgraphStateData, SubgraphQuery>,
+    subgraph_state: SubgraphStateTracker<SubgraphQuery>,
 }
 
 impl Oracle {

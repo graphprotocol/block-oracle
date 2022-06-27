@@ -30,35 +30,33 @@ impl crate::MainLoopFlow for SubgraphStateError {
 }
 
 /// Represents Subgraph states.
-///
-/// Errors will not be moved out of this type, so we use [`anyhow::Error`] because we only need to
-/// log and/or display them.
-pub struct State<S> {
+pub struct State<S, E> {
     last_state: Option<S>,
-    error: Option<Arc<anyhow::Error>>,
+    error: Option<Arc<E>>,
 }
 
 /// Retrieves the latest state from a subgraph.
 #[async_trait]
 pub trait SubgraphApi {
     type State: Send;
+
     async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>>;
 }
 
 /// Coordinates the retrieval of subgraph data and the transition of its own internal [`State`].
-pub struct SubgraphStateTracker<S, A = S>
+pub struct SubgraphStateTracker<A>
 where
-    S: Clone,
-    A: SubgraphApi<State = S>,
+    A: SubgraphApi,
+    A::State: Clone,
 {
-    inner: State<S>,
+    inner: State<A::State, anyhow::Error>,
     subgraph_api: A,
 }
 
-impl<S, A> SubgraphStateTracker<S, A>
+impl<A> SubgraphStateTracker<A>
 where
-    S: Clone,
-    A: SubgraphApi<State = S>,
+    A: SubgraphApi,
+    A::State: Clone,
 {
     pub fn new(api: A) -> Self {
         let initial = State {
@@ -83,7 +81,7 @@ where
         self.inner.error.is_some() && self.inner.last_state.is_some()
     }
 
-    pub fn data(&self) -> Option<&S> {
+    pub fn data(&self) -> Option<&A::State> {
         self.inner.last_state.as_ref()
     }
 
