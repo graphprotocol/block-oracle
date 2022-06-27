@@ -10,7 +10,7 @@ contract EventfulDataEdge {
     event Log(bytes data);
 
     /// @dev Fallback function, accepts any payload
-    fallback() external {
+    fallback() external payable {
         emit Log(msg.data);
     }
 }

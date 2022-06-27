@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/oracle", "crates/encoding", "crates/oracle-encoder", "xtask"]
+members = ["crates/*"]
 
 [profile.release]
 # We want to keep as many checks as possible even for release builds.

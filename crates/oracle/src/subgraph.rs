@@ -8,8 +8,6 @@ use serde::{de, Deserialize, Deserializer};
 use std::collections::HashSet;
 use std::fmt;
 
-use self::subgraph_state::ResponseData;
-
 pub type Id = String;
 pub type BigInt = u128;
 
