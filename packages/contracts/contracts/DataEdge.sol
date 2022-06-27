@@ -7,7 +7,7 @@ pragma solidity ^0.8.12;
 ///        and decode the payload for different purposes.
 contract DataEdge {
     /// @dev Fallback function, accepts any payload
-    fallback() external {
+    fallback() external payable {
         // no-op
     }
 }
