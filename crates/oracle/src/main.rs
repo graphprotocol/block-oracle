@@ -1,6 +1,5 @@
 mod config;
 mod ctrlc;
-mod diagnostics;
 mod emitter;
 mod epoch_tracker;
 mod error_handling;
@@ -15,7 +14,6 @@ mod subgraph;
 mod subgraph_state;
 
 use crate::{ctrlc::CtrlcHandler, emitter::EmitterError};
-use diagnostics::{hex_string, init_logging};
 use ee::CURRENT_ENCODING_VERSION;
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message};
 use epoch_tracker::EpochTrackerError;
@@ -23,7 +21,14 @@ use event_source::{EventSource, EventSourceError};
 use lazy_static::lazy_static;
 use models::Caip2ChainId;
 use std::collections::{HashMap, HashSet};
+use std::env::set_var;
 use tracing::{debug, error, info};
+use tracing_subscriber::{
+    filter::{EnvFilter, LevelFilter},
+    fmt,
+    layer::SubscriberExt,
+    util::SubscriberInitExt,
+};
 
 pub use config::Config;
 pub use emitter::Emitter;
@@ -311,6 +316,27 @@ fn networks_diff_to_message(diff: &NetworksDiff) -> Option<ee::Message> {
     }
 }
 
+fn init_logging(log_level: LevelFilter) {
+    set_var("RUST_LOG", "block_oracle=trace");
+
+    let filter = EnvFilter::builder()
+        .with_default_directive(log_level.into())
+        .from_env_lossy();
+
+    let stdout = fmt::layer()
+        .without_time()
+        .with_target(false)
+        .with_writer(std::io::stdout);
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(stdout)
+        .init();
+}
+
+pub fn hex_string(bytes: &[u8]) -> String {
+    format!("0x{}", hex::encode(bytes))
+}
 mod freshness {
     use crate::protocol_chain::ProtocolChain;
     use thiserror::Error;
