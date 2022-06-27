@@ -117,7 +117,7 @@ impl Oracle {
         let emitter = Emitter::new(config);
         let epoch_tracker = EpochTracker::new(config);
         let subgraph_state = {
-            let subgraph_query = SubgraphQuery::from(config);
+            let subgraph_query = SubgraphQuery::new(config.subgraph_url.clone());
             SubgraphStateTracker::new(subgraph_query)
         };
 

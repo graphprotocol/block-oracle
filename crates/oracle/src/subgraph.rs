@@ -1,10 +1,58 @@
 use crate::error_handling::format_slice;
-use crate::{Config, SubgraphApi};
+use crate::SubgraphApi;
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Url;
 use std::collections::HashSet;
+
+pub struct SubgraphQuery {
+    url: Url,
+}
+
+impl SubgraphQuery {
+    pub fn new(url: Url) -> Self {
+        Self { url }
+    }
+}
+
+#[async_trait]
+impl SubgraphApi for SubgraphQuery {
+    type State = subgraph_state::SubgraphStateGlobalState;
+    type Error = anyhow::Error;
+
+    async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>> {
+        // TODO: authentication token.
+        let client = reqwest::Client::builder()
+            .user_agent("block-oracle")
+            .build()
+            .unwrap();
+        let request_body = SubgraphState::build_query(subgraph_state::Variables);
+        let request = client.post(self.url.clone()).json(&request_body);
+        let response = request.send().await?;
+        let response_body: Response<subgraph_state::ResponseData> = response.json().await?;
+        match response_body.errors.as_deref() {
+            Some([e]) if e.message == "indexing_error" => Err(SubgraphQueryError::IndexingError)?,
+            Some(errs) => Err(SubgraphQueryError::Other {
+                messages: errs.into_iter().map(|e| e.message.clone()).collect(),
+            })?,
+            _ => {}
+        }
+
+        // Unwrap: We just checked that there are no errors.
+        let data = response_body
+            .data
+            .expect("expected data in the GraphQL query response, but got none");
+
+        if let Some(global_state) = data.global_state {
+            validate_subgraph_state(&global_state)?;
+            Ok(Some(global_state))
+        } else {
+            // Subgraph is in a initial state and has no GlobalState yet
+            Ok(None)
+        }
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum SubgraphQueryError {
@@ -30,29 +78,7 @@ pub enum SubgraphQueryError {
     variables_derives = "Debug,Clone",
     deprecated = "warn"
 )]
-pub struct SubgraphState;
-
-pub struct SubgraphQuery {
-    url: Url,
-}
-
-impl From<&Config> for SubgraphQuery {
-    fn from(config: &Config) -> Self {
-        Self {
-            url: config.subgraph_url.clone(),
-        }
-    }
-}
-
-#[async_trait]
-impl SubgraphApi for SubgraphQuery {
-    type State = subgraph_state::SubgraphStateGlobalState;
-    type Error = anyhow::Error;
-
-    async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>> {
-        Ok(query(self.url.clone()).await?)
-    }
-}
+struct SubgraphState;
 
 fn validate_subgraph_state(
     state: &subgraph_state::SubgraphStateGlobalState,
@@ -85,38 +111,4 @@ fn validate_subgraph_state(
         ));
     }
     Ok(())
-}
-
-pub async fn query(
-    url: Url,
-) -> Result<Option<subgraph_state::SubgraphStateGlobalState>, SubgraphQueryError> {
-    // TODO: authentication token.
-    let client = reqwest::Client::builder()
-        .user_agent("block-oracle")
-        .build()
-        .unwrap();
-    let request_body = SubgraphState::build_query(subgraph_state::Variables);
-    let request = client.post(url).json(&request_body);
-    let response = request.send().await?;
-    let response_body: Response<subgraph_state::ResponseData> = response.json().await?;
-    match response_body.errors.as_deref() {
-        None | Some(&[]) => {
-            // Unwrap: We just checked that there are no errors
-            let data = response_body
-                .data
-                .expect("expected data in the GraphQL query response, but got none");
-
-            if let Some(global_state) = data.global_state {
-                validate_subgraph_state(&global_state)?;
-                Ok(Some(global_state))
-            } else {
-                // Subgraph is in a initial state and has no GlobalState yet
-                Ok(None)
-            }
-        }
-        Some([e]) if e.message == "indexing_error" => Err(SubgraphQueryError::IndexingError),
-        Some(errs) => Err(SubgraphQueryError::Other {
-            messages: errs.into_iter().map(|e| e.message.clone()).collect(),
-        }),
-    }
 }
