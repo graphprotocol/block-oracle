@@ -33,7 +33,7 @@ use tracing_subscriber::{
 pub use config::Config;
 pub use emitter::Emitter;
 pub use epoch_tracker::EpochTracker;
-pub use error_handling::{handle_oracle_error, MainLoopFlow, OracleControlFlow};
+pub use error_handling::{MainLoopFlow, OracleControlFlow};
 pub use metrics::Metrics;
 pub use networks_diff::NetworksDiff;
 pub use subgraph::SubgraphQuery;
@@ -85,7 +85,7 @@ async fn main() -> Result<(), Error> {
     while !CTRLC_HANDLER.poll_ctrlc() {
         if let Err(error) = oracle.wait_and_process_next_event().await {
             use std::ops::ControlFlow::*;
-            match handle_oracle_error(error) {
+            match error.instruction() {
                 Continue(Some(sleep_time)) => {
                     tokio::time::sleep(sleep_time).await;
                     continue;

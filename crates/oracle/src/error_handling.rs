@@ -9,10 +9,6 @@ pub trait MainLoopFlow {
     fn instruction(&self) -> OracleControlFlow;
 }
 
-pub fn handle_oracle_error(error: impl MainLoopFlow) -> OracleControlFlow {
-    error.instruction()
-}
-
 /// Helper function to convert a slice of items into a string, for use in [`Display`] contexts.
 pub fn format_slice(v: &[impl Display]) -> String {
     if v.is_empty() {
