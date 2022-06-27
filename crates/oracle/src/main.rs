@@ -80,7 +80,7 @@ async fn main() -> Result<(), Error> {
     init_logging(CONFIG.log_level);
     info!(log_level = %CONFIG.log_level, "Block oracle starting up.");
 
-    let mut oracle = Oracle::new(&*CONFIG)?;
+    let mut oracle = Oracle::new(&*CONFIG);
 
     while !CTRLC_HANDLER.poll_ctrlc() {
         if let Err(error) = oracle.wait_and_process_next_event().await {
@@ -114,7 +114,7 @@ struct Oracle {
 }
 
 impl Oracle {
-    pub fn new(config: &Config) -> Result<Self, Error> {
+    pub fn new(config: &Config) -> Self {
         let event_source = EventSource::new(config);
         let emitter = Emitter::new(config);
         let epoch_tracker = EpochTracker::new(config);
@@ -123,12 +123,12 @@ impl Oracle {
             SubgraphStateTracker::new(subgraph_query)
         };
 
-        Ok(Self {
+        Self {
             event_source,
             emitter,
             epoch_tracker,
             subgraph_state,
-        })
+        }
     }
 
     pub async fn wait_and_process_next_event(&mut self) -> Result<(), Error> {
