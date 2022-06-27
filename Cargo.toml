@@ -1,2 +1,11 @@
 [workspace]
 members = ["crates/*"]
+
+[profile.release]
+# We want to keep as many checks as possible even for release builds.
+# Performance is not a concern.
+opt-level = 3
+debug = true
+overflow-checks = true
+debug-assertions = true
+incremental = false
