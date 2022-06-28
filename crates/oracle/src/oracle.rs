@@ -1,15 +1,20 @@
 use crate::{
-    Caip2ChainId, Config, Emitter, EpochTracker, Error, EventSource, JrpcExpBackoff, NetworksDiff,
+    Caip2ChainId, Config, EpochTracker, Error, EventSource, JrpcProviderForChain, NetworksDiff,
     SubgraphQuery, SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::collections::{HashMap, HashSet};
 use tracing::{debug, info};
+use web3::{
+    contract::{Contract, Options},
+    types::{Bytes, H256},
+};
+
+const CONTRACT_FUNCTION_NAME: &'static str = "crossChainEpochOracle";
 
 /// The main application in-memory state
 pub struct Oracle {
     config: &'static Config,
-    emitter: Emitter<JrpcExpBackoff>,
     epoch_tracker: EpochTracker,
     event_source: EventSource,
     subgraph_state: SubgraphStateTracker<SubgraphQuery>,
@@ -18,7 +23,6 @@ pub struct Oracle {
 impl Oracle {
     pub fn new(config: &'static Config) -> Self {
         let event_source = EventSource::new(config);
-        let emitter = Emitter::new(config, event_source.protocol_chain.clone());
         let epoch_tracker = EpochTracker::new(config);
         let subgraph_state = {
             let api = SubgraphQuery::new(config.subgraph_url.clone());
@@ -28,7 +32,6 @@ impl Oracle {
         Self {
             config,
             event_source,
-            emitter,
             epoch_tracker,
             subgraph_state,
         }
@@ -127,16 +130,13 @@ impl Oracle {
             .expect(format!("Encoding failed: {:?}", messages).as_str());
         debug!(encoded = ?encoded, "Successfully encoded message(s).");
 
-        self.submit_oracle_messages(encoded).await?;
-
-        Ok(())
-    }
-
-    async fn submit_oracle_messages(&mut self, calldata: Vec<u8>) -> Result<(), Error> {
-        let _receipt = self
-            .emitter
-            .submit_oracle_messages(calldata.clone())
-            .await?;
+        submit_call(
+            self.config,
+            self.event_source.protocol_chain.clone(),
+            encoded,
+        )
+        .await
+        .map_err(Error::CantSubmitTx)?;
 
         // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
         // receipt, we should monitor it until it get enough confirmations. It's unclear which
@@ -199,9 +199,34 @@ fn networks_diff_to_message(diff: &NetworksDiff) -> Option<ee::Message> {
     }
 }
 
-pub fn hex_string(bytes: &[u8]) -> String {
-    format!("0x{}", hex::encode(bytes))
+async fn submit_call<T>(
+    config: &Config,
+    protocol_chain: JrpcProviderForChain<T>,
+    payload: Vec<u8>,
+) -> web3::Result<H256>
+where
+    T: web3::Transport,
+{
+    let contract = Contract::from_json(
+        protocol_chain.web3.eth(),
+        config.contract_address,
+        include_bytes!("abi/data_edge.json"),
+    )
+    .expect("Can't read the ABI JSON file");
+
+    let payload = Bytes::from(payload);
+    let tx = contract
+        .signed_call(
+            CONTRACT_FUNCTION_NAME,
+            (payload,),
+            Options::default(),
+            &config.owner_private_key,
+        )
+        .await?;
+    info!(transaction_hash = ?tx, "Sent transaction");
+    Ok(tx)
 }
+
 mod freshness {
     use crate::{jsonrpc_utils::calls_in_block_range, models::JrpcProviderForChain};
     use thiserror::Error;

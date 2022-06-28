@@ -11,21 +11,16 @@ pub trait MainLoopFlow {
 
 /// Helper function to convert a slice of items into a string, for use in [`Display`] contexts.
 pub fn format_slice(v: &[impl Display]) -> String {
-    if v.is_empty() {
-        return "[]".to_string();
-    }
-    let mut result = String::from("[");
-    let mut iterator = v.iter().peekable();
-    while let Some(value) = iterator.next() {
-        let text = value.to_string();
-        result.push_str(&text);
-        if iterator.peek().is_some() {
-            result.push_str(", ")
-        } else {
-            result.push(']');
-        }
-    }
-    result
+    let mut s = "[".to_string();
+    s.push_str(
+        v.iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(", ")
+            .as_str(),
+    );
+    s.push(']');
+    s
 }
 
 #[cfg(test)]

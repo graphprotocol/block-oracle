@@ -1,6 +1,5 @@
 mod config;
 mod ctrlc;
-mod emitter;
 mod epoch_tracker;
 mod error_handling;
 mod event_source;
@@ -13,13 +12,12 @@ mod subgraph;
 
 pub use crate::ctrlc::CtrlcHandler;
 pub use config::Config;
-pub use emitter::{Emitter, EmitterError};
 pub use epoch_tracker::{EpochTracker, EpochTrackerError};
 pub use error_handling::{MainLoopFlow, OracleControlFlow};
 pub use event_source::{EventSource, EventSourceError};
 pub use jsonrpc_utils::JrpcExpBackoff;
 pub use metrics::Metrics;
-pub use models::Caip2ChainId;
+pub use models::{Caip2ChainId, JrpcProviderForChain};
 pub use networks_diff::NetworksDiff;
 pub use oracle::Oracle;
 pub use subgraph::{SubgraphApi, SubgraphQuery, SubgraphStateTracker};
@@ -41,8 +39,8 @@ pub enum Error {
     EventSource(#[from] EventSourceError),
     #[error(transparent)]
     EpochTracker(#[from] EpochTrackerError),
-    #[error(transparent)]
-    Emitter(#[from] EmitterError),
+    #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
+    CantSubmitTx(web3::Error),
 }
 
 impl MainLoopFlow for Error {
@@ -51,7 +49,7 @@ impl MainLoopFlow for Error {
         match self {
             EventSource(event_source) => event_source.instruction(),
             EpochTracker(epoch_tracker) => epoch_tracker.instruction(),
-            Emitter(emitter) => emitter.instruction(),
+            CantSubmitTx(_) => OracleControlFlow::Continue(None),
         }
     }
 }
@@ -100,4 +98,8 @@ fn init_logging(log_level: LevelFilter) {
         .with(filter)
         .with(stdout)
         .init();
+}
+
+pub fn hex_string(bytes: &[u8]) -> String {
+    format!("0x{}", hex::encode(bytes))
 }
