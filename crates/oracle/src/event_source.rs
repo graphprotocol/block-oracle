@@ -1,7 +1,5 @@
-use crate::jsonrpc_utils::{get_latest_block, JrpcExpBackoff};
-use crate::models::Caip2ChainId;
-use crate::models::JrpcProviderForChain;
-use crate::Config;
+use crate::jsonrpc_utils::get_latest_block;
+use crate::{Caip2ChainId, Config, JrpcExpBackoff, JrpcProviderForChain};
 use epoch_encoding::BlockPtr;
 use futures::{
     stream::{FuturesUnordered, StreamExt},
