@@ -159,7 +159,7 @@ impl Oracle {
         Ok(encoded)
     }
 
-    fn registered_networks(&self) -> Result<HashMap<Caip2ChainId, epoch_encoding::Network>, Error> {
+    fn registered_networks(&self) -> Result<Vec<(Caip2ChainId, epoch_encoding::Network)>, Error> {
         if self.subgraph_state.is_failed() {
             todo!("Handle this as an error")
         }
@@ -167,23 +167,23 @@ impl Oracle {
             info!("Epoch Subgraph contains no initial state");
             return Ok(Default::default());
         };
-        let mut networks = HashMap::new();
         info!("subgraph data is {:?}", self.subgraph_state.last_state());
-        let subgraph_networks = &self
+        Ok(self
             .subgraph_state
             .last_state()
             .expect("expected data from a valid subgraph state, but found none")
-            .networks;
-        for network in subgraph_networks {
-            networks.insert(
-                network.id.clone(),
-                epoch_encoding::Network {
-                    block_number: network.latest_block_number,
-                    block_delta: network.delta,
-                },
-            );
-        }
-        Ok(networks)
+            .networks
+            .iter()
+            .map(|network| {
+                (
+                    network.id.clone(),
+                    epoch_encoding::Network {
+                        block_number: network.latest_block_number,
+                        block_delta: network.delta,
+                    },
+                )
+            })
+            .collect())
     }
 }
 
