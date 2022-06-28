@@ -3,10 +3,19 @@ use std::collections::HashMap;
 pub type NetworkIndex = u64;
 pub type Bytes32 = [u8; 32];
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct BlockPtr {
     pub number: u64,
     pub hash: Bytes32,
+}
+
+impl std::fmt::Debug for BlockPtr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BlockPtr")
+            .field("number", &self.number)
+            .field("hash", &format!("0x{}", hex::encode(&self.hash)))
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]

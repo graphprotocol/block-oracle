@@ -23,3 +23,7 @@ pub fn init_logging(log_level: LevelFilter) {
         .with(stdout)
         .init();
 }
+
+pub fn hex_string(bytes: &[u8]) -> String {
+    format!("0x{}", hex::encode(bytes))
+}
