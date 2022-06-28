@@ -1,5 +1,6 @@
 use crate::{
-    Caip2ChainId, Config, EpochTracker, Error, EventSource, JrpcProviderForChain, NetworksDiff,
+    jrpc_utils::{get_latest_block, get_latest_blocks},
+    Caip2ChainId, Config, EpochTracker, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff,
     SubgraphQuery, SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
@@ -16,22 +17,35 @@ const CONTRACT_FUNCTION_NAME: &'static str = "crossChainEpochOracle";
 pub struct Oracle {
     config: &'static Config,
     epoch_tracker: EpochTracker,
-    event_source: EventSource,
+    protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
+    indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
     subgraph_state: SubgraphStateTracker<SubgraphQuery>,
 }
 
 impl Oracle {
     pub fn new(config: &'static Config) -> Self {
-        let event_source = EventSource::new(config);
+        let subgraph_api = SubgraphQuery::new(config.subgraph_url.clone());
+        let subgraph_state = SubgraphStateTracker::new(subgraph_api);
+        let backoff_max = config.retry_strategy_max_wait_time;
         let epoch_tracker = EpochTracker::new(config);
-        let subgraph_state = {
-            let api = SubgraphQuery::new(config.subgraph_url.clone());
-            SubgraphStateTracker::new(api)
+        let protocol_chain = {
+            let transport =
+                JrpcExpBackoff::http(config.protocol_chain.jrpc_url.clone(), backoff_max);
+            JrpcProviderForChain::new(config.protocol_chain.id.clone(), transport)
         };
+        let indexed_chains = config
+            .indexed_chains
+            .iter()
+            .map(|chain| {
+                let transport = JrpcExpBackoff::http(chain.jrpc_url.clone(), backoff_max);
+                JrpcProviderForChain::new(chain.id.clone(), transport)
+            })
+            .collect();
 
         Self {
             config,
-            event_source,
+            protocol_chain,
+            indexed_chains,
             epoch_tracker,
             subgraph_state,
         }
@@ -43,7 +57,9 @@ impl Oracle {
             return Ok(());
         }
 
-        let block = self.event_source.get_latest_protocol_chain_block().await?;
+        let block = get_latest_block(self.protocol_chain.web3.clone())
+            .await
+            .map_err(Error::BadJrpcProtocolChain)?;
         debug!(
             block = block.number,
             hash = hex::encode(block.hash).as_str(),
@@ -56,15 +72,11 @@ impl Oracle {
         }
 
         // Get indexed chains' latest blocks.
-        let latest_blocks = self.event_source.get_latest_blocks().await?;
+        let latest_blocks = get_latest_blocks(&self.indexed_chains).await?;
         let payload = self.produce_next_payload(latest_blocks)?;
-        submit_call(
-            self.config,
-            self.event_source.protocol_chain.clone(),
-            payload,
-        )
-        .await
-        .map_err(Error::CantSubmitTx)?;
+        submit_call(self.config, self.protocol_chain.clone(), payload)
+            .await
+            .map_err(Error::CantSubmitTx)?;
 
         // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
         // receipt, we should monitor it until it get enough confirmations. It's unclear which
@@ -226,7 +238,7 @@ where
 }
 
 mod freshness {
-    use crate::{jsonrpc_utils::calls_in_block_range, models::JrpcProviderForChain};
+    use crate::{jrpc_utils::calls_in_block_range, models::JrpcProviderForChain};
     use thiserror::Error;
     use tracing::{debug, error, trace};
     use web3::types::{H160, U64};

@@ -2,8 +2,7 @@ mod config;
 mod ctrlc;
 mod epoch_tracker;
 mod error_handling;
-mod event_source;
-mod jsonrpc_utils;
+mod jrpc_utils;
 mod metrics;
 mod models;
 mod networks_diff;
@@ -14,8 +13,7 @@ pub use crate::ctrlc::CtrlcHandler;
 pub use config::Config;
 pub use epoch_tracker::{EpochTracker, EpochTrackerError};
 pub use error_handling::{MainLoopFlow, OracleControlFlow};
-pub use event_source::{EventSource, EventSourceError};
-pub use jsonrpc_utils::JrpcExpBackoff;
+pub use jrpc_utils::JrpcExpBackoff;
 pub use metrics::Metrics;
 pub use models::{Caip2ChainId, JrpcProviderForChain};
 pub use networks_diff::NetworksDiff;
@@ -35,8 +33,13 @@ lazy_static! {
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("Error fetching blockchain data: {0}")]
-    EventSource(#[from] EventSourceError),
+    #[error("JSON-RPC issues for the protocol chain: {0}")]
+    BadJrpcProtocolChain(web3::Error),
+    #[error("Failed to get latest block information for the indexed chain with ID '{chain_id}': {error}")]
+    BadJrpcIndexedChain {
+        chain_id: Caip2ChainId,
+        error: web3::Error,
+    },
     #[error(transparent)]
     EpochTracker(#[from] EpochTrackerError),
     #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
@@ -47,7 +50,8 @@ impl MainLoopFlow for Error {
     fn instruction(&self) -> OracleControlFlow {
         use Error::*;
         match self {
-            EventSource(event_source) => event_source.instruction(),
+            BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
+            BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
             EpochTracker(epoch_tracker) => epoch_tracker.instruction(),
             CantSubmitTx(_) => OracleControlFlow::Continue(None),
         }

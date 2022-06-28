@@ -1,7 +1,13 @@
+use crate::{Caip2ChainId, Error, JrpcProviderForChain};
 use backoff::{future::retry, ExponentialBackoff, ExponentialBackoffBuilder};
 use epoch_encoding::BlockPtr;
 use futures::{future::try_join_all, TryFutureExt};
+use futures::{
+    stream::{FuturesUnordered, StreamExt},
+    FutureExt,
+};
 use jsonrpc_core::{Call, Value};
+use std::collections::HashMap;
 use std::{future::Future, pin::Pin, time::Duration};
 use tracing::{error, trace};
 use url::Url;
@@ -90,6 +96,34 @@ where
         number: block_num.as_u64(),
         hash: block.hash.unwrap().into(),
     })
+}
+
+pub async fn get_latest_blocks<T>(
+    chains: &[JrpcProviderForChain<T>],
+) -> Result<HashMap<Caip2ChainId, BlockPtr>, Error>
+where
+    T: web3::Transport,
+{
+    let mut block_ptr_per_chain: HashMap<Caip2ChainId, BlockPtr> = HashMap::new();
+    let mut tasks = chains
+        .iter()
+        .cloned()
+        .map(|chain| get_latest_block(chain.web3).map(|block| (chain.chain_id, block)))
+        .collect::<FuturesUnordered<_>>();
+
+    while let Some((chain_id, jrpc_call_result)) = tasks.next().await {
+        assert!(!block_ptr_per_chain.contains_key(&chain_id));
+
+        let block_ptr = jrpc_call_result.map_err(|error| Error::BadJrpcIndexedChain {
+            chain_id: chain_id.clone(),
+            error,
+        })?;
+        block_ptr_per_chain.insert(chain_id, block_ptr);
+    }
+
+    assert!(block_ptr_per_chain.len() == chains.len());
+
+    Ok(block_ptr_per_chain)
 }
 
 /// Scans a block range for relevant transactions.

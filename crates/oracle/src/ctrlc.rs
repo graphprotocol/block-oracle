@@ -38,3 +38,20 @@ impl CtrlcHandler {
         self.ctrlc_received.load(Self::ORDERING)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn init_twice_is_okay() {
+        CtrlcHandler::init();
+        CtrlcHandler::init();
+    }
+
+    #[test]
+    fn poll_ctrlc_returns_false_if_not_pressed() {
+        let ctrlc_handler = CtrlcHandler::init();
+        assert!(!ctrlc_handler.poll_ctrlc());
+    }
+}
