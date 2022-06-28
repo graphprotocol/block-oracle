@@ -16,10 +16,6 @@ use web3::types::U64;
 pub enum EventSourceError {
     #[error("Failed to poll chain for its latest block")]
     GetLatestBlocksForChain(#[source] web3::Error, Caip2ChainId),
-    #[error("Received a JSON RPC result twice for the same chain")]
-    DuplicateChainResult(Caip2ChainId),
-    #[error("Missed block pointers for a subset of indexed chains")]
-    MissingChains(Vec<Caip2ChainId>),
 }
 
 impl crate::MainLoopFlow for EventSourceError {
@@ -29,15 +25,6 @@ impl crate::MainLoopFlow for EventSourceError {
         match self {
             error @ GetLatestBlocksForChain(cause, chain) => {
                 error!(%cause, %chain, "{error}");
-                Continue(None)
-            }
-            error @ DuplicateChainResult(duplicated_chain) => {
-                error!(%duplicated_chain, "{error}");
-                Continue(None)
-            }
-            error @ MissingChains(missing_chains) => {
-                let missing_chains = crate::error_handling::format_slice(&missing_chains);
-                error!(%missing_chains, "{error}");
                 Continue(None)
             }
         }
