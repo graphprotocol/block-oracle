@@ -11,7 +11,6 @@ mod models;
 mod networks_diff;
 mod protocol_chain;
 mod subgraph;
-mod subgraph_state;
 
 use crate::{ctrlc::CtrlcHandler, emitter::EmitterError};
 use ee::CURRENT_ENCODING_VERSION;
@@ -36,8 +35,7 @@ pub use epoch_tracker::EpochTracker;
 pub use error_handling::{MainLoopFlow, OracleControlFlow};
 pub use metrics::Metrics;
 pub use networks_diff::NetworksDiff;
-pub use subgraph::SubgraphQuery;
-pub use subgraph_state::{SubgraphApi, SubgraphStateError, SubgraphStateTracker};
+pub use subgraph::{SubgraphApi, SubgraphQuery, SubgraphStateError, SubgraphStateTracker};
 
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
@@ -117,8 +115,8 @@ impl Oracle {
         let emitter = Emitter::new(config);
         let epoch_tracker = EpochTracker::new(config);
         let subgraph_state = {
-            let subgraph_query = SubgraphQuery::new(config.subgraph_url.clone());
-            SubgraphStateTracker::new(subgraph_query)
+            let api = SubgraphQuery::new(config.subgraph_url.clone());
+            SubgraphStateTracker::new(api)
         };
 
         Self {
@@ -168,32 +166,11 @@ impl Oracle {
             .expect("expected data from a valid subgraph state, but found none")
             .networks;
         for network in subgraph_networks {
-            let chain_id: Caip2ChainId = network.id.parse().expect("expected a valid CAIP2 name");
-            // Each network has an array of block numbers and epochs, but we are only interested on
-            // the most recent ones.
-            let (block_number, delta): (u64, i64) = {
-                let latest = &network
-                    .block_numbers
-                    .iter()
-                    .max_by_key(|block_number| &block_number.epoch.epoch_number)
-                    .expect(&format!(
-                        "expected at least one block number for network '{chain_id}', but found none"
-                    ));
-                let block_number: u64 = latest.block_number.parse().expect(&format!(
-                    "expected a number, got '{}' instead",
-                    latest.block_number
-                ));
-                let delta: i64 = latest.block_number.parse().expect(&format!(
-                    "expected a number, got '{}' instead",
-                    latest.delta
-                ));
-                (block_number, delta)
-            };
             networks.insert(
-                chain_id.clone(),
+                network.id.clone(),
                 epoch_encoding::Network {
-                    block_number,
-                    block_delta: delta,
+                    block_number: network.latest_block_number,
+                    block_delta: network.delta,
                 },
             );
         }
