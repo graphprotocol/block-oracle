@@ -1,5 +1,4 @@
 use crate::models::Caip2ChainId;
-use crate::MainLoopFlow;
 use anyhow::ensure;
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
@@ -69,32 +68,6 @@ pub enum SubgraphQueryError {
     BadData(anyhow::Error),
     #[error("Unknown error: {0}")]
     Other(anyhow::Error),
-}
-
-/// Exposes the current [`SubgraphStateTracker`]'s internal error.
-#[derive(Debug, thiserror::Error)]
-pub enum SubgraphStateError {
-    #[error("Failed to retrieve latest subgraph state")]
-    Failed(#[source] Arc<anyhow::Error>),
-    #[error("Subgraph failed to initialize")]
-    Uninitialized(#[source] Arc<anyhow::Error>),
-}
-
-impl MainLoopFlow for SubgraphStateError {
-    fn instruction(&self) -> crate::OracleControlFlow {
-        use std::ops::ControlFlow::*;
-        use SubgraphStateError::*;
-        match self {
-            outer_error @ Failed(error) => {
-                error!(%error, "{outer_error}");
-                Continue(None)
-            }
-            outer_error @ Uninitialized(error) => {
-                error!(%error, "{outer_error}");
-                Continue(None)
-            }
-        }
-    }
 }
 
 async fn query(url: Url) -> reqwest::Result<Response<graphql::subgraph_state::ResponseData>> {
@@ -169,14 +142,6 @@ where
                 }
                 self.error = Some(Arc::new(err.into()));
             }
-        }
-    }
-
-    pub(crate) fn error_for_state(&self) -> Result<(), SubgraphStateError> {
-        match (&self.last_state, &self.error) {
-            (_, None) => Ok(()),
-            (None, Some(e)) => Err(SubgraphStateError::Uninitialized(e.clone())),
-            (Some(_), Some(e)) => Err(SubgraphStateError::Failed(e.clone())),
         }
     }
 }

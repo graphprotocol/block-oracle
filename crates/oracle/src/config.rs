@@ -70,9 +70,7 @@ impl Config {
             contract_address: config_file.contract_address.parse().unwrap(),
             subgraph_url: clap.subgraph_url,
             epoch_duration: config_file.epoch_duration,
-            retry_strategy_max_wait_time: Duration::from_secs(
-                config_file.web3_transport_retry_max_wait_time_in_seconds,
-            ),
+            retry_strategy_max_wait_time,
             indexed_chains: config_file
                 .indexed_chains
                 .into_iter()
