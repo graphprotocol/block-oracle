@@ -1,16 +1,12 @@
-use backoff::future::retry;
-use backoff::{ExponentialBackoff, ExponentialBackoffBuilder};
+use backoff::{future::retry, ExponentialBackoff, ExponentialBackoffBuilder};
 use epoch_encoding::BlockPtr;
-use futures::future::try_join_all;
-use futures::TryFutureExt;
+use futures::{future::try_join_all, TryFutureExt};
 use jsonrpc_core::{Call, Value};
-use std::time::Duration;
-use std::{future::Future, pin::Pin};
+use std::{future::Future, pin::Pin, time::Duration};
 use tracing::{error, trace};
 use url::Url;
 use web3::types::{Transaction, H160, H256, U64};
-use web3::{transports::Http, RequestId};
-use web3::{Transport, Web3};
+use web3::{transports::Http, RequestId, Transport, Web3};
 
 /// A wrapper around [`web3::Transport`] that retries JSON-RPC calls on failure.
 #[derive(Debug, Clone)]
