@@ -1,6 +1,8 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+/// Gracefully handles interrupts and returns `true` from [`CtrlcHandler::poll_ctrlc`] if CTRL+C
+/// was detected.
 pub struct CtrlcHandler {
     ctrlc_received: Arc<AtomicBool>,
 }
