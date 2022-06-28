@@ -1,5 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tracing::{error, warn};
 
 /// Gracefully handles interrupts and returns `true` from [`CtrlcHandler::poll_ctrlc`] if CTRL+C
 /// was detected.
@@ -16,15 +17,18 @@ impl CtrlcHandler {
         ctrlc::set_handler(move || {
             let pressed_already = ctrlc_clone.load(Self::ORDERING);
             if pressed_already {
+                error!(
+                    "CTRL+C was pressed a second time. Exiting immediately."
+                );
                 std::process::exit(0);
             } else {
-                println!(
-                "\nCTRL-C detected. Stopping... please wait. Press CTRL-C to exit immediately.\n"
-            );
+                warn!(
+                    "CTRL+C detected. Stopping... please wait. Press CTRL+C again to exit immediately."
+                );
                 ctrlc_clone.store(true, Self::ORDERING);
             }
         })
-        .expect("Error setting CTRL-C handler.");
+        .expect("Error setting the CTRL+C handler.");
         Self {
             ctrlc_received: ctrlc,
         }

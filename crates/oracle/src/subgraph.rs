@@ -5,7 +5,7 @@ use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Url;
 use std::sync::Arc;
-use tracing::{debug, error};
+use tracing::{error, info};
 
 pub struct SubgraphQuery {
     url: Url,
@@ -119,7 +119,7 @@ where
         self.error.is_some() && self.last_state.is_some()
     }
 
-    pub fn data(&self) -> Option<&A::State> {
+    pub fn last_state(&self) -> Option<&A::State> {
         self.last_state.as_ref()
     }
 
@@ -129,7 +129,7 @@ where
 
     /// Handles the retrieval of new subgraph state and the transition of its internal [`State`]
     pub async fn refresh(&mut self) {
-        debug!("Fetching latest subgraph state");
+        info!("Fetching latest subgraph state");
 
         match self.subgraph_api.get_subgraph_state().await {
             Ok(s) => {
@@ -313,7 +313,7 @@ mod tests {
         let mut state_tracker = SubgraphStateTracker::new(api);
 
         // An initial state should be uninitialized, with no errors
-        assert!(state_tracker.data().is_none());
+        assert!(state_tracker.last_state().is_none());
         assert!(state_tracker.error().is_none());
         assert!(!state_tracker.is_valid());
         assert!(state_tracker.is_uninitialized());
@@ -321,7 +321,7 @@ mod tests {
         // Initialization can fail, and the state will still be uninitialized.
         state_tracker.subgraph_api.toggle_errors(true);
         state_tracker.refresh().await;
-        assert!(state_tracker.data().is_none());
+        assert!(state_tracker.last_state().is_none());
         assert!(state_tracker.error().is_some());
         assert!(!state_tracker.is_valid());
         assert!(state_tracker.is_uninitialized());
@@ -330,7 +330,7 @@ mod tests {
         // Uninitialized state. All previous errors will be removed.
         state_tracker.subgraph_api.toggle_errors(false);
         state_tracker.refresh().await;
-        assert!(state_tracker.data().is_none());
+        assert!(state_tracker.last_state().is_none());
         assert!(state_tracker.error().is_none());
         assert!(!state_tracker.is_valid());
         assert!(state_tracker.is_uninitialized());
@@ -338,42 +338,42 @@ mod tests {
         // Once the subgraph has valid data, the state tracker can yield it.
         state_tracker.subgraph_api.toggle_data(true);
         state_tracker.refresh().await;
-        assert!(state_tracker.data().is_some());
+        assert!(state_tracker.last_state().is_some());
         assert!(state_tracker.error().is_none());
         assert!(state_tracker.is_valid());
-        assert_eq!(state_tracker.data().unwrap().counter, 1);
+        assert_eq!(state_tracker.last_state().unwrap().counter, 1);
 
         // On failure, we retain the last valid data, but state is considered invalid.
         state_tracker.subgraph_api.toggle_errors(true);
         state_tracker.refresh().await;
-        assert!(state_tracker.data().is_some());
+        assert!(state_tracker.last_state().is_some());
         assert!(state_tracker.error().is_some());
         assert!(!state_tracker.is_valid());
         assert!(state_tracker.is_failed());
-        assert_eq!(state_tracker.data().unwrap().counter, 1);
+        assert_eq!(state_tracker.last_state().unwrap().counter, 1);
         assert_eq!(state_tracker.error().unwrap().to_string(), "oops");
 
         // We can fail again, keeping the same data as before.
         // Errors might be different from previous failed states.
         state_tracker.subgraph_api.set_error("oh no");
         state_tracker.refresh().await;
-        assert!(state_tracker.data().is_some());
+        assert!(state_tracker.last_state().is_some());
         assert!(!state_tracker.is_valid());
         assert!(state_tracker.is_failed());
-        assert_eq!(state_tracker.data().unwrap().counter, 1);
+        assert_eq!(state_tracker.last_state().unwrap().counter, 1);
         assert_eq!(state_tracker.error().unwrap().to_string(), "oh no");
 
         // We then recover from failure, becoming valid again and presenting new data.
         state_tracker.subgraph_api.toggle_errors(false);
         state_tracker.refresh().await;
-        assert!(state_tracker.data().is_some());
+        assert!(state_tracker.last_state().is_some());
         assert!(state_tracker.is_valid());
-        assert_eq!(state_tracker.data().unwrap().counter, 2);
+        assert_eq!(state_tracker.last_state().unwrap().counter, 2);
 
         // We can successfull valid states.
         state_tracker.refresh().await;
-        assert!(state_tracker.data().is_some());
+        assert!(state_tracker.last_state().is_some());
         assert!(state_tracker.is_valid());
-        assert_eq!(state_tracker.data().unwrap().counter, 3);
+        assert_eq!(state_tracker.last_state().unwrap().counter, 3);
     }
 }

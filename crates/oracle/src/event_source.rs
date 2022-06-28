@@ -8,7 +8,6 @@ use futures::{
 use std::collections::HashMap;
 use thiserror::Error;
 use tracing::error;
-use web3::types::U64;
 
 #[derive(Error, Debug)]
 pub enum EventSourceError {
@@ -85,9 +84,9 @@ impl EventSource {
     }
 
     /// Pools the latest block from the protocol chain.
-    pub async fn get_latest_protocol_chain_block(&self) -> Result<U64, EventSourceError> {
+    pub async fn get_latest_protocol_chain_block(&self) -> Result<BlockPtr, EventSourceError> {
         match get_latest_block(self.protocol_chain.web3.clone()).await {
-            Ok(block) => Ok(block.number.into()),
+            Ok(block) => Ok(block),
             Err(e) => Err(EventSourceError::GetLatestBlocksForChain(
                 e,
                 self.protocol_chain.chain_id.clone(),

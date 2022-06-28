@@ -39,31 +39,46 @@ impl Oracle {
 
     pub async fn run(&mut self) -> Result<(), Error> {
         self.subgraph_state.refresh().await;
-        if self.subgraph_state.is_uninitialized() {
+        if self.subgraph_state.last_state().is_none() {
             return Ok(());
         }
 
-        let block_number = self.event_source.get_latest_protocol_chain_block().await?;
+        let block = self.event_source.get_latest_protocol_chain_block().await?;
         debug!(
-            block = %block_number,
-            "Received latest block information from the protocol chain."
+            block = block.number,
+            hash = hex::encode(block.hash).as_str(),
+            "Got the latest block from the protocol chain."
         );
 
-        let is_new_epoch = self
-            .epoch_tracker
-            .is_new_epoch(block_number.as_u64())
-            .await?;
-
-        if is_new_epoch {
-            self.handle_new_epoch().await?;
+        let is_new_epoch = self.epoch_tracker.is_new_epoch(block.number).await?;
+        if !is_new_epoch {
+            return Ok(());
         }
+
+        // Get indexed chains' latest blocks.
+        let latest_blocks = self.event_source.get_latest_blocks().await?;
+        let payload = self.produce_next_payload(latest_blocks)?;
+        submit_call(
+            self.config,
+            self.event_source.protocol_chain.clone(),
+            payload,
+        )
+        .await
+        .map_err(Error::CantSubmitTx)?;
+
+        // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
+        // receipt, we should monitor it until it get enough confirmations. It's unclear which
+        // component should do this task.
 
         Ok(())
     }
 
-    async fn handle_new_epoch(&mut self) -> Result<(), Error> {
+    fn produce_next_payload(
+        &self,
+        latest_blocks: HashMap<Caip2ChainId, BlockPtr>,
+    ) -> Result<Vec<u8>, Error> {
         info!("A new epoch started in the protocol chain");
-        let registered_networks = self.registered_networks().await?;
+        let registered_networks = self.registered_networks()?;
 
         let mut messages = vec![];
 
@@ -92,8 +107,6 @@ impl Oracle {
             messages.push(msg);
         }
 
-        // Get indexed chains' latest blocks.
-        let latest_blocks = self.event_source.get_latest_blocks().await?;
         messages.push(latest_blocks_to_message(latest_blocks));
 
         let available_networks: Vec<(String, epoch_encoding::Network)> = {
@@ -129,25 +142,10 @@ impl Oracle {
             .encode(&messages[..])
             .expect(format!("Encoding failed: {:?}", messages).as_str());
         debug!(encoded = ?encoded, "Successfully encoded message(s).");
-
-        submit_call(
-            self.config,
-            self.event_source.protocol_chain.clone(),
-            encoded,
-        )
-        .await
-        .map_err(Error::CantSubmitTx)?;
-
-        // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
-        // receipt, we should monitor it until it get enough confirmations. It's unclear which
-        // component should do this task.
-
-        Ok(())
+        Ok(encoded)
     }
 
-    async fn registered_networks(
-        &self,
-    ) -> Result<HashMap<Caip2ChainId, epoch_encoding::Network>, Error> {
+    fn registered_networks(&self) -> Result<HashMap<Caip2ChainId, epoch_encoding::Network>, Error> {
         if self.subgraph_state.is_failed() {
             todo!("Handle this as an error")
         }
@@ -156,10 +154,10 @@ impl Oracle {
             return Ok(Default::default());
         };
         let mut networks = HashMap::new();
-        info!("subgraph data is {:?}", self.subgraph_state.data());
+        info!("subgraph data is {:?}", self.subgraph_state.last_state());
         let subgraph_networks = &self
             .subgraph_state
-            .data()
+            .last_state()
             .expect("expected data from a valid subgraph state, but found none")
             .networks;
         for network in subgraph_networks {

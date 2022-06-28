@@ -24,7 +24,7 @@ pub use subgraph::{SubgraphApi, SubgraphQuery, SubgraphStateTracker};
 
 use lazy_static::lazy_static;
 use std::env::set_var;
-use tracing::{info, metadata::LevelFilter};
+use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 lazy_static! {
@@ -63,23 +63,44 @@ async fn main() -> Result<(), Error> {
     let _ = &*CTRLC_HANDLER;
 
     init_logging(CONFIG.log_level);
-    info!(log_level = %CONFIG.log_level, "Block oracle starting up.");
+    info!(log_level = %CONFIG.log_level, "The block oracle is starting.");
 
     let mut oracle = Oracle::new(&*CONFIG);
+    info!("Entering the main polling loop. Press CTRL+C to stop.");
 
     while !CTRLC_HANDLER.poll_ctrlc() {
-        match oracle.run().await.map_err(|e| e.instruction()) {
-            Ok(()) | Err(OracleControlFlow::Continue(None)) => {}
-            Err(OracleControlFlow::Break(())) => break,
-            Err(OracleControlFlow::Continue(wait)) => {
-                tokio::time::sleep(wait.unwrap_or_default()).await
-            }
+        if let Err(err) = oracle.run().await {
+            handle_error(err).await?;
         }
 
+        info!(
+            seconds = CONFIG.protocol_chain.polling_interval.as_secs(),
+            "Going to sleep before polling for the next epoch."
+        );
+        // After every polling iteration, we go to sleep for a bit. Wouldn't
+        // want to DDoS our data providers, wouldn't we?
         tokio::time::sleep(CONFIG.protocol_chain.polling_interval).await;
     }
 
     Ok(())
+}
+
+async fn handle_error(err: Error) -> Result<(), Error> {
+    error!("An error occurred: {}.", err);
+    match err.instruction() {
+        OracleControlFlow::Break(()) => {
+            error!("This error is non-recoverable. Exiting now.");
+            return Err(err);
+        }
+        OracleControlFlow::Continue(wait) => {
+            error!(
+                cooling_off_seconds = wait.unwrap_or_default().as_secs(),
+                "This error is recoverable.",
+            );
+            tokio::time::sleep(wait.unwrap_or_default()).await;
+            Ok(())
+        }
+    }
 }
 
 fn init_logging(log_level: LevelFilter) {
