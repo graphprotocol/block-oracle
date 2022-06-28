@@ -23,12 +23,6 @@ pub enum ConfigError {
     Toml(#[from] toml::de::Error),
 }
 
-const DEFAULT_EPOCH_DURATION: u64 = 6_646;
-const DEFAULT_PROTOCOL_CHAIN_POLLING_INTERVAL_IN_SECONDS: u64 = 120;
-const DEFAULT_WEB3_TRANSPORT_RETRY_MAX_WAIT_TIME_IN_SECONDS: u64 = 60;
-const DEFAULT_TRANSACTION_CONFIRMATION_POLL_INTERVAL_IN_SECONDS: u64 = 5;
-const DEFAULT_TRANSACTION_CONFIRMATION_COUNT: usize = 0;
-
 pub struct Config {
     pub log_level: LevelFilter,
     pub owner_address: H160,
@@ -105,15 +99,15 @@ struct ConfigFile {
     contract_address: String,
     indexed_chains: HashMap<Caip2ChainId, Url>,
     protocol_chain: SerdeProtocolChain,
-    #[serde(default = "ConfigFile::default_epoch_duration")]
+    #[serde(default = "serde_defaults::epoch_duration")]
     epoch_duration: u64,
-    #[serde(default = "ConfigFile::default_protocol_chain_polling_interval_in_seconds")]
+    #[serde(default = "serde_defaults::protocol_chain_polling_interval_in_seconds")]
     protocol_chain_polling_interval_in_seconds: u64,
-    #[serde(default = "ConfigFile::default_web3_transport_retry_max_wait_time_in_seconds")]
+    #[serde(default = "serde_defaults::web3_transport_retry_max_wait_time_in_seconds")]
     web3_transport_retry_max_wait_time_in_seconds: u64,
-    #[serde(default = "ConfigFile::default_transaction_confirmation_poll_interval_in_seconds")]
+    #[serde(default = "serde_defaults::transaction_confirmation_poll_interval_in_seconds")]
     transaction_confirmation_poll_interval_in_seconds: u64,
-    #[serde(default = "ConfigFile::default_transaction_confirmation_count")]
+    #[serde(default = "serde_defaults::transaction_confirmation_count")]
     transaction_confirmation_count: usize,
 }
 
@@ -123,25 +117,29 @@ impl ConfigFile {
         let string = read_to_string(file_path)?;
         toml::from_str(&string).map_err(ConfigError::Toml)
     }
+}
 
-    fn default_epoch_duration() -> u64 {
-        DEFAULT_EPOCH_DURATION
+/// These should be expressed as constants once
+/// https://github.com/serde-rs/serde/issues/368 is fixed.
+mod serde_defaults {
+    pub fn epoch_duration() -> u64 {
+        6_646
     }
 
-    fn default_protocol_chain_polling_interval_in_seconds() -> u64 {
-        DEFAULT_PROTOCOL_CHAIN_POLLING_INTERVAL_IN_SECONDS
+    pub fn protocol_chain_polling_interval_in_seconds() -> u64 {
+        120
     }
 
-    fn default_web3_transport_retry_max_wait_time_in_seconds() -> u64 {
-        DEFAULT_WEB3_TRANSPORT_RETRY_MAX_WAIT_TIME_IN_SECONDS
+    pub fn web3_transport_retry_max_wait_time_in_seconds() -> u64 {
+        60
     }
 
-    fn default_transaction_confirmation_poll_interval_in_seconds() -> u64 {
-        DEFAULT_TRANSACTION_CONFIRMATION_POLL_INTERVAL_IN_SECONDS
+    pub fn transaction_confirmation_poll_interval_in_seconds() -> u64 {
+        5
     }
 
-    fn default_transaction_confirmation_count() -> usize {
-        DEFAULT_TRANSACTION_CONFIRMATION_COUNT
+    pub fn transaction_confirmation_count() -> usize {
+        0
     }
 }
 
