@@ -1,13 +1,13 @@
-use crate::indexed_chain::IndexedChain;
+use crate::jsonrpc_utils::{get_latest_block, JrpcExpBackoff};
+use crate::models::Caip2ChainId;
+use crate::models::JrpcProviderForChain;
 use crate::Config;
-use crate::{models::Caip2ChainId, protocol_chain::ProtocolChain};
 use epoch_encoding::BlockPtr;
 use futures::{
     stream::{FuturesUnordered, StreamExt},
     FutureExt,
 };
-use std::collections::HashSet;
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::HashMap;
 use thiserror::Error;
 use tracing::error;
 use web3::types::U64;
@@ -48,80 +48,65 @@ impl crate::MainLoopFlow for EventSourceError {
 /// number of confirmations for transactions sent to the DataEdge contract.
 #[derive(Debug, Clone)]
 pub struct EventSource {
-    protocol_chain: ProtocolChain,
-    indexed_chains: Vec<IndexedChain>,
+    pub protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
+    pub indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
 }
 
 impl EventSource {
     pub fn new(config: &Config) -> Self {
+        let backoff_max = config.retry_strategy_max_wait_time;
+        let protocol_chain = {
+            let transport =
+                JrpcExpBackoff::http(config.protocol_chain.jrpc_url.clone(), backoff_max);
+            JrpcProviderForChain::new(config.protocol_chain.id.clone(), transport)
+        };
+        let indexed_chains = config
+            .indexed_chains
+            .iter()
+            .map(|chain| {
+                let transport = JrpcExpBackoff::http(chain.jrpc_url.clone(), backoff_max);
+                JrpcProviderForChain::new(chain.id.clone(), transport)
+            })
+            .collect();
+
         Self {
-            protocol_chain: config.protocol_chain.clone(),
-            indexed_chains: config.indexed_chains.clone(),
+            protocol_chain,
+            indexed_chains,
         }
     }
 
     pub async fn get_latest_blocks(
         &self,
-    ) -> Result<HashMap<&Caip2ChainId, BlockPtr>, EventSourceError> {
-        let mut block_ptr_per_chain: HashMap<&Caip2ChainId, BlockPtr> = HashMap::new();
-
+    ) -> Result<HashMap<Caip2ChainId, BlockPtr>, EventSourceError> {
+        let mut block_ptr_per_chain: HashMap<Caip2ChainId, BlockPtr> = HashMap::new();
         let mut tasks = self
             .indexed_chains
             .iter()
-            .map(|indexed_chain| {
-                indexed_chain
-                    .get_latest_block()
-                    .map(|block| (indexed_chain.id(), block))
-            })
+            .cloned()
+            .map(|chain| get_latest_block(chain.web3).map(|block| (chain.chain_id, block)))
             .collect::<FuturesUnordered<_>>();
 
         while let Some((chain_id, jrpc_call_result)) = tasks.next().await {
-            match jrpc_call_result {
-                Ok(block_ptr) => {
-                    match block_ptr_per_chain.entry(chain_id) {
-                        Entry::Occupied(_) => {
-                            return Err(EventSourceError::DuplicateChainResult(chain_id.clone()))
-                        }
-                        Entry::Vacant(slot) => slot.insert(block_ptr),
-                    };
-                }
-                Err(json_rpc_error) => {
-                    return Err(EventSourceError::GetLatestBlocksForChain(
-                        json_rpc_error,
-                        chain_id.clone(),
-                    ))
-                }
-            }
+            assert!(!block_ptr_per_chain.contains_key(&chain_id));
+
+            let block_ptr = jrpc_call_result
+                .map_err(|err| EventSourceError::GetLatestBlocksForChain(err, chain_id.clone()))?;
+            block_ptr_per_chain.insert(chain_id, block_ptr);
         }
-        // check if we missed any chain
-        if block_ptr_per_chain.len() != self.indexed_chains.len() {
-            let missing = {
-                let current: HashSet<&Caip2ChainId> = block_ptr_per_chain.keys().cloned().collect();
-                let expected: HashSet<&Caip2ChainId> =
-                    self.indexed_chains.iter().map(|chain| chain.id()).collect();
-                current
-                    .intersection(&expected)
-                    .map(|&x| x.clone())
-                    .collect::<Vec<_>>()
-            };
-            return Err(EventSourceError::MissingChains(missing));
-        }
+
+        assert!(block_ptr_per_chain.len() == self.indexed_chains.len());
 
         Ok(block_ptr_per_chain)
     }
 
     /// Pools the latest block from the protocol chain.
     pub async fn get_latest_protocol_chain_block(&self) -> Result<U64, EventSourceError> {
-        let block_number =
-            self.protocol_chain
-                .get_latest_block()
-                .await
-                .map_err(|json_rpc_error| {
-                    EventSourceError::GetLatestBlocksForChain(
-                        json_rpc_error,
-                        self.protocol_chain.id().clone(),
-                    )
-                })?;
-        Ok(block_number)
+        match get_latest_block(self.protocol_chain.web3.clone()).await {
+            Ok(block) => Ok(block.number.into()),
+            Err(e) => Err(EventSourceError::GetLatestBlocksForChain(
+                e,
+                self.protocol_chain.chain_id.clone(),
+            )),
+        }
     }
 }

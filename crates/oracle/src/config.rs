@@ -1,4 +1,4 @@
-use crate::{indexed_chain::IndexedChain, models::Caip2ChainId, protocol_chain::ProtocolChain};
+use crate::models::Caip2ChainId;
 use clap::Parser;
 use secp256k1::SecretKey;
 use serde::Deserialize;
@@ -22,6 +22,7 @@ pub enum ConfigError {
     Toml(#[from] toml::de::Error),
 }
 
+#[derive(Clone, Debug)]
 pub struct Config {
     pub log_level: LevelFilter,
     pub owner_address: H160,
@@ -29,9 +30,22 @@ pub struct Config {
     pub contract_address: H160,
     pub subgraph_url: Url,
     pub epoch_duration: u64,
-    pub protocol_chain_polling_interval: Duration,
     pub indexed_chains: Vec<IndexedChain>,
     pub protocol_chain: ProtocolChain,
+    pub retry_strategy_max_wait_time: Duration,
+}
+
+#[derive(Clone, Debug)]
+pub struct IndexedChain {
+    pub id: Caip2ChainId,
+    pub jrpc_url: Url,
+}
+
+#[derive(Clone, Debug)]
+pub struct ProtocolChain {
+    pub id: Caip2ChainId,
+    pub jrpc_url: Url,
+    pub polling_interval: Duration,
 }
 
 impl Config {
@@ -56,21 +70,24 @@ impl Config {
             contract_address: config_file.contract_address.parse().unwrap(),
             subgraph_url: clap.subgraph_url,
             epoch_duration: config_file.epoch_duration,
-            protocol_chain_polling_interval: Duration::from_secs(
-                config_file.protocol_chain_polling_interval_in_seconds,
+            retry_strategy_max_wait_time: Duration::from_secs(
+                config_file.web3_transport_retry_max_wait_time_in_seconds,
             ),
             indexed_chains: config_file
                 .indexed_chains
                 .into_iter()
-                .map(|(chain_id, url)| {
-                    IndexedChain::new(chain_id, url, retry_strategy_max_wait_time)
+                .map(|(chain_id, url)| IndexedChain {
+                    id: chain_id,
+                    jrpc_url: url,
                 })
                 .collect(),
-            protocol_chain: ProtocolChain::new(
-                config_file.protocol_chain.name,
-                config_file.protocol_chain.jrpc,
-                retry_strategy_max_wait_time,
-            ),
+            protocol_chain: ProtocolChain {
+                id: config_file.protocol_chain.name,
+                jrpc_url: config_file.protocol_chain.jrpc,
+                polling_interval: Duration::from_secs(
+                    config_file.protocol_chain_polling_interval_in_seconds,
+                ),
+            },
         }
     }
 }
@@ -95,7 +112,7 @@ struct Clap {
 }
 
 /// Represents the TOML config file
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 struct ConfigFile {
     owner_address: String,

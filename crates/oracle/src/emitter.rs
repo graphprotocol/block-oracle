@@ -1,4 +1,4 @@
-use crate::{config::Config, jsonrpc_utils::JsonRpcExponentialBackoff};
+use crate::{config::Config, models::JrpcProviderForChain};
 use secp256k1::SecretKey;
 use thiserror::Error;
 use tracing::{error, info};
@@ -30,24 +30,29 @@ impl crate::MainLoopFlow for EmitterError {
 
 /// Responsible for receiving the encoded payload, constructing and signing the
 /// transactions to Ethereum Mainnet.
-pub struct Emitter {
+pub struct Emitter<T>
+where
+    T: web3::Transport,
+{
+    contract: Contract<T>,
     owner_private_key: SecretKey,
-    contract: Contract<JsonRpcExponentialBackoff>,
 }
 
-impl<'a> Emitter {
-    pub fn new(config: &'a Config) -> Self {
-        let contract = {
-            Contract::from_json(
-                config.protocol_chain.eth(),
-                config.contract_address,
-                include_bytes!("abi/data_edge.json"),
-            )
-            .expect("failed to initialize the DataEdge interface")
-        };
+impl<T> Emitter<T>
+where
+    T: web3::Transport,
+{
+    pub fn new(config: &Config, chain: JrpcProviderForChain<T>) -> Self {
+        let contract = Contract::from_json(
+            chain.web3.eth(),
+            config.contract_address,
+            include_bytes!("abi/data_edge.json"),
+        )
+        .expect("Can't read the ABI JSON file");
+
         Self {
-            owner_private_key: config.owner_private_key,
             contract,
+            owner_private_key: config.owner_private_key,
         }
     }
 

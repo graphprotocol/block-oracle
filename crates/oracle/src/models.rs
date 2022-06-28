@@ -1,7 +1,29 @@
 use serde_with::DeserializeFromStr;
 use std::{fmt::Display, str::FromStr};
+use web3::Web3;
 
 pub type Id = u32;
+
+#[derive(Clone, Debug)]
+pub struct JrpcProviderForChain<T>
+where
+    T: web3::Transport,
+{
+    pub chain_id: Caip2ChainId,
+    pub web3: Web3<T>,
+}
+
+impl<T> JrpcProviderForChain<T>
+where
+    T: web3::Transport,
+{
+    pub fn new(chain_id: Caip2ChainId, transport: T) -> Self {
+        Self {
+            chain_id,
+            web3: Web3::new(transport),
+        }
+    }
+}
 
 /// See https://github.com/ChainAgnostic/CAIPs/blob/master/CAIPs/caip-2.md.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, DeserializeFromStr)]

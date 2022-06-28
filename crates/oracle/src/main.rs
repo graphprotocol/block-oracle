@@ -4,12 +4,10 @@ mod emitter;
 mod epoch_tracker;
 mod error_handling;
 mod event_source;
-mod indexed_chain;
 mod jsonrpc_utils;
 mod metrics;
 mod models;
 mod networks_diff;
-mod protocol_chain;
 mod subgraph;
 
 use crate::{ctrlc::CtrlcHandler, emitter::EmitterError};
@@ -17,6 +15,7 @@ use ee::CURRENT_ENCODING_VERSION;
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message};
 use epoch_tracker::EpochTrackerError;
 use event_source::{EventSource, EventSourceError};
+use jsonrpc_utils::JrpcExpBackoff;
 use lazy_static::lazy_static;
 use models::Caip2ChainId;
 use std::collections::{HashMap, HashSet};
@@ -95,7 +94,7 @@ async fn main() -> Result<(), Error> {
                 }
             }
         };
-        tokio::time::sleep(CONFIG.protocol_chain_polling_interval).await;
+        tokio::time::sleep(CONFIG.protocol_chain.polling_interval).await;
     }
 
     Ok(())
@@ -103,7 +102,7 @@ async fn main() -> Result<(), Error> {
 
 /// The main application in-memory state
 struct Oracle {
-    emitter: Emitter,
+    emitter: Emitter<JrpcExpBackoff>,
     epoch_tracker: EpochTracker,
     event_source: EventSource,
     subgraph_state: SubgraphStateTracker<SubgraphQuery>,
@@ -112,7 +111,7 @@ struct Oracle {
 impl Oracle {
     pub fn new(config: &Config) -> Self {
         let event_source = EventSource::new(config);
-        let emitter = Emitter::new(config);
+        let emitter = Emitter::new(config, event_source.protocol_chain.clone());
         let epoch_tracker = EpochTracker::new(config);
         let subgraph_state = {
             let api = SubgraphQuery::new(config.subgraph_url.clone());
@@ -217,7 +216,7 @@ impl Oracle {
             let config_chain_ids: HashSet<&Caip2ChainId> = CONFIG
                 .indexed_chains
                 .iter()
-                .map(|chain| chain.id())
+                .map(|chain| &chain.id)
                 .collect();
             registered_networks
                 .into_iter()
@@ -267,11 +266,11 @@ impl Oracle {
     }
 }
 
-fn latest_blocks_to_message(latest_blocks: HashMap<&Caip2ChainId, BlockPtr>) -> ee::Message {
+fn latest_blocks_to_message(latest_blocks: HashMap<Caip2ChainId, BlockPtr>) -> ee::Message {
     Message::SetBlockNumbersForNextEpoch(
         latest_blocks
-            .iter()
-            .map(|(chain_id, block_ptr)| (chain_id.as_str().to_owned(), *block_ptr))
+            .into_iter()
+            .map(|(chain_id, block_ptr)| (chain_id.as_str().to_owned(), block_ptr))
             .collect(),
     )
 }
@@ -313,7 +312,7 @@ pub fn hex_string(bytes: &[u8]) -> String {
     format!("0x{}", hex::encode(bytes))
 }
 mod freshness {
-    use crate::protocol_chain::ProtocolChain;
+    use crate::{jsonrpc_utils::calls_in_block_range, models::JrpcProviderForChain};
     use thiserror::Error;
     use tracing::{debug, error, trace};
     use web3::types::{H160, U64};
@@ -344,13 +343,16 @@ mod freshness {
     ///
     /// Otherwise, if block numbers are under a certain threshold apart, we could scan the blocks
     /// in between and ensure they’re not relevant to the DataEdge contract.
-    async fn subgaph_is_fresh(
+    async fn subgaph_is_fresh<T>(
         subgraph_latest_block: U64,
         current_block: U64,
-        protocol_chain: &ProtocolChain,
+        protocol_chain: JrpcProviderForChain<T>,
         owner_address: H160,
         contract_address: H160,
-    ) -> Result<bool, FreshnessCheckEror> {
+    ) -> Result<bool, FreshnessCheckEror>
+    where
+        T: web3::Transport,
+    {
         // If this ever happens, then there must be a serious bug in the code
         if subgraph_latest_block > current_block {
             let anomaly = FreshnessCheckEror::SubgraphBeyondChain;
@@ -371,14 +373,14 @@ mod freshness {
             return Ok(false);
         }
         // Scan the blocks in betwenn for transactions from the Owner to the Data Edge contract
-        let calls = protocol_chain
-            .calls_in_block_range(
-                subgraph_latest_block,
-                current_block,
-                owner_address,
-                contract_address,
-            )
-            .await?;
+        let calls = calls_in_block_range(
+            protocol_chain.web3,
+            subgraph_latest_block,
+            current_block,
+            owner_address,
+            contract_address,
+        )
+        .await?;
 
         if calls.is_empty() {
             trace!(
