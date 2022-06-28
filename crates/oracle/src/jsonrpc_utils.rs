@@ -2,7 +2,6 @@ use backoff::future::retry;
 use backoff::{ExponentialBackoff, ExponentialBackoffBuilder};
 use futures::TryFutureExt;
 use jsonrpc_core::{Call, Value};
-use std::sync::Arc;
 use std::time::Duration;
 use std::{future::Future, pin::Pin};
 use tracing::trace;
@@ -12,7 +11,7 @@ use web3::{transports::Http, RequestId};
 /// A wrapper around [`web3::Transport`] that retries JSON-RPC calls on failure.
 #[derive(Debug, Clone)]
 pub struct JsonRpcExponentialBackoff<T = Http> {
-    inner: Arc<T>,
+    inner: T,
     strategy: ExponentialBackoff,
 }
 
@@ -23,7 +22,7 @@ impl<T> JsonRpcExponentialBackoff<T> {
             .build();
 
         Self {
-            inner: Arc::new(transport),
+            inner: transport,
             strategy,
         }
     }
@@ -49,10 +48,11 @@ where
 
     fn send(&self, id: RequestId, request: Call) -> Self::Out {
         let strategy = self.strategy.clone();
-        let http = Arc::clone(&self.inner);
+        let transport = self.inner.clone();
         let op = move || {
             trace!(?id, ?request, "Sending JRPC call");
-            http.send(id, request.clone())
+            transport
+                .send(id, request.clone())
                 .map_err(backoff::Error::transient)
         };
         Box::pin(retry(strategy, op))
