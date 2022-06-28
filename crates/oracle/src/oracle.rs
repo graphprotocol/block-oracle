@@ -53,7 +53,7 @@ impl Oracle {
 
     pub async fn run(&mut self) -> Result<(), Error> {
         self.subgraph_state.refresh().await;
-        if self.subgraph_state.last_state().is_none() {
+        if self.subgraph_state.error().is_some() {
             return Ok(());
         }
 
@@ -71,6 +71,8 @@ impl Oracle {
             return Ok(());
         }
 
+        info!("Entering a new epoch.");
+        info!("Collecting latest block information from all indexed chains.");
         // Get indexed chains' latest blocks.
         let latest_blocks = get_latest_blocks(&self.indexed_chains).await?;
         let payload = self.produce_next_payload(latest_blocks)?;

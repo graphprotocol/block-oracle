@@ -18,7 +18,7 @@ pub use metrics::Metrics;
 pub use models::{Caip2ChainId, JrpcProviderForChain};
 pub use networks_diff::NetworksDiff;
 pub use oracle::Oracle;
-pub use subgraph::{SubgraphApi, SubgraphQuery, SubgraphStateTracker};
+pub use subgraph::{SubgraphApi, SubgraphQuery, SubgraphQueryError, SubgraphStateTracker};
 
 use lazy_static::lazy_static;
 use std::env::set_var;
@@ -41,6 +41,8 @@ pub enum Error {
         error: web3::Error,
     },
     #[error(transparent)]
+    Subgraph(#[from] SubgraphQueryError),
+    #[error(transparent)]
     EpochTracker(#[from] EpochTrackerError),
     #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
     CantSubmitTx(web3::Error),
@@ -50,6 +52,7 @@ impl MainLoopFlow for Error {
     fn instruction(&self) -> OracleControlFlow {
         use Error::*;
         match self {
+            Subgraph(_) => OracleControlFlow::Continue(None),
             BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
             BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
             EpochTracker(epoch_tracker) => epoch_tracker.instruction(),
