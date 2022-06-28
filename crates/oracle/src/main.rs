@@ -15,7 +15,7 @@ mod subgraph;
 mod subgraph_state;
 
 use crate::{ctrlc::CtrlcHandler, emitter::EmitterError};
-use diagnostics::init_logging;
+use diagnostics::{hex_string, init_logging};
 use ee::CURRENT_ENCODING_VERSION;
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message};
 use epoch_tracker::EpochTrackerError;
@@ -263,7 +263,10 @@ impl Oracle {
         let encoded = compression_engine
             .encode(&messages[..])
             .expect(format!("Encoding failed: {:?}", messages).as_str());
-        debug!(encoded = ?encoded, "Successfully encoded message(s).");
+        debug!(
+            encoded = %hex_string(&encoded),
+            "Successfully encoded message(s)."
+        );
 
         self.submit_oracle_messages(encoded).await?;
 
