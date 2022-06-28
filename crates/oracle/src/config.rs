@@ -35,6 +35,12 @@ pub struct Config {
 }
 
 impl Config {
+    /// Loads all configuration options from CLI arguments, the TOML
+    /// configuration file, and environment variables.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if any configuration value can't be read for any reason.
     pub fn parse() -> Self {
         let clap = Clap::parse();
         let config_file =
