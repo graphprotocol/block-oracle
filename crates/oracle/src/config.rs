@@ -7,7 +7,6 @@ use std::{
     fs::read_to_string,
     path::{Path, PathBuf},
     str::FromStr,
-    sync::Arc,
     time::Duration,
 };
 use thiserror::Error;
@@ -31,8 +30,8 @@ pub struct Config {
     pub subgraph_url: Url,
     pub epoch_duration: u64,
     pub protocol_chain_polling_interval: Duration,
-    pub indexed_chains: Arc<Vec<IndexedChain>>,
-    pub protocol_chain: Arc<ProtocolChain>,
+    pub indexed_chains: Vec<IndexedChain>,
+    pub protocol_chain: ProtocolChain,
 }
 
 impl Config {
@@ -54,20 +53,18 @@ impl Config {
             protocol_chain_polling_interval: Duration::from_secs(
                 config_file.protocol_chain_polling_interval_in_seconds,
             ),
-            indexed_chains: Arc::new(
-                config_file
-                    .indexed_chains
-                    .into_iter()
-                    .map(|(chain_id, url)| {
-                        IndexedChain::new(chain_id, url, retry_strategy_max_wait_time)
-                    })
-                    .collect(),
-            ),
-            protocol_chain: Arc::new(ProtocolChain::new(
+            indexed_chains: config_file
+                .indexed_chains
+                .into_iter()
+                .map(|(chain_id, url)| {
+                    IndexedChain::new(chain_id, url, retry_strategy_max_wait_time)
+                })
+                .collect(),
+            protocol_chain: ProtocolChain::new(
                 config_file.protocol_chain.name,
                 config_file.protocol_chain.jrpc,
                 retry_strategy_max_wait_time,
-            )),
+            ),
         }
     }
 }

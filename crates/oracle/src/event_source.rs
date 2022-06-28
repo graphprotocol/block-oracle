@@ -8,7 +8,6 @@ use futures::{
 };
 use std::collections::HashSet;
 use std::collections::{hash_map::Entry, HashMap};
-use std::sync::Arc;
 use thiserror::Error;
 use tracing::error;
 use web3::types::U64;
@@ -49,8 +48,8 @@ impl crate::MainLoopFlow for EventSourceError {
 /// number of confirmations for transactions sent to the DataEdge contract.
 #[derive(Debug, Clone)]
 pub struct EventSource {
-    protocol_chain: Arc<ProtocolChain>,
-    indexed_chains: Arc<Vec<IndexedChain>>,
+    protocol_chain: ProtocolChain,
+    indexed_chains: Vec<IndexedChain>,
 }
 
 impl EventSource {
