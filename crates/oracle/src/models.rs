@@ -1,7 +1,27 @@
 use serde_with::DeserializeFromStr;
 use std::{fmt::Display, str::FromStr};
+use web3::Web3;
 
-pub type Id = u32;
+#[derive(Clone, Debug)]
+pub struct JrpcProviderForChain<T>
+where
+    T: web3::Transport,
+{
+    pub chain_id: Caip2ChainId,
+    pub web3: Web3<T>,
+}
+
+impl<T> JrpcProviderForChain<T>
+where
+    T: web3::Transport,
+{
+    pub fn new(chain_id: Caip2ChainId, transport: T) -> Self {
+        Self {
+            chain_id,
+            web3: Web3::new(transport),
+        }
+    }
+}
 
 /// See https://github.com/ChainAgnostic/CAIPs/blob/master/CAIPs/caip-2.md.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, DeserializeFromStr)]
@@ -60,15 +80,6 @@ impl Display for Caip2ChainId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Network {
-    pub name: Caip2ChainId,
-    pub latest_block_number: Option<u64>,
-    pub latest_block_hash: Option<Vec<u8>>,
-    pub latest_block_delta: Option<i64>,
-    pub introduced_with: Id,
 }
 
 #[cfg(test)]

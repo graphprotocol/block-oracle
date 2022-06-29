@@ -9,11 +9,7 @@ pub struct NetworksDiff {
 
 impl NetworksDiff {
     pub fn calculate(subgraph_networks: HashMap<Caip2ChainId, u32>, config: &Config) -> Self {
-        let new = config
-            .indexed_chains
-            .iter()
-            .map(|c| c.id().clone())
-            .collect();
+        let new = config.indexed_chains.iter().map(|c| c.id.clone()).collect();
         Self::diff(subgraph_networks, new)
     }
 
