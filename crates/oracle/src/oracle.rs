@@ -1,4 +1,5 @@
 use crate::{
+    hex_string,
     jrpc_utils::{get_latest_block, get_latest_blocks},
     Caip2ChainId, Config, EpochTracker, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff,
     SubgraphQuery, SubgraphStateTracker,
@@ -155,7 +156,10 @@ impl Oracle {
         let encoded = compression_engine
             .encode(&messages[..])
             .expect(format!("Encoding failed: {:?}", messages).as_str());
-        debug!(encoded = ?encoded, "Successfully encoded message(s).");
+        debug!(
+            encoded = hex_string(&encoded).as_str(),
+            "Successfully encoded message(s)."
+        );
         Ok(encoded)
     }
 

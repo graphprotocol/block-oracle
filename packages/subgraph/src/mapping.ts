@@ -223,7 +223,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
     );
   }
 
-  log.warning("Successfullly decocoded accelerations", []);
+  log.warning("Successfully decocoded accelerations", []);
   message.accelerations = accelerations;
   message.data = reader.diff(snapshot);
 }
