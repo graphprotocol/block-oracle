@@ -95,30 +95,29 @@ impl Config {
             indexed_chains: config_file
                 .indexed_chains
                 .into_iter()
-                .map(|(chain_id, provider)| {
-                    if let Ok(url) = Url::parse(provider.as_str()) {
-                        Ok(IndexedChain {
-                            id: chain_id,
-                            jrpc_url: url,
-                        })
-                    } else {
-                        let jrpc_url = std::env::var(provider)?;
-                        Ok(IndexedChain {
-                            id: chain_id,
-                            jrpc_url: Url::parse(jrpc_url.as_str()).unwrap(),
-                        })
-                    }
+                .map(|(id, provider)| IndexedChain {
+                    id,
+                    jrpc_url: parse_jrpc_provider_url(&provider)
+                        .expect("Bad JSON-RPC provider url"),
                 })
-                .collect::<anyhow::Result<Vec<IndexedChain>>>()
-                .unwrap(),
+                .collect::<Vec<IndexedChain>>(),
             protocol_chain: ProtocolChain {
                 id: config_file.protocol_chain.name,
-                jrpc_url: config_file.protocol_chain.jrpc,
+                jrpc_url: parse_jrpc_provider_url(&config_file.protocol_chain.jrpc)
+                    .expect("Invalid protocol chain JSON-RPC provider url"),
                 polling_interval: Duration::from_secs(
                     config_file.protocol_chain_polling_interval_in_seconds,
                 ),
             },
         }
+    }
+}
+
+fn parse_jrpc_provider_url(s: &str) -> anyhow::Result<Url> {
+    if let Ok(url) = Url::parse(s) {
+        Ok(url)
+    } else {
+        Ok(Url::parse(std::env::var(s)?.as_str())?)
     }
 }
 
@@ -196,7 +195,7 @@ mod serde_defaults {
 #[derive(Deserialize, Debug)]
 struct SerdeProtocolChain {
     name: Caip2ChainId,
-    jrpc: Url,
+    jrpc: String,
 }
 
 #[cfg(test)]
