@@ -27,4 +27,4 @@ spec:
           args:
             - --config-file=config.toml
             - --subgraph-url=https://api.thegraph.com/subgraphs/name/juanmardefago/block-oracle
-            - --owner-private-key="$(PRIVATE_KEY)"
+            - --owner-private-key=$(PRIVATE_KEY)
