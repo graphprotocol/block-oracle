@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: block-oracle
-          image: block-oracle
+          image: gcr.io/the-graph-staging/block-oracle:latest
           env:
             - name: PRIVATE_KEY
               valueFrom:
