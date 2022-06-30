@@ -13,4 +13,4 @@ FROM ubuntu:latest as runtime
 COPY --from=builder /app/block-oracle /usr/local/bin
 COPY --from=builder /app/crates/oracle/config/dev/config.toml ./config.toml
 
-ENTRYPOINT ["./usr/local/bin/block-oracle"]
+CMD ["./usr/local/bin/block-oracle"]
