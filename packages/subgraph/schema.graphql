@@ -43,6 +43,14 @@ type UpdateVersionsMessage implements Message @entity {
   oldVersion: Int!
 }
 
+type ChangeOwnershipMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes
+  newOwner: String!
+  oldOwner: String!
+}
+
 type RegisterNetworksMessage implements Message @entity {
   id: ID!
   block: MessageBlock!
@@ -76,6 +84,7 @@ type GlobalState @entity {
   latestValidEpoch: Epoch
   networks: [Network!]! @derivedFrom(field:"state")
   encodingVersion: Int!
+  owner: String!
 }
 
 type Epoch @entity {

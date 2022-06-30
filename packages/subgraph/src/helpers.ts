@@ -13,7 +13,8 @@ export enum MessageTag {
   SetBlockNumbersForEpochMessage = 0,
   CorrectEpochsMessage,
   UpdateVersionsMessage,
-  RegisterNetworksMessage
+  RegisterNetworksMessage,
+  ChangeOwnershipMessage
 }
 
 export namespace MessageTag {
@@ -22,7 +23,8 @@ export namespace MessageTag {
       "SetBlockNumbersForEpochMessage",
       "CorrectEpochsMessage",
       "UpdateVersionsMessage",
-      "RegisterNetworksMessage"
+      "RegisterNetworksMessage",
+      "ChangeOwnershipMessage"
     ][tag]
   }
 }

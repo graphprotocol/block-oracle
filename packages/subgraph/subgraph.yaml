@@ -1,14 +1,14 @@
-specVersion: 0.0.4
+specVersion: 0.0.2
 schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum
     name: DataEdge
-    network: hardhat
+    network: ropsten
     source:
+      address: "0xae6ADd894F8a1BcAC10b153dc59Cab1da9656836"
       abi: DataEdge
-      address: "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab"
-      startBlock: 1
+      startBlock: 12052156
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
