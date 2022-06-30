@@ -8,7 +8,7 @@ spec:
   selector:
     matchLabels:
       app: block-oracle
-  replicas: 3
+  replicas: 1
   template:
     metadata:
       labels:
@@ -22,4 +22,9 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: block-oracle
-                  key: private-key
+                  key: privatekey
+          command: ["./usr/local/bin/block-oracle"]
+          args:
+            - --config-file=config.toml
+            - --subgraph-url=https://api.thegraph.com/subgraphs/name/juanmardefago/block-oracle
+            - --owner-private-key="$(PRIVATE_KEY)"
