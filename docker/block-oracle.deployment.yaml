@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: block-oracle
+  labels:
+    app: block-oracle
+spec:
+  selector:
+    matchLabels:
+      app: block-oracle
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: block-oracle
+    spec:
+      containers:
+        - name: block-oracle
+          image: block-oracle
+          env:
+            - name: PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: private-key
