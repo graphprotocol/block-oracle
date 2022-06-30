@@ -5,7 +5,7 @@ WORKDIR /app
 RUN apk add libc-dev pkgconfig openssl-dev
 
 COPY rust-toolchain.toml Cargo.lock Cargo.toml ./
-COPY crates/ ./crates/
+COPY ../crates/ ./crates/
 RUN cargo build --release && cp target/release/block-oracle ./block-oracle && rm -rf target
 
 FROM ubuntu:latest as runtime
