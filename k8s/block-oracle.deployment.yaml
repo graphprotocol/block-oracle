@@ -17,14 +17,174 @@ spec:
       containers:
         - name: block-oracle
           image: gcr.io/the-graph-staging/block-oracle:latest
+          command: ["./usr/local/bin/block-oracle"]
+          args:
+            - --config-file=config.toml
+            - --subgraph-url=https://api.thegraph.com/subgraphs/name/juanmardefago/block-oracle
+            - --owner-private-key=$(PRIVATE_KEY)
           env:
             - name: PRIVATE_KEY
               valueFrom:
                 secretKeyRef:
                   name: block-oracle
                   key: privatekey
-          command: ["./usr/local/bin/block-oracle"]
-          args:
-            - --config-file=config.toml
-            - --subgraph-url=https://api.thegraph.com/subgraphs/name/juanmardefago/block-oracle
-            - --owner-private-key=$(PRIVATE_KEY)
+            - name: ARBITRUM_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: arbitrum_0
+            - name: ARBITRUM_ONE
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: arbitrum_one
+            - name: AURORA_TESTNET
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: aurora_testnet
+            - name: AVALNCHE_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: avalnche_0
+            - name: BINANCE_ANKR
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: binance_ankr
+            - name: BOBA_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: boba_0
+            - name: CELO_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: celo_0
+            - name: CELO_ALFAJORES
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: celo_alfajores
+            - name: CHAPEL_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: chapel_0
+            - name: CLOVER_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: clover_0
+            - name: FANTOM_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: fantom_0
+            - name: FUJI_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: fuji_0
+            - name: FUSE_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: fuse_0
+            - name: GOERLI_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: goerli_0
+            - name: KOVAN_1
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: kovan_1
+            - name: MAINNET_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: mainnet_0
+            - name: MATIC_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: matic_0
+            - name: MBASE_MONTREAL
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: mbase_montreal
+            - name: MBASE_NETHERLANDS
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: mbase_netherlands
+            - name: MOONBEAM_MONTREAL
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: moonbeam_montreal
+            - name: MOONRIVR_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: moonrivr_0
+            - name: MUMBAI_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: mumbai_0
+            - name: OPTIMISM_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: optimism_0
+            - name: OPTIMISM_KOVAN
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: optimism_kovan
+            - name: POACORE_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: poacore_0
+            - name: POASOKOL_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: poasokol_0
+            - name: PRIVATEKEY
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: privatekey
+            - name: RINKEBY_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: rinkeby_0
+            - name: ROPSTEN_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: ropsten_0
+            - name: SPECIAL_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: special_0
+            - name: XDAI_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: xdai_0
+            - name: ZKSYNC_0
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: zksync_0
