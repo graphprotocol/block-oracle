@@ -14,6 +14,6 @@ RUN apt update --yes
 RUN apt install --yes libc-dev pkg-config libssl-dev
 
 COPY --from=builder /app/block-oracle /usr/local/bin
-COPY --from=builder /app/crates/oracle/config/dev/config.toml ./config.toml
+COPY --from=builder /app/crates/oracle/config/staging/config.toml ./config.toml
 
 CMD ["./usr/local/bin/block-oracle"]
