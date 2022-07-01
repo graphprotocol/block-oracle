@@ -1,4 +1,5 @@
 use crate::models::Caip2ChainId;
+use anyhow::Context;
 use clap::Parser;
 use secp256k1::SecretKey;
 use serde::Deserialize;
@@ -50,15 +51,25 @@ pub struct ProtocolChain {
 impl Config {
     /// Loads all configuration options from CLI arguments, the TOML
     /// configuration file, and environment variables.
-    ///
-    /// # Panics
-    ///
-    /// Will panic if any configuration value can't be read for any reason.
     pub fn parse() -> Self {
         let clap = Clap::parse();
-        let config_file =
-            ConfigFile::from_file(&clap.config_file).expect("Failed to read config file.");
+        let config_file = ConfigFile::from_file(&clap.config_file)
+            .context("Failed to read config file as valid TOML")
+            .unwrap();
 
+        Self::from_clap_and_config_file(clap, config_file)
+    }
+
+    #[cfg(test)]
+    fn parse_from(args: &[&str]) -> Self {
+        let clap = Clap::parse_from(args);
+        println!("clap config is {:?}", clap.config_file);
+        let config_file = ConfigFile::from_file(&clap.config_file).unwrap();
+
+        Self::from_clap_and_config_file(clap, config_file)
+    }
+
+    fn from_clap_and_config_file(clap: Clap, config_file: ConfigFile) -> Self {
         let retry_strategy_max_wait_time =
             Duration::from_secs(config_file.web3_transport_retry_max_wait_time_in_seconds);
 
@@ -72,19 +83,29 @@ impl Config {
             indexed_chains: config_file
                 .indexed_chains
                 .into_iter()
-                .map(|(chain_id, url)| IndexedChain {
-                    id: chain_id,
-                    jrpc_url: url,
+                .map(|(id, provider)| IndexedChain {
+                    id,
+                    jrpc_url: parse_jrpc_provider_url(&provider)
+                        .expect("Bad JSON-RPC provider url"),
                 })
-                .collect(),
+                .collect::<Vec<IndexedChain>>(),
             protocol_chain: ProtocolChain {
                 id: config_file.protocol_chain.name,
-                jrpc_url: config_file.protocol_chain.jrpc,
+                jrpc_url: parse_jrpc_provider_url(&config_file.protocol_chain.jrpc)
+                    .expect("Invalid protocol chain JSON-RPC provider url"),
                 polling_interval: Duration::from_secs(
                     config_file.protocol_chain_polling_interval_in_seconds,
                 ),
             },
         }
+    }
+}
+
+fn parse_jrpc_provider_url(s: &str) -> anyhow::Result<Url> {
+    if let Ok(url) = Url::parse(s) {
+        Ok(url)
+    } else {
+        Ok(Url::parse(std::env::var(s)?.as_str())?)
     }
 }
 
@@ -103,7 +124,7 @@ struct Clap {
     #[clap(long)]
     subgraph_url: Url,
     /// The filepath of the TOML JSON-RPC configuration file.
-    #[clap(long, default_value = "config.toml", parse(from_os_str))]
+    #[clap(long, parse(from_os_str))]
     config_file: PathBuf,
 }
 
@@ -112,7 +133,7 @@ struct Clap {
 #[serde(rename_all = "snake_case")]
 struct ConfigFile {
     contract_address: String,
-    indexed_chains: HashMap<Caip2ChainId, Url>,
+    indexed_chains: HashMap<Caip2ChainId, String>,
     protocol_chain: SerdeProtocolChain,
     #[serde(default = "serde_defaults::epoch_duration")]
     epoch_duration: u64,
@@ -161,17 +182,66 @@ mod serde_defaults {
 #[derive(Deserialize, Debug)]
 struct SerdeProtocolChain {
     name: Caip2ChainId,
-    jrpc: Url,
+    jrpc: String,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const SAMPLE_CONFIG: &str = include_str!("../config/dev/config.toml");
+    fn indexed_chain(config: &Config, id: &str) -> IndexedChain {
+        config
+            .indexed_chains
+            .iter()
+            .find(|x| x.id.as_str() == id)
+            .unwrap()
+            .clone()
+    }
+
+    fn config_file_flag(filename: &str) -> String {
+        format!(
+            "--config-file={}/config/{}",
+            env!("CARGO_MANIFEST_DIR"),
+            filename
+        )
+    }
 
     #[test]
-    fn deserialize_protocol_chain() {
-        toml::de::from_str::<ConfigFile>(SAMPLE_CONFIG).unwrap();
+    #[should_panic]
+    fn invalid_jrpc_provider_url() {
+        Config::parse_from(&[
+            "",
+            "--subgraph-url=https://example.com",
+            "--owner-private-key=4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d",
+            config_file_flag("test/invalid_jrpc_provider_url.toml").as_str(),
+        ]);
+    }
+
+    #[test]
+    fn example_config() {
+        Config::parse_from(&[
+            "",
+            "--subgraph-url=https://example.com",
+            "--owner-private-key=4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d",
+            config_file_flag("dev/config.toml").as_str(),
+        ]);
+    }
+
+    #[test]
+    fn set_jrpc_provider_via_env_var() {
+        let jrpc_url = "https://sokol-archive.blockscout.com/";
+        std::env::set_var("FOOBAR_EIP155:77", jrpc_url);
+
+        let config = Config::parse_from(&[
+            "",
+            "--subgraph-url=https://example.com",
+            "--owner-private-key=4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d",
+            config_file_flag("test/indexed_chain_provider_via_env_var.toml").as_str(),
+        ]);
+
+        assert_eq!(
+            indexed_chain(&config, "eip155:77").jrpc_url.as_str(),
+            jrpc_url
+        );
     }
 }
