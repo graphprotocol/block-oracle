@@ -6,7 +6,7 @@ use crate::{
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::collections::{HashMap, HashSet};
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use web3::{
     contract::{Contract, Options},
     types::{Bytes, H256},
@@ -54,7 +54,8 @@ impl Oracle {
 
     pub async fn run(&mut self) -> Result<(), Error> {
         self.subgraph_state.refresh().await;
-        if self.subgraph_state.error().is_some() {
+        if let Some(subgraph_error) = self.subgraph_state.error() {
+            error!(error = %subgraph_error, "Found an error when fetching the subgraph latest state");
             return Ok(());
         }
 

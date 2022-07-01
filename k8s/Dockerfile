@@ -11,7 +11,7 @@ RUN cargo build --release && cp target/release/block-oracle ./block-oracle && rm
 FROM debian:latest as runtime
 
 RUN apt update --yes
-RUN apt install --yes libc-dev pkg-config libssl-dev
+RUN apt install --yes libc-dev pkg-config libssl-dev ca-certificates
 
 COPY --from=builder /app/block-oracle /usr/local/bin
 COPY --from=builder /app/crates/oracle/config/staging/config.toml ./config.toml
