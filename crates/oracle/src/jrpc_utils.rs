@@ -71,15 +71,20 @@ where
 {
     let block_num = web3.eth().block_number().await?;
     let block_id = web3::types::BlockId::Number(block_num.into());
-    let block = web3
-        .eth()
-        .block(block_id)
-        .await?
-        // We were just told that's the latest block number, so it wouldn't
-        // make sense for this to fail. How can it *not* find a block with
-        // that block number?
-        .expect("Invalid block number");
+    let block = web3.eth().block(block_id).await?;
 
+    if block.is_none() {
+        return Ok(BlockPtr {
+            number: block_num.as_u64(),
+            hash: [0; 32],
+        });
+    }
+    // We were just told that's the latest block number, so it wouldn't
+    // make sense for this to fail. How can it *not* find a block with
+    // that block number?
+    //.expect("Invalid block number");
+
+    let block = block.unwrap();
     // Same thing here. We expect data to be consistent across multiple
     // JSON-RPC calls.
     if block.number != Some(block_num) {
