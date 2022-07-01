@@ -1,14 +1,17 @@
-FROM rust:1.61.0-alpine as builder
+FROM rust:1.61 as builder
 
 WORKDIR /app
 
-RUN apk add libc-dev pkgconfig openssl-dev
+RUN apt install libc-dev pkg-config libssl-dev
 
 COPY rust-toolchain.toml Cargo.lock Cargo.toml ./
 COPY crates/ ./crates/
 RUN cargo build --release && cp target/release/block-oracle ./block-oracle && rm -rf target
 
-FROM ubuntu:latest as runtime
+FROM debian:latest as runtime
+
+RUN apt update --yes
+RUN apt install --yes libc-dev pkg-config libssl-dev
 
 COPY --from=builder /app/block-oracle /usr/local/bin
 COPY --from=builder /app/crates/oracle/config/dev/config.toml ./config.toml
