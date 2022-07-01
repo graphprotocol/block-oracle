@@ -25,7 +25,6 @@ pub enum ConfigError {
 #[derive(Clone, Debug)]
 pub struct Config {
     pub log_level: LevelFilter,
-    pub owner_address: H160,
     pub owner_private_key: SecretKey,
     pub contract_address: H160,
     pub subgraph_url: Url,
@@ -65,7 +64,6 @@ impl Config {
 
         Self {
             log_level: clap.log_level,
-            owner_address: config_file.owner_address.parse().unwrap(),
             owner_private_key: SecretKey::from_str(clap.owner_private_key.as_str()).unwrap(),
             contract_address: config_file.contract_address.parse().unwrap(),
             subgraph_url: clap.subgraph_url,
@@ -113,7 +111,6 @@ struct Clap {
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 struct ConfigFile {
-    owner_address: String,
     contract_address: String,
     indexed_chains: HashMap<Caip2ChainId, Url>,
     protocol_chain: SerdeProtocolChain,
