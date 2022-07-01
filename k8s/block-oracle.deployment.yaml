@@ -22,6 +22,7 @@ spec:
             - --config-file=config.toml
             - --subgraph-url=https://api.thegraph.com/subgraphs/name/juanmardefago/block-oracle
             - --owner-private-key=$(PRIVATE_KEY)
+            - --log-level=trace
           env:
             - name: PRIVATE_KEY
               valueFrom:

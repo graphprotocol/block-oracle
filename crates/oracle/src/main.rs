@@ -118,6 +118,7 @@ fn init_logging(log_level: LevelFilter) {
         .from_env_lossy();
 
     let stdout = fmt::layer()
+        .with_ansi(false)
         .without_time()
         .with_target(false)
         .with_writer(std::io::stdout);
