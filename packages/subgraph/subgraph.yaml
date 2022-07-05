@@ -1,14 +1,14 @@
-specVersion: 0.0.2
+specVersion: 0.0.4
 schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum
     name: DataEdge
-    network: ropsten
+    network: goerli
     source:
-      address: "0xae6ADd894F8a1BcAC10b153dc59Cab1da9656836"
       abi: DataEdge
-      startBlock: 12052156
+      address: "0xc4228701A7B92793b2428687DC37D0ed92e0d7A7"
+      startBlock: 7105079
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -19,7 +19,7 @@ dataSources:
       abis:
         - name: DataEdge
           file: ./abis/DataEdgeFull.json
-      eventHandlers:
-        - event: Log(bytes)
-          handler: handleLogCrossChainEpochOracle
+      callHandlers:
+        - function: crossChainEpochOracle(bytes)
+          handler: handleCrossChainEpochOracle
       file: ./src/mapping.ts

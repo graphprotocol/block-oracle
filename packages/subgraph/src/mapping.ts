@@ -338,10 +338,15 @@ function executeRegisterNetworksMessage(
       return;
     }
 
-    let network = cache.getNetwork(chainId);
-    network.addedAt = message.id;
-    network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
-    networks.push(network);
+    if(!cache.isNetworkAlreadyRegistered(chainId)) {
+      let network = cache.getNetwork(chainId);
+      network.addedAt = message.id;
+      network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
+      networks.push(network);
+    } else {
+      reader.fail();
+      return;
+    }
   }
 
   globalState.activeNetworkCount += numInsertions;
