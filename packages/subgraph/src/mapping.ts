@@ -65,8 +65,11 @@ export function processPayload(
   let reader = new BytesReader(payloadBytes);
   let blockIdx = 0;
 
-  if(cache.getGlobalState().owner != payload.submitter) {
-    log.error("Invalid submitter. Owner: {}. Submitter: {}", [cache.getGlobalState().owner, payload.submitter]);
+  if (cache.getGlobalState().owner != payload.submitter) {
+    log.error("Invalid submitter. Owner: {}. Submitter: {}", [
+      cache.getGlobalState().owner,
+      payload.submitter
+    ]);
     payload.valid = false;
     payload.save();
     return;
@@ -338,10 +341,17 @@ function executeRegisterNetworksMessage(
       return;
     }
 
-    let network = cache.getNetwork(chainId);
-    network.addedAt = message.id;
-    network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
-    networks.push(network);
+    if (!cache.isNetworkAlreadyRegistered(chainId)) {
+      let network = cache.getNetwork(chainId);
+      network.addedAt = message.id;
+      network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
+      networks.push(network);
+    } else {
+      log.warning(
+        "Network: {} is already registered and active, ignoring the re-register command",
+        [chainId]
+      );
+    }
   }
 
   globalState.activeNetworkCount += numInsertions;
