@@ -88,7 +88,7 @@ export class StoreCache {
   }
 
   isNetworkAlreadyRegistered(id: String): bool {
-    return (this.networks.has(id) || Network.load(id) != null) && getNetwork(id).removedAt == null
+    return (this.networks.has(id) || Network.load(id) != null) && this.getNetwork(id).removedAt == null
   }
 
   getNetworkEpochBlockNumber(id: String): NetworkEpochBlockNumber {
