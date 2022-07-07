@@ -17,11 +17,6 @@ pub enum Error {
     UnsupportedEncodingVersion(u64),
     MessageAfterEncodingVersionChange,
     InvalidNetworkId(String),
-    NegativeDelta {
-        network_id: String,
-        original_block_num: u64,
-        new_block_num: u64,
-    },
 }
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
@@ -182,15 +177,8 @@ impl Encoder {
 
         for (i, ptr) in sorted_block_ptrs.into_iter().enumerate() {
             let network_data = &self.networks[i].1;
-            if ptr.number < network_data.block_number {
-                return Err(Error::NegativeDelta {
-                    network_id: self.networks[i as usize].0.clone(),
-                    original_block_num: network_data.block_number,
-                    new_block_num: ptr.number,
-                });
-            }
 
-            let delta = (ptr.number - network_data.block_number) as i64;
+            let delta = ptr.number as i64 - network_data.block_number as i64;
             let acceleration = delta - network_data.block_delta;
 
             self.networks[i].1 = Network {
