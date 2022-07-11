@@ -41,6 +41,7 @@ bin/
 # Subgraph
 generated/
 subgraph.yaml
+constants.ts
 debug.log
 .latest.json
 

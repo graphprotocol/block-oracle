@@ -14,7 +14,7 @@ import { Network } from "../generated/schema";
 //   let payloadBytes = Bytes.fromHexString(
 //     "0x0c2901090d413a313939310b423a326b6c0b433a3139300f443a31383831386c5fd2e9c3875bbbc8533fb99bfeefe7da0877ec424bf19d1b2831a9f84cf476016209c212221c2cd36745f8ecf16243c11ca6bbd507dea7a452beea7b0ac31093dabafdb9f1356a09055609b612006848a26c8bded1673259a391cb548013c6ea0640f2ff38f390917c15f0da9b8801010101c76430fea08e4b1ee3e427d55cc814386bb1ac0d63536e35928b120f5d4f7bd701010101"
 //   ) as Bytes;
-//   let submitter = "0x00";
+//   let submitter = "0x0000000000000000000000000000000000000000";
 //   let txHash = "0x00";
 //
 //   processPayload(submitter, payloadBytes, txHash);
@@ -35,17 +35,48 @@ afterEach(() => {
 });
 
 test("parseCalldata", () => {
-  let calldataBytes = Bytes.fromHexString("0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000a0011223344556677889900000000000000000000000000000000000000000000") as Bytes;
-  let expectedPayloadBytes = Bytes.fromHexString("0x00112233445566778899") as Bytes;
+  let calldataBytes = Bytes.fromHexString(
+    "0xa1dce3320000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000a0011223344556677889900000000000000000000000000000000000000000000"
+  ) as Bytes;
+  let expectedPayloadBytes = Bytes.fromHexString(
+    "0x00112233445566778899"
+  ) as Bytes;
 
   let parsedPayloadBytes = parseCalldata(calldataBytes);
 
   assert.bytesEquals(expectedPayloadBytes, parsedPayloadBytes);
 });
 
+test("Wrong Submitter", () => {
+  let payloadBytes = Bytes.fromHexString("0x00c9") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000001";
+  let txHash = "0x00";
+
+  processPayload(submitter, payloadBytes, txHash);
+
+  assert.entityCount("Epoch", 0);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 0);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangeOwnershipMessage", 0);
+
+  assert.fieldEquals(
+    "GlobalState",
+    "0",
+    "owner",
+    "0x0000000000000000000000000000000000000000"
+  );
+  assert.fieldEquals("Payload", "0x00", "valid", "false");
+});
+
 test("(SetBlockNumbersForNextEpoch) EMPTY", () => {
   let payloadBytes = Bytes.fromHexString("0x00c9") as Bytes;
-  let submitter = "0x00";
+  let submitter = "0x0000000000000000000000000000000000000000";
   let txHash = "0x00";
 
   processPayload(submitter, payloadBytes, txHash);
@@ -59,6 +90,7 @@ test("(SetBlockNumbersForNextEpoch) EMPTY", () => {
   assert.entityCount("RegisterNetworksMessage", 0);
   assert.entityCount("CorrectEpochsMessage", 0);
   assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangeOwnershipMessage", 0);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "0");
   assert.fieldEquals("GlobalState", "0", "latestValidEpoch", "100");
@@ -84,7 +116,7 @@ test("(SetBlockNumbersForNextEpoch) EMPTY", () => {
 
 test("(SetBlockNumbersForNextEpoch) EMPTY but invalid", () => {
   let payloadBytes = Bytes.fromHexString("0x00c900") as Bytes;
-  let submitter = "0x00";
+  let submitter = "0x0000000000000000000000000000000000000000";
   let txHash = "0x00";
 
   processPayload(submitter, payloadBytes, txHash);
@@ -98,6 +130,7 @@ test("(SetBlockNumbersForNextEpoch) EMPTY but invalid", () => {
   assert.entityCount("RegisterNetworksMessage", 0);
   assert.entityCount("CorrectEpochsMessage", 0);
   assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangeOwnershipMessage", 0);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "0");
   assert.fieldEquals("Payload", "0x00", "valid", "false");
@@ -115,7 +148,7 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch)", () => {
   let payloadBytes = Bytes.fromHexString(
     "0x030103034166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc493d"
   ) as Bytes;
-  let submitter = "0x00";
+  let submitter = "0x0000000000000000000000000000000000000000";
   let txHash = "0x00";
 
   processPayload(submitter, payloadBytes, txHash);
@@ -157,7 +190,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
   let payloadBytes2 = Bytes.fromHexString(
     "0x0066ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc493d"
   ) as Bytes;
-  let submitter = "0x00";
+  let submitter = "0x0000000000000000000000000000000000000000";
   let txHash1 = "0x00";
   let txHash2 = "0x01";
 
@@ -218,7 +251,7 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch, SetBlockNumbersForNextEpoc
   let payloadBytes = Bytes.fromHexString(
     "0x030109034103420343034466ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4905090d110066ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4915191d2166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4925292d31"
   ) as Bytes;
-  let submitter = "0x00";
+  let submitter = "0x0000000000000000000000000000000000000000";
   let txHash = "0x00";
 
   processPayload(submitter, payloadBytes, txHash);
@@ -354,7 +387,7 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   let payloadBytes2 = Bytes.fromHexString(
     "0x0303030166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4915191d"
   ) as Bytes;
-  let submitter = "0x00";
+  let submitter = "0x0000000000000000000000000000000000000000";
   let txHash1 = "0x00";
   let txHash2 = "0x01";
 

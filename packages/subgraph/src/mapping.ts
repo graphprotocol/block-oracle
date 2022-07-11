@@ -1,10 +1,6 @@
 import { CrossChainEpochOracleCall, Log } from "../generated/DataEdge/DataEdge";
 import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
 import {
-  SetBlockNumbersForEpochMessage,
-  CorrectEpochsMessage,
-  UpdateVersionsMessage,
-  RegisterNetworksMessage,
   MessageBlock,
   Payload,
   GlobalState,
@@ -68,6 +64,13 @@ export function processPayload(
 
   let reader = new BytesReader(payloadBytes);
   let blockIdx = 0;
+
+  if(cache.getGlobalState().owner != payload.submitter) {
+    log.error("Invalid submitter. Owner: {}. Submitter: {}", [cache.getGlobalState().owner, payload.submitter]);
+    payload.valid = false;
+    payload.save();
+    return;
+  }
 
   while (reader.length() > 0) {
     let i = blockIdx.toString();
@@ -139,6 +142,8 @@ export function processMessage(
     executeUpdateVersionsMessage(cache, snapshot, reader, id, messageBlock);
   } else if (tag == MessageTag.RegisterNetworksMessage) {
     executeRegisterNetworksMessage(cache, snapshot, reader, id, messageBlock);
+  } else if (tag == MessageTag.ChangeOwnershipMessage) {
+    executeChangeOwnershipMessage(cache, snapshot, reader, id, messageBlock);
   } else {
     reader.fail();
     log.error("Unknown message tag '{}'. This is most likely a bug!", [
@@ -349,4 +354,23 @@ function executeRegisterNetworksMessage(
   message.addCount = BigInt.fromU64(numInsertions);
   message.block = messageBlock.id;
   message.data = reader.diff(snapshot);
+}
+
+function executeChangeOwnershipMessage(
+  cache: StoreCache,
+  snapshot: BytesReader,
+  reader: BytesReader,
+  id: String,
+  messageBlock: MessageBlock
+): void {
+  let globalState = cache.getGlobalState();
+  let message = cache.getChangeOwnershipMessage(id);
+  let address = reader.advance(20); // address should always be 20 bytes
+
+  message.block = messageBlock.id;
+  message.newOwner = address.toHexString();
+  message.oldOwner = globalState.owner;
+  message.data = reader.diff(snapshot);
+
+  globalState.owner = message.newOwner;
 }

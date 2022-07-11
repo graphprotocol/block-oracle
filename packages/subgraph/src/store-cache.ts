@@ -1,4 +1,5 @@
 import { BigInt } from "@graphprotocol/graph-ts";
+import { OWNER_ADDRESS_STRING } from "./constants";
 import {
   GlobalState,
   Epoch,
@@ -8,6 +9,7 @@ import {
   RegisterNetworksMessage,
   CorrectEpochsMessage,
   UpdateVersionsMessage,
+  ChangeOwnershipMessage,
   MessageBlock
 } from "../generated/schema";
 
@@ -39,6 +41,7 @@ export class StoreCache {
   registerNetworksMessages: SafeMap<String, RegisterNetworksMessage>;
   correctEpochsMessages: SafeMap<String, CorrectEpochsMessage>;
   updateVersionsMessages: SafeMap<String, UpdateVersionsMessage>;
+  changeOwnershipMessages: SafeMap<String, ChangeOwnershipMessage>;
   messageBlocks: SafeMap<String, MessageBlock>;
 
   constructor() {
@@ -48,6 +51,7 @@ export class StoreCache {
       state.networkCount = 0;
       state.activeNetworkCount = 0;
       state.encodingVersion = 0;
+      state.owner = OWNER_ADDRESS_STRING;
       state.save()
     }
     this.state = state;
@@ -64,6 +68,7 @@ export class StoreCache {
     >();
     this.correctEpochsMessages = new SafeMap<String, CorrectEpochsMessage>();
     this.updateVersionsMessages = new SafeMap<String, UpdateVersionsMessage>();
+    this.changeOwnershipMessages = new SafeMap<String, ChangeOwnershipMessage>();
     this.messageBlocks = new SafeMap<String, MessageBlock>();
   }
 
@@ -156,6 +161,17 @@ export class StoreCache {
     return this.updateVersionsMessages.safeGet(id)!;
   }
 
+  getChangeOwnershipMessage(id: String): ChangeOwnershipMessage {
+    if (this.changeOwnershipMessages.safeGet(id) == null) {
+      let message = ChangeOwnershipMessage.load(id);
+      if (message == null) {
+        message = new ChangeOwnershipMessage(id);
+      }
+      this.changeOwnershipMessages.set(id, message);
+    }
+    return this.changeOwnershipMessages.safeGet(id)!;
+  }
+
   getMessageBlock(id: String): MessageBlock {
     if (this.messageBlocks.safeGet(id) == null) {
       let messageBlock = MessageBlock.load(id);
@@ -204,6 +220,11 @@ export class StoreCache {
     let updateVersionMessages = this.updateVersionsMessages.values();
     for (let i = 0; i < updateVersionMessages.length; i++) {
       updateVersionMessages[i].save();
+    }
+
+    let changeOwnershipMessages = this.changeOwnershipMessages.values();
+    for (let i = 0; i < changeOwnershipMessages.length; i++) {
+      changeOwnershipMessages[i].save();
     }
 
     let messageBlocks = this.messageBlocks.values();
