@@ -5,8 +5,7 @@ import {
   NetworkEpochBlockNumber,
   Network
 } from "../generated/schema";
-import { StoreCache
-} from "./store-cache";
+import { StoreCache } from "./store-cache";
 import { BIGINT_ONE } from "./constants";
 
 export enum MessageTag {
