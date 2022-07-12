@@ -1,9 +1,13 @@
 # https://www.lpalmieri.com/posts/fast-rust-docker-builds/
 
+ARG CARGO_CHEF_VERSION=0.1.37
+
 FROM rust:alpine AS cargo-chef
 WORKDIR /app
+ARG CARGO_CHEF_VERSION
 
-RUN apk add --no-cache libc-dev && cargo install cargo-chef
+RUN apk add --no-cache musl-dev && \
+	cargo install cargo-chef --locked --version $CARGO_CHEF_VERSION
 COPY . .
 
 # First, we use `cargo-chef` to compile a recipe of our Rust dependencies.
@@ -12,8 +16,10 @@ RUN cargo chef prepare --recipe-path recipe.json
 
 FROM rust:alpine as builder
 WORKDIR /app
+ARG CARGO_CHEF_VERSION
 
-RUN apk add --no-cache pkgconfig openssl-dev libc-dev && cargo install cargo-chef
+RUN apk add --no-cache pkgconfig openssl-dev musl-dev && \
+	cargo install cargo-chef --locked --version $CARGO_CHEF_VERSION
 
 # Compile all Rust dependencies from `cargo-chef`. As long as
 # `cargo-chef-recipe.json` doesn't change, this will be cached.
