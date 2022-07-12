@@ -1,0 +1,79 @@
+digraph event_sourcing_transport_errors {
+    // General Graph Display
+    newrank=true;
+    rankdir=LR
+    fontname="Helvetica,Arial,sans-serif"
+    edge [fontname="Helvetica,Arial,sans-serif"]
+    node [fontname="Helvetica,Arial,sans-serif", shape=rect,
+          style=filled, fillcolor="whitesmoke"]
+
+    subgraph cluster_chain_c {
+        label="Chain C\nLatest Block: Same as the previous epoch"
+        style=filled
+        color=grey88
+        CC1  [label="", style=invis]
+        CC2  [label="1 x", fontcolor=red]
+        CC3  [label="2 x", fontcolor=red]
+        CC4  [label="3 x", fontcolor=red]
+        CC5  [label="4 x", fontcolor=red]
+        CC6  [label="5 x", fontcolor=red]
+        CC7  [label="6 x", fontcolor=red]
+        CC8  [label="7 x", fontcolor=red]
+        CC9  [label="", style=invis]
+        CC2 -> CC3 -> CC4 -> CC5 -> CC6 -> CC7 -> CC8
+    }
+
+    subgraph cluster_chain_b {
+        label="Chain B\nLatest Block: 5"
+        style=filled
+        color=grey88
+        CB1  [label="", style=invis]
+        CB2  [label="1 ✓"]
+        CB3  [label="2 ✓"]
+        CB4  [label="3 ✓"]
+        CB5  [label="4 x", fontcolor=red]
+        CB6  [label="5 ✓"]
+        CB7  [label="6 x", fontcolor=red]
+        CB8  [label="7 x", fontcolor=red]
+        CB9  [label="", style=invis]
+        CB2 -> CB3 -> CB4 -> CB5 -> CB6 -> CB7 -> CB8
+    }
+
+    subgraph cluster_chain_a {
+        label="Chain A\nLatest Block: 6"
+        style=filled
+        color=grey88
+        CA1  [label="", style=invis]
+        CA2  [label="1 ✓"]
+        CA3  [label="2 ✓"]
+        CA4  [label="3 ✓"]
+        CA5  [label="4 ✓"]
+        CA6  [label="5 ✓"]
+        CA7  [label="6 ✓"]
+        CA8  [label="7 x", fontcolor=red]
+        CA9  [label="", style=invis]
+        CA2 -> CA3 -> CA4 -> CA5 -> CA6 -> CA7 -> CA8
+    }
+
+    subgraph cluster_protocol_chain {
+        label="Protocol Chain"
+        style=filled
+        color=grey78
+        E1  [label="Epoch\nStart"]
+        E2  [label="Epoch\nEnd"]
+        E1 -> E2 [arrowhead=none]
+    }
+
+    // Alignment
+    { rank=same; E1; CA1; CB1; CC1}
+    { rank=same; E2; CA9; CB9; CC9}
+
+    // Invisible edges
+    edge[style=invis]
+    CA1 -> CA2 [style=invis]
+    CA8 -> CA9 [style=invis]
+    CB1 -> CB2 [style=invis]
+    CB8 -> CB9 [style=invis]
+    CC1 -> CC2 [style=invis]
+    CC8 -> CC9 [style=invis]
+}

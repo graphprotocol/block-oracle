@@ -1,0 +1,33 @@
+#+title: Subgraph State Tracker
+#+date: [2022-06-20 Mon 15:26]
+
+The Epoch Block Oracle tracks the Epoch Subgraph state using a simple state machine that has three possible phases:
+
+[[graphviz/subgraph_state_tracker.png]]
+
+* Uninitialized
+The initial phase when the Oracle starts up and haven't queried the Epoch Subgraph yet.
+
+The =Uninitialized= phase can transition to the =Valid= phase when the Oracle successfully queries the Epoch Subgraph and receives the expected data from it.
+
+It can also transition to itself when the Epoch Subgraph is in an initial state and has not indexed any =Messages= yet, so it has no data to serve.
+
+It will also transition to itself when any I/O errors occur on the first attempt at querying the Epoch Subgraph. This distiction from =Failed= is necessary because the latter will keep the latest known valid state.
+
+* Valid
+Used when the Epoch Subgraph has served the Block Oracle with valid data for the ongoing
+
+It can transition to itselft when the Oracle sucessfully queries the Epoch Subgraph and receives valid data.
+
+It will transition to =Failed= in case any errors happen while querying the Epoch Subgraph, such as I/O errors or the Epoch Subgraph presents itself in any failed state.
+
+* Failed
+Used when any kind of error happens while querying the Epoch Subgraph for its latest state.
+
+While =Failed=, the Oracle will keep the latest known valid state obtained from the Epoch Subgraph, even on consecutive failures, when this phase transitions to itself.
+
+The Oracle can recover from a failed phase if it successfuly queries the Epoch Subgraph. In that case it will transition to the =Valid= phase.
+
+* Illegal Transitions
+- The Oracle cannot transition back to the =Uninitialized= phase after it have reached either the =Valid= or =Failed= phases.
+- =The transiton from =Uninitialized= to =Failed= is also illegal as the latter requires a snapshot of the last known Epoch Subgraph state.

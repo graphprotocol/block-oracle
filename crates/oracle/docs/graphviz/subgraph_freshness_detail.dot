@@ -24,10 +24,11 @@ digraph subgraph_freshness_detail {
     SB6  [style=invis]
 
     Scan [shape=ellipse, fillcolor=darkolivegreen1, label=<<B>SCAN</B>>]
-    COND_HAS_TRANSACTIONS [shape=diamond, label="Has\ncalls?", fillcolor=gray]
+    COND_BLOCK_DISTANCE [shape=diamond, fillcolor=grey, label="Within\nBlock Distance\nTreshold?"]
+    COND_HAS_CALLS [shape=diamond, label="Has\ncalls?", fillcolor=gray]
     Fresh [shape=doublecircle, fillcolor=lightsteelblue]
     NotFresh [shape=doublecircle, label="Not\nFresh", fillcolor=lightsteelblue]
-
+    PHANTOM_BLOCK_DISTANCE [shape=point]
 
     subgraph cluster_protocol_chain {
         label="Protocol Chain"
@@ -47,18 +48,22 @@ digraph subgraph_freshness_detail {
     { rank=same; CB1; SB1; }
     { rank=same; CB2; SB2; }
     { rank=same; CB3; SB3; }
-    { rank=same; CB4; SB4; NotFresh}
-    { rank=same; CB5; SB5; }
-    { rank=same; CB6; SB6; Fresh }
-    { rank=same; Scan; CB5; COND_HAS_TRANSACTIONS}
+    { rank=same; CB4; SB4; NotFresh }
+    { rank=same; CB5; SB5; COND_BLOCK_DISTANCE; PHANTOM_BLOCK_DISTANCE }
+    { rank=same; CB6; SB6; Fresh, Scan, COND_HAS_CALLS }
+
 
     // Arrows
     SB3 -> CB3 [color=red]
-    Scan -> CB4 [arrowhead=none]
-    Scan -> CB5 [arrowhead=none]
-    Scan -> CB6 [arrowhead=none]
+    PHANTOM_BLOCK_DISTANCE -> CB4 [arrowhead=none]
+    PHANTOM_BLOCK_DISTANCE -> CB5 [arrowhead=none]
+    PHANTOM_BLOCK_DISTANCE -> CB6 [arrowhead=none]
 
-    Scan -> COND_HAS_TRANSACTIONS
-    COND_HAS_TRANSACTIONS -> Fresh [label="No"]
-    COND_HAS_TRANSACTIONS -> NotFresh [label="Yes"]
+    PHANTOM_BLOCK_DISTANCE -> COND_BLOCK_DISTANCE
+
+    COND_BLOCK_DISTANCE -> Scan [label="Yes"]
+    COND_BLOCK_DISTANCE -> NotFresh [label="No"]
+    Scan -> COND_HAS_CALLS
+    COND_HAS_CALLS -> Fresh [label="No"]
+    COND_HAS_CALLS -> NotFresh [label="Yes"]
 }
