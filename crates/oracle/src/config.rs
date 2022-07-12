@@ -157,6 +157,7 @@ impl ConfigFile {
 
 /// These should be expressed as constants once
 /// https://github.com/serde-rs/serde/issues/368 is fixed.
+#[allow(unused)]
 mod serde_defaults {
     pub fn epoch_duration() -> u64 {
         6_646
