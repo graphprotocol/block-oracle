@@ -15,4 +15,6 @@ steps:
   - "--image=gcr.io/$PROJECT_ID/block-oracle:latest"
   - --location=us-central1-a
   - --cluster=epoch-block-oracle
-timeout: '3200s'
+timeout: "3200s"
+options:
+  machineType: "E2_HIGHCPU_8"
