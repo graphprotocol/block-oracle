@@ -1,20 +1,24 @@
 steps:
   # build the container image
 - name: "gcr.io/cloud-builders/docker"
-  args: ["build", "-t", "gcr.io/$PROJECT_ID/block-oracle:latest", "-f", "k8s/Dockerfile", "."]
+  args: ["build", "-t", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA", "-f", "k8s/Dockerfile", "."]
 
   # push container image
 - name: "gcr.io/cloud-builders/docker"
-  args: ["push", "gcr.io/$PROJECT_ID/block-oracle:latest"]
+  args: ["push", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"]
 
   # deploy container image to GKE
 - name: "gcr.io/cloud-builders/gke-deploy"
   args:
-  - apply
+  - run
   - --filename=./k8s/block-oracle.deployment.yaml
   - --location=us-central1-a
   - --cluster=epoch-block-oracle
+  - "--image=gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"
   - --timeout=30m
+
+images:
+- "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"
 timeout: "3200s"
 options:
   machineType: "E2_HIGHCPU_8"
