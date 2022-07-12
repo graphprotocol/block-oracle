@@ -10,11 +10,11 @@ steps:
   # deploy container image to GKE
 - name: "gcr.io/cloud-builders/gke-deploy"
   args:
-  - run
+  - apply
   - --filename=./k8s/block-oracle.deployment.yaml
-  - "--image=gcr.io/$PROJECT_ID/block-oracle:latest"
   - --location=us-central1-a
   - --cluster=epoch-block-oracle
+  - --timeout=30m
 timeout: "3200s"
 options:
   machineType: "E2_HIGHCPU_8"
