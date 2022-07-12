@@ -17,8 +17,8 @@ spec:
       containers:
         - name: block-oracle
           image: gcr.io/the-graph-staging/block-oracle:latest
-          command: ["./usr/local/bin/block-oracle"]
-          args:
+          command:
+            - /usr/local/bin/block-oracle
             - --config-file=config.toml
             - --subgraph-url=https://api.thegraph.com/subgraphs/name/juanmardefago/block-oracle
             - --owner-private-key=$(PRIVATE_KEY)

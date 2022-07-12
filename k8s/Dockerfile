@@ -33,4 +33,4 @@ RUN apt-get update -y && \
 COPY --from=builder /app/target/release/block-oracle /usr/local/bin
 COPY --from=builder /app/crates/oracle/config/staging/config.toml ./config.toml
 
-CMD ["./usr/local/bin/block-oracle"]
+CMD ./usr/local/bin/block-oracle
