@@ -2,13 +2,9 @@ name: Block Oracle Continuous Integration
 
 on:
   push:
-    branches: [main, block-oracle]
-    paths:
-      - "crates/**"
+    branches: [main]
   pull_request:
-    branches: [main, block-oracle]
-    paths:
-      - "crates/**"
+    branches: [main]
 
 env:
   CARGO_TERM_COLOR: always
