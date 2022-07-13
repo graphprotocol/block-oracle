@@ -26,5 +26,5 @@ type NetworkEpochBlockNumber {
   acceleration: String!
   delta: String!
   blockNumber: String!
-  epoch: Epoch!
+  epochNumber: String!
 }

@@ -186,7 +186,7 @@ impl TryFrom<graphql::subgraph_state::SubgraphStateGlobalStateNetworks> for Netw
             latest_block_number: block_number_info.block_number.parse()?,
             acceleration: block_number_info.acceleration.parse()?,
             delta: block_number_info.delta.parse()?,
-            updated_at_epoch_number: block_number_info.epoch.epoch_number.parse()?,
+            updated_at_epoch_number: block_number_info.epoch_number.parse()?,
         })
     }
 }
