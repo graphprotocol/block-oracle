@@ -60,18 +60,15 @@ export function processPayload(
   payload.data = payloadBytes;
   payload.submitter = submitter;
   payload.valid = true;
-  payload.save();
 
   let reader = new BytesReader(payloadBytes);
   let blockIdx = 0;
 
   if (cache.getGlobalState().owner != payload.submitter) {
-    log.error("Invalid submitter. Owner: {}. Submitter: {}", [
+    log.error("Invalid submitter. Owner: {}. Submitter: {}. Avoiding payload", [
       cache.getGlobalState().owner,
       payload.submitter
     ]);
-    payload.valid = false;
-    payload.save();
     return;
   }
 
@@ -89,6 +86,7 @@ export function processPayload(
     if (!reader.ok) {
       log.error("Failed to process message block num. {}", [i]);
       payload.valid = false;
+      payload.errorMessage = reader.errorMessage;
       payload.save();
       return;
     }
@@ -97,6 +95,7 @@ export function processPayload(
     blockIdx++;
   }
 
+  payload.save();
   cache.commitChanges();
 }
 
