@@ -65,8 +65,11 @@ export function processPayload(
   let reader = new BytesReader(payloadBytes);
   let blockIdx = 0;
 
-  if(cache.getGlobalState().owner != payload.submitter) {
-    log.error("Invalid submitter. Owner: {}. Submitter: {}", [cache.getGlobalState().owner, payload.submitter]);
+  if (cache.getGlobalState().owner != payload.submitter) {
+    log.error("Invalid submitter. Owner: {}. Submitter: {}", [
+      cache.getGlobalState().owner,
+      payload.submitter
+    ]);
     payload.valid = false;
     payload.save();
     return;
@@ -219,13 +222,18 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
 
     accelerations.push(acceleration);
 
-    // Create new NetworkEpochBlockNumber
-    createOrUpdateNetworkEpochBlockNumber(
+    // Create new NetworkEpochBlockNumber and save it for negative delta checks
+    let blockNumberEntity = createOrUpdateNetworkEpochBlockNumber(
       networks[i].id,
       newEpoch.epochNumber,
       acceleration,
       cache
     );
+    // Check for negative delta
+    if (blockNumberEntity.delta < BIGINT_ZERO) {
+      reader.fail();
+      return;
+    }
   }
 
   log.warning("Successfully decocoded accelerations", []);
@@ -338,7 +346,7 @@ function executeRegisterNetworksMessage(
       return;
     }
 
-    if(!cache.isNetworkAlreadyRegistered(chainId)) {
+    if (!cache.isNetworkAlreadyRegistered(chainId)) {
       let network = cache.getNetwork(chainId);
       network.addedAt = message.id;
       network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
