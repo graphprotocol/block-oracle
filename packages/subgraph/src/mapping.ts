@@ -148,7 +148,12 @@ export function processMessage(
   } else if (tag == MessageTag.ChangeOwnershipMessage) {
     executeChangeOwnershipMessage(cache, snapshot, reader, id, messageBlock);
   } else {
-    reader.fail();
+    reader.fail(
+      "Unknown message tag '{}'. This is most likely a bug!".replace(
+        "{}",
+        tag.toString()
+      )
+    );
     log.error("Unknown message tag '{}'. This is most likely a bug!", [
       MessageTag.toString(tag)
     ]);
@@ -231,7 +236,12 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
     );
     // Check for negative delta
     if (blockNumberEntity.delta < BIGINT_ZERO) {
-      reader.fail();
+      reader.fail(
+        "NetworkEpochBlockNumber {} experienced a negative delta. Delta: {}, Acceleration: {}"
+          .replace("{}", blockNumberEntity.id)
+          .replace("{}", blockNumberEntity.delta.toString())
+          .replace("{}", blockNumberEntity.acceleration.toString())
+      );
       return;
     }
   }
@@ -352,7 +362,7 @@ function executeRegisterNetworksMessage(
       network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
       networks.push(network);
     } else {
-      reader.fail();
+      reader.fail("Network {} is already registered.".replace("{}", chainId));
       return;
     }
   }
