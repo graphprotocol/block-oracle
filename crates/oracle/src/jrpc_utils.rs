@@ -59,7 +59,7 @@ where
         let transport = self.inner.clone();
         let network = self.network.clone();
         let op = move || {
-            trace!(?id, ?request, ?network, "Sending JRPC call");
+            trace!(?id, ?request, %network, "Sending JRPC call");
             transport
                 .send(id, request.clone())
                 .map_err(backoff::Error::transient)
