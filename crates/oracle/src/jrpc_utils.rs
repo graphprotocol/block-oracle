@@ -19,10 +19,11 @@ use web3::{transports::Http, RequestId, Transport, Web3};
 pub struct JrpcExpBackoff<T = Http> {
     inner: T,
     strategy: ExponentialBackoff,
+    network: Caip2ChainId,
 }
 
 impl<T> JrpcExpBackoff<T> {
-    pub fn new(transport: T, max_wait: Duration) -> Self {
+    pub fn new(transport: T, network: Caip2ChainId, max_wait: Duration) -> Self {
         let strategy = ExponentialBackoffBuilder::new()
             .with_max_elapsed_time(Some(max_wait))
             .build();
@@ -30,15 +31,16 @@ impl<T> JrpcExpBackoff<T> {
         Self {
             inner: transport,
             strategy,
+            network,
         }
     }
 }
 
 impl JrpcExpBackoff {
-    pub fn http(jrpc_url: Url, max_wait: Duration) -> Self {
+    pub fn http(jrpc_url: Url, network: Caip2ChainId, max_wait: Duration) -> Self {
         // Unwrap: URLs were already parsed and are valid.
         let client = Http::new(jrpc_url.as_str()).expect("failed to create HTTP transport");
-        Self::new(client, max_wait)
+        Self::new(client, network, max_wait)
     }
 }
 
@@ -55,8 +57,9 @@ where
     fn send(&self, id: RequestId, request: Call) -> Self::Out {
         let strategy = self.strategy.clone();
         let transport = self.inner.clone();
+        let network = self.network.clone();
         let op = move || {
-            trace!(?id, ?request, "Sending JRPC call");
+            trace!(?id, ?request, ?network, "Sending JRPC call");
             transport
                 .send(id, request.clone())
                 .map_err(backoff::Error::transient)

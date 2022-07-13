@@ -30,15 +30,19 @@ impl Oracle {
         let backoff_max = config.retry_strategy_max_wait_time;
         let epoch_tracker = EpochTracker::new(config);
         let protocol_chain = {
-            let transport =
-                JrpcExpBackoff::http(config.protocol_chain.jrpc_url.clone(), backoff_max);
+            let transport = JrpcExpBackoff::http(
+                config.protocol_chain.jrpc_url.clone(),
+                config.protocol_chain.id.clone(),
+                backoff_max,
+            );
             JrpcProviderForChain::new(config.protocol_chain.id.clone(), transport)
         };
         let indexed_chains = config
             .indexed_chains
             .iter()
             .map(|chain| {
-                let transport = JrpcExpBackoff::http(chain.jrpc_url.clone(), backoff_max);
+                let transport =
+                    JrpcExpBackoff::http(chain.jrpc_url.clone(), chain.id.clone(), backoff_max);
                 JrpcProviderForChain::new(chain.id.clone(), transport)
             })
             .collect();
