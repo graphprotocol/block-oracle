@@ -4,13 +4,11 @@ query SubgraphState {
     networks(orderBy: arrayIndex, orderDirection: asc) {
       id
       arrayIndex
-      blockNumbers(first: 1, orderBy: blockNumber, orderDirection: desc) {
+      blockNumbers(first: 1, orderBy: epochNumber, orderDirection: desc) {
         blockNumber
         acceleration
         delta
-        epoch {
-          epochNumber
-        }
+        epochNumber
       }
     }
     encodingVersion
