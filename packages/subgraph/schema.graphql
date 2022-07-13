@@ -98,6 +98,7 @@ type NetworkEpochBlockNumber @entity {
   acceleration: BigInt!
   delta: BigInt!
   blockNumber: BigInt!
+  epochNumber: BigInt! # We have to have this here to be able to sort by epochNumber
   network: Network!
   epoch: Epoch!
 }

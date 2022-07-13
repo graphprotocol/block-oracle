@@ -48,6 +48,7 @@ export function createOrUpdateNetworkEpochBlockNumber(
   let networkEpochBlockNumber = cache.getNetworkEpochBlockNumber(id)
   networkEpochBlockNumber.network = networkId;
   networkEpochBlockNumber.epoch = epochId.toString();
+  networkEpochBlockNumber.epochNumber = epochId;
   networkEpochBlockNumber.acceleration = acceleration;
 
   if (cache.hasNetworkEpochBlockNumber(previousId)) {
