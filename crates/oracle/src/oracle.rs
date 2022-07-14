@@ -72,7 +72,12 @@ impl Oracle {
             "Got the latest block from the protocol chain."
         );
 
-        let is_new_epoch = self.epoch_tracker.is_new_epoch(block.number).await?;
+        let previous_epoch_block_number = todo!();
+
+        let is_new_epoch = self
+            .epoch_tracker
+            .is_new_epoch(block.number, previous_epoch_block_number)
+            .await?;
         if !is_new_epoch {
             return Ok(());
         }

@@ -6,6 +6,8 @@ use tracing::{debug, error};
 pub enum EpochTrackerError {
     #[error("Failed to determine current epoch")]
     PreviousEpochNotFound,
+    #[error("Previous epoch block number ({0}) is higher than chain head ({1})")]
+    ImpossibleLatestBlock(u64, u64),
 }
 
 impl crate::MainLoopFlow for EpochTrackerError {
@@ -14,6 +16,10 @@ impl crate::MainLoopFlow for EpochTrackerError {
         use EpochTrackerError::*;
         match self {
             error @ PreviousEpochNotFound => {
+                error!("{error}");
+                Continue(None)
+            }
+            error @ ImpossibleLatestBlock(..) => {
                 error!("{error}");
                 Continue(None)
             }
@@ -33,18 +39,23 @@ impl EpochTracker {
         }
     }
 
-    pub async fn is_new_epoch(&self, block_number: u64) -> Result<bool, EpochTrackerError> {
-        // FIXME
-        if let Some(block_number_of_last_tx) = Some(0) {
-            debug!(
-                block_number = block_number,
-                block_number_of_last_tx = block_number_of_last_tx,
-                epoch_duration = self.epoch_duration,
-                "Checking (possibly) new epoch."
-            );
-            Ok(block_number - block_number_of_last_tx >= self.epoch_duration)
-        } else {
-            Err(EpochTrackerError::PreviousEpochNotFound)
-        }
+    pub async fn is_new_epoch(
+        &self,
+        latest_block_number: u64,
+        previous_epoch_block_number: u64,
+    ) -> Result<bool, EpochTrackerError> {
+        debug!(
+            latest_block_number,
+            previous_epoch_block_number,
+            epoch_duration = self.epoch_duration,
+            "Checking (possibly) new epoch."
+        );
+        let block_distance = previous_epoch_block_number
+            .checked_sub(latest_block_number)
+            .ok_or(EpochTrackerError::ImpossibleLatestBlock(
+                previous_epoch_block_number,
+                latest_block_number,
+            ))?;
+        Ok(block_distance >= self.epoch_duration)
     }
 }
