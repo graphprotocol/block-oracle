@@ -55,8 +55,8 @@ impl Oracle {
 
         let contracts = Contracts::new(
             &protocol_chain.web3.eth(),
-            config.contract_address,
-            todo!("read Epoch Manager address from config"),
+            config.data_edge_address,
+            config.epoch_manager_address,
         )
         .expect("Failed to initialize Block Oracle's required contracts");
 
