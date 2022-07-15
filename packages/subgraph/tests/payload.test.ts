@@ -57,7 +57,7 @@ test("Wrong Submitter", () => {
   assert.entityCount("Epoch", 0);
 
   // Check message composition and entities created based on it
-  assert.entityCount("Payload", 1);
+  assert.entityCount("Payload", 0); // we shouldn't create payloads for wrong submitters
   assert.entityCount("MessageBlock", 0);
   assert.entityCount("SetBlockNumbersForEpochMessage", 0);
   assert.entityCount("RegisterNetworksMessage", 0);
@@ -71,7 +71,6 @@ test("Wrong Submitter", () => {
     "owner",
     "0x0000000000000000000000000000000000000000"
   );
-  assert.fieldEquals("Payload", "0x00", "valid", "false");
 });
 
 test("(SetBlockNumbersForNextEpoch) EMPTY", () => {

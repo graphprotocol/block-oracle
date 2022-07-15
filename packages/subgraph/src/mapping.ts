@@ -60,15 +60,15 @@ export function processPayload(
   payload.data = payloadBytes;
   payload.submitter = submitter;
   payload.valid = true;
-  payload.save();
 
   let reader = new BytesReader(payloadBytes);
   let blockIdx = 0;
 
-  if(cache.getGlobalState().owner != payload.submitter) {
-    log.error("Invalid submitter. Owner: {}. Submitter: {}", [cache.getGlobalState().owner, payload.submitter]);
-    payload.valid = false;
-    payload.save();
+  if (cache.getGlobalState().owner != payload.submitter) {
+    log.error("Invalid submitter. Owner: {}. Submitter: {}. Avoiding payload", [
+      cache.getGlobalState().owner,
+      payload.submitter
+    ]);
     return;
   }
 
@@ -86,6 +86,7 @@ export function processPayload(
     if (!reader.ok) {
       log.error("Failed to process message block num. {}", [i]);
       payload.valid = false;
+      payload.errorMessage = reader.errorMessage;
       payload.save();
       return;
     }
@@ -94,6 +95,7 @@ export function processPayload(
     blockIdx++;
   }
 
+  payload.save();
   cache.commitChanges();
 }
 
@@ -145,7 +147,12 @@ export function processMessage(
   } else if (tag == MessageTag.ChangeOwnershipMessage) {
     executeChangeOwnershipMessage(cache, snapshot, reader, id, messageBlock);
   } else {
-    reader.fail();
+    reader.fail(
+      "Unknown message tag '{}'. This is most likely a bug!".replace(
+        "{}",
+        tag.toString()
+      )
+    );
     log.error("Unknown message tag '{}'. This is most likely a bug!", [
       MessageTag.toString(tag)
     ]);
@@ -219,13 +226,23 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
 
     accelerations.push(acceleration);
 
-    // Create new NetworkEpochBlockNumber
-    createOrUpdateNetworkEpochBlockNumber(
+    // Create new NetworkEpochBlockNumber and save it for negative delta checks
+    let blockNumberEntity = createOrUpdateNetworkEpochBlockNumber(
       networks[i].id,
       newEpoch.epochNumber,
       acceleration,
       cache
     );
+    // Check for negative delta
+    if (blockNumberEntity.delta < BIGINT_ZERO) {
+      reader.fail(
+        "NetworkEpochBlockNumber {} experienced a negative delta. Delta: {}, Acceleration: {}"
+          .replace("{}", blockNumberEntity.id)
+          .replace("{}", blockNumberEntity.delta.toString())
+          .replace("{}", blockNumberEntity.acceleration.toString())
+      );
+      return;
+    }
   }
 
   log.warning("Successfully decocoded accelerations", []);
@@ -338,13 +355,13 @@ function executeRegisterNetworksMessage(
       return;
     }
 
-    if(!cache.isNetworkAlreadyRegistered(chainId)) {
+    if (!cache.isNetworkAlreadyRegistered(chainId)) {
       let network = cache.getNetwork(chainId);
       network.addedAt = message.id;
       network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
       networks.push(network);
     } else {
-      reader.fail();
+      reader.fail("Network {} is already registered.".replace("{}", chainId));
       return;
     }
   }

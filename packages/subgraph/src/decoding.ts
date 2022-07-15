@@ -1,16 +1,22 @@
-import { Bytes, BigInt } from "@graphprotocol/graph-ts";
+import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
 import { MessageTag } from "./helpers";
-import { PREAMBLE_BIT_LENGTH, PREAMBLE_BYTE_LENGTH, TAG_BIT_LENGTH } from "./constants";
+import {
+  PREAMBLE_BIT_LENGTH,
+  PREAMBLE_BYTE_LENGTH,
+  TAG_BIT_LENGTH
+} from "./constants";
 
 export class BytesReader {
   bytes: Bytes;
   offset: u32;
   ok: boolean;
+  errorMessage: string;
 
   constructor(bytes: Bytes) {
     this.bytes = bytes;
     this.offset = 0;
     this.ok = true;
+    this.errorMessage = "";
   }
 
   snapshot(): BytesReader {
@@ -35,6 +41,7 @@ export class BytesReader {
   advance(n: u32): Bytes {
     if (n > this.length()) {
       this.ok = false;
+      this.errorMessage = "Advance out of bounds";
       return Bytes.empty();
     }
 
@@ -45,14 +52,17 @@ export class BytesReader {
   peek(i: u32): u64 {
     if (i >= this.length()) {
       this.ok = false;
+      this.errorMessage = "Peek out of bounds";
       return 0;
     } else {
       return this.bytes[this.offset + i] as u64;
     }
   }
 
-  fail(): this {
+  fail(reason: String): this {
+    log.error(reason, []);
     this.ok = false;
+    this.errorMessage = reason;
     return this;
   }
 }
@@ -99,9 +109,7 @@ export function decodeU64(reader: BytesReader): u64 {
     num = (first >> 2) | (reader.peek(1) << 6);
   } else if (shift == 2) {
     num =
-      ((first >> 3) as u64) |
-      (reader.peek(1) << 5) |
-      (reader.peek(2) << 13);
+      ((first >> 3) as u64) | (reader.peek(1) << 5) | (reader.peek(2) << 13);
   } else if (shift == 3) {
     num =
       ((first >> 4) as u64) |
