@@ -1,4 +1,5 @@
 mod config;
+mod contracts;
 mod ctrlc;
 mod epoch_tracker;
 mod error_handling;
