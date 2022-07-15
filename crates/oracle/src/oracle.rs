@@ -254,7 +254,7 @@ where
     let contract = Contract::from_json(
         protocol_chain.web3.eth(),
         config.contract_address,
-        include_bytes!("abi/data_edge.json"),
+        include_bytes!("abi/DataEdge.json"),
     )
     .expect("Can't read the ABI JSON file");
 
