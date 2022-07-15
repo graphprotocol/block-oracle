@@ -2,19 +2,15 @@ use crate::{
     contracts::Contracts,
     hex_string,
     jrpc_utils::{get_latest_block, get_latest_blocks},
-    Caip2ChainId, Config, EpochTracker, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff,
-    SubgraphQuery, SubgraphStateTracker,
+    Caip2ChainId, Config, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff, SubgraphQuery,
+    SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
+use std::collections::{HashMap, HashSet};
 use tracing::{debug, error, info};
 use web3::{
     contract::{Contract, Options},
     types::{Bytes, H256},
-    Transport,
 };
 
 const CONTRACT_FUNCTION_NAME: &'static str = "crossChainEpochOracle";
@@ -22,7 +18,6 @@ const CONTRACT_FUNCTION_NAME: &'static str = "crossChainEpochOracle";
 /// The main application in-memory state
 pub struct Oracle {
     config: &'static Config,
-    epoch_tracker: EpochTracker,
     protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
     indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
     subgraph_state: SubgraphStateTracker<SubgraphQuery>,
@@ -34,7 +29,6 @@ impl Oracle {
         let subgraph_api = SubgraphQuery::new(config.subgraph_url.clone());
         let subgraph_state = SubgraphStateTracker::new(subgraph_api);
         let backoff_max = config.retry_strategy_max_wait_time;
-        let epoch_tracker = EpochTracker::new(config);
         let protocol_chain = {
             let transport = JrpcExpBackoff::http(
                 config.protocol_chain.jrpc_url.clone(),
@@ -64,35 +58,27 @@ impl Oracle {
             config,
             protocol_chain,
             indexed_chains,
-            epoch_tracker,
             subgraph_state,
             contracts,
         }
     }
 
     pub async fn run(&mut self) -> Result<(), Error> {
-        let block = get_latest_block(self.protocol_chain.web3.clone())
-            .await
-            .map_err(Error::BadJrpcProtocolChain)?
-            .expect("Can't get latest block prom protocol chain");
-        debug!(
-            block = block.number,
-            hash = hex::encode(block.hash).as_str(),
-            "Got the latest block from the protocol chain."
-        );
-
         self.subgraph_state.refresh().await;
         if let Some(subgraph_error) = self.subgraph_state.error() {
             error!(error = %subgraph_error, "Found an error when fetching the subgraph latest state");
             return Ok(());
         }
 
-        let last_block_number_indexed_by_subgraph =
-            self.subgraph_state.last_state().map(|state| state.0);
+        // FIXME: return custom errors instead of panicking
+        let latest_epoch = self
+            .subgraph_state
+            .last_state()
+            .expect("expected a valid latest state")
+            .latest_epoch_number
+            .expect("expected a valid latest epoch number");
 
-        let is_new_epoch = last_block_number_indexed_by_subgraph.is_some()
-            || self.epoch_tracker.is_new_epoch(block.number).await?;
-
+        let is_new_epoch = self.is_new_epoch(latest_epoch).await?;
         if !is_new_epoch {
             return Ok(());
         }
@@ -230,6 +216,10 @@ impl Oracle {
                 )
             })
             .collect())
+    }
+
+    pub async fn is_new_epoch(&self, current_epoch: u64) -> Result<bool, Error> {
+        todo!()
     }
 }
 

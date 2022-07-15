@@ -1,7 +1,6 @@
 mod config;
 mod contracts;
 mod ctrlc;
-mod epoch_tracker;
 mod error_handling;
 mod jrpc_utils;
 mod metrics;
@@ -12,7 +11,6 @@ mod subgraph;
 
 pub use crate::ctrlc::CtrlcHandler;
 pub use config::Config;
-pub use epoch_tracker::{EpochTracker, EpochTrackerError};
 pub use error_handling::{MainLoopFlow, OracleControlFlow};
 pub use jrpc_utils::JrpcExpBackoff;
 pub use metrics::Metrics;
@@ -43,10 +41,10 @@ pub enum Error {
     },
     #[error(transparent)]
     Subgraph(#[from] SubgraphQueryError),
-    #[error(transparent)]
-    EpochTracker(#[from] EpochTrackerError),
     #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
     CantSubmitTx(web3::Error),
+    #[error("Failed infer current epoch")]
+    CurrentEpoch,
 }
 
 impl MainLoopFlow for Error {
@@ -56,8 +54,8 @@ impl MainLoopFlow for Error {
             Subgraph(_) => OracleControlFlow::Continue(None),
             BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
             BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
-            EpochTracker(epoch_tracker) => epoch_tracker.instruction(),
             CantSubmitTx(_) => OracleControlFlow::Continue(None),
+            CurrentEpoch => OracleControlFlow::Continue(None),
         }
     }
 }

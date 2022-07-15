@@ -1,8 +1,6 @@
 use anyhow::Context;
 use web3::{api::Eth, contract::Contract, ethabi::Address, Transport};
 
-use crate::{Config, JrpcProviderForChain};
-
 pub struct Contracts<T>
 where
     T: Clone + Transport,
