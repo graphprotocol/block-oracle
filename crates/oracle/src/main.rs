@@ -43,8 +43,10 @@ pub enum Error {
     Subgraph(#[from] SubgraphQueryError),
     #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
     CantSubmitTx(web3::Error),
-    #[error("Failed infer current epoch")]
-    CurrentEpoch,
+    #[error("Failed to call Epoch Manager")]
+    EpochManagerCallFailed(#[from] web3::contract::Error),
+    #[error("Epoch Manager latest epoch {manager} is behind Epoch Subgraph's: {subgraph}")]
+    EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
 }
 
 impl MainLoopFlow for Error {
@@ -55,7 +57,8 @@ impl MainLoopFlow for Error {
             BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
             BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
             CantSubmitTx(_) => OracleControlFlow::Continue(None),
-            CurrentEpoch => OracleControlFlow::Continue(None),
+            EpochManagerCallFailed(_) => OracleControlFlow::Continue(None),
+            EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(None),
         }
     }
 }

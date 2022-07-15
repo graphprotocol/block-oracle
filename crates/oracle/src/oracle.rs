@@ -6,7 +6,10 @@ use crate::{
     SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::collections::{HashMap, HashSet};
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
+};
 use tracing::{debug, error, info};
 use web3::{
     contract::{Contract, Options},
@@ -70,15 +73,7 @@ impl Oracle {
             return Ok(());
         }
 
-        // FIXME: return custom errors instead of panicking
-        let latest_epoch = self
-            .subgraph_state
-            .last_state()
-            .expect("expected a valid latest state")
-            .latest_epoch_number
-            .expect("expected a valid latest epoch number");
-
-        let is_new_epoch = self.is_new_epoch(latest_epoch).await?;
+        let is_new_epoch = self.is_new_epoch().await?;
         if !is_new_epoch {
             return Ok(());
         }
@@ -218,8 +213,23 @@ impl Oracle {
             .collect())
     }
 
-    pub async fn is_new_epoch(&self, current_epoch: u64) -> Result<bool, Error> {
-        todo!()
+    pub async fn is_new_epoch(&self) -> Result<bool, Error> {
+        // FIXME: Return custom errors instead of panicking
+        let subgraph_latest_epoch = self
+            .subgraph_state
+            .last_state()
+            .expect("expected a valid latest state")
+            .latest_epoch_number
+            .expect("expected a valid latest epoch number");
+        let manager_current_epoch = self.contracts.query_current_epoch().await?;
+        match subgraph_latest_epoch.cmp(&manager_current_epoch) {
+            Ordering::Less => Ok(true),
+            Ordering::Equal => Ok(false),
+            Ordering::Greater => Err(Error::EpochManagerBehindSubgraph {
+                manager: manager_current_epoch,
+                subgraph: subgraph_latest_epoch,
+            }),
+        }
     }
 }
 
