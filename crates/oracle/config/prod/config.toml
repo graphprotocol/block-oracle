@@ -1,0 +1,12 @@
+owner_address = "FOO"
+data_edge_address = "BAR"
+epoch_manager_address = "0x0000000000000000000000000000000000000000"
+
+protocol_chain_polling_interval_in_seconds = 120
+
+[protocol_chain]
+name = "eip155:1"
+jrpc = "https://example.com"
+
+[indexed_chains]
+"spam:42" = "https://example.com"

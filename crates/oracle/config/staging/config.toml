@@ -1,12 +1,10 @@
 owner_address = "c4228701A7B92793b2428687DC37D0ed92e0d7A7"
 owner_private_key = "$PRIVATE_KEY"
-contract_address = "c4228701A7B92793b2428687DC37D0ed92e0d7A7"
-
+epoch_manager_address = "0x0000000000000000000000000000000000000000"
+data_edge_address = "0xc4228701A7B92793b2428687DC37D0ed92e0d7A7"
 log_level = "trace"
 subgraph_url = "https://api.thegraph.com/subgraphs/name/juanmardefago/block-oracle"
-# FIXME: Once we have access to the Epoch Manager, we can completely remove this entry from configuration.
-# Should be about 10 minutes in Goerli
-epoch_duration = 40
+protocol_chain_polling_interval_in_seconds = 30
 
 [protocol_chain]
 name = "goerli:0"
