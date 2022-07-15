@@ -1,9 +1,6 @@
 use crate::{
-    contracts::Contracts,
-    hex_string,
-    jrpc_utils::{get_latest_block, get_latest_blocks},
-    Caip2ChainId, Config, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff, SubgraphQuery,
-    SubgraphStateTracker,
+    contracts::Contracts, hex_string, jrpc_utils::get_latest_blocks, Caip2ChainId, Config, Error,
+    JrpcExpBackoff, JrpcProviderForChain, NetworksDiff, SubgraphQuery, SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::{
@@ -11,12 +8,6 @@ use std::{
     collections::{HashMap, HashSet},
 };
 use tracing::{debug, error, info};
-use web3::{
-    contract::{Contract, Options},
-    types::{Bytes, H256},
-};
-
-const CONTRACT_FUNCTION_NAME: &'static str = "crossChainEpochOracle";
 
 /// The main application in-memory state
 pub struct Oracle {
@@ -99,9 +90,9 @@ impl Oracle {
         // Get indexed chains' latest blocks.
         let latest_blocks = get_latest_blocks(&self.indexed_chains).await?;
         let payload = self.produce_next_payload(latest_blocks)?;
-        submit_call(self.config, self.protocol_chain.clone(), payload)
-            .await
-            .map_err(Error::CantSubmitTx)?;
+        self.contracts
+            .submit_call(payload, &self.config.owner_private_key)
+            .await?;
 
         // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
         // receipt, we should monitor it until it get enough confirmations. It's unclear which
@@ -255,34 +246,6 @@ fn networks_diff_to_message(diff: &NetworksDiff) -> Option<ee::Message> {
                 .collect(),
         })
     }
-}
-
-async fn submit_call<T>(
-    config: &Config,
-    protocol_chain: JrpcProviderForChain<T>,
-    payload: Vec<u8>,
-) -> web3::Result<H256>
-where
-    T: web3::Transport,
-{
-    let contract = Contract::from_json(
-        protocol_chain.web3.eth(),
-        config.contract_address,
-        include_bytes!("abi/DataEdge.json"),
-    )
-    .expect("Can't read the ABI JSON file");
-
-    let payload = Bytes::from(payload);
-    let tx = contract
-        .signed_call(
-            CONTRACT_FUNCTION_NAME,
-            (payload,),
-            Options::default(),
-            &config.owner_private_key,
-        )
-        .await?;
-    info!(transaction_hash = ?tx, "Sent transaction");
-    Ok(tx)
 }
 
 mod freshness {
