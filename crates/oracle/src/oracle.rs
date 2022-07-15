@@ -1,15 +1,20 @@
 use crate::{
+    contracts::Contracts,
     hex_string,
     jrpc_utils::{get_latest_block, get_latest_blocks},
     Caip2ChainId, Config, EpochTracker, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff,
     SubgraphQuery, SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::collections::{HashMap, HashSet};
-use tracing::{debug, error, info, warn};
+use std::{
+    collections::{HashMap, HashSet},
+    path::Path,
+};
+use tracing::{debug, error, info};
 use web3::{
     contract::{Contract, Options},
     types::{Bytes, H256},
+    Transport,
 };
 
 const CONTRACT_FUNCTION_NAME: &'static str = "crossChainEpochOracle";
@@ -21,6 +26,7 @@ pub struct Oracle {
     protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
     indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
     subgraph_state: SubgraphStateTracker<SubgraphQuery>,
+    contracts: Contracts<JrpcExpBackoff>,
 }
 
 impl Oracle {
@@ -47,12 +53,20 @@ impl Oracle {
             })
             .collect();
 
+        let contracts = Contracts::new(
+            &protocol_chain.web3.eth(),
+            config.contract_address,
+            todo!("read Epoch Manager address from config"),
+        )
+        .expect("Failed to initialize Block Oracle's required contracts");
+
         Self {
             config,
             protocol_chain,
             indexed_chains,
             epoch_tracker,
             subgraph_state,
+            contracts,
         }
     }
 
