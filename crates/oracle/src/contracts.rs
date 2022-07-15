@@ -1,5 +1,15 @@
 use anyhow::Context;
-use web3::{api::Eth, contract::Contract, ethabi::Address, Transport};
+use secp256k1::SecretKey;
+use tracing::info;
+use web3::{
+    api::Eth,
+    contract::{Contract, Options},
+    ethabi::{Address, Bytes},
+    types::H256,
+    Transport,
+};
+
+const DATA_EDGE_CONTRACT_FUNCTION_NAME: &'static str = "crossChainEpochOracle";
 
 pub struct Contracts<T>
 where
@@ -39,5 +49,24 @@ where
         self.epoch_manager
             .query("currentEpoch", (), None, Default::default(), None)
             .await
+    }
+
+    pub async fn submit_call(
+        &self,
+        payload: Vec<u8>,
+        owner_private_key: &SecretKey,
+    ) -> Result<H256, web3::contract::Error> {
+        let payload = Bytes::from(payload);
+        let transaction_hash = self
+            .data_edge
+            .signed_call(
+                DATA_EDGE_CONTRACT_FUNCTION_NAME,
+                (payload,),
+                Options::default(),
+                owner_private_key,
+            )
+            .await?;
+        info!(?transaction_hash, "Sent transaction");
+        Ok(transaction_hash)
     }
 }
