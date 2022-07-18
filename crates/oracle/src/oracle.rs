@@ -205,13 +205,12 @@ impl Oracle {
     }
 
     pub async fn is_new_epoch(&self) -> Result<bool, Error> {
-        // FIXME: Return custom errors instead of panicking
         let subgraph_latest_epoch = self
             .subgraph_state
             .last_state()
-            .expect("expected a valid latest state")
+            .ok_or(Error::MissingSubgraphState)?
             .latest_epoch_number
-            .expect("expected a valid latest epoch number");
+            .ok_or(Error::MissingSubgraphLatestEpoch)?;
         let manager_current_epoch = self.contracts.query_current_epoch().await?;
         match subgraph_latest_epoch.cmp(&manager_current_epoch) {
             Ordering::Less => Ok(true),

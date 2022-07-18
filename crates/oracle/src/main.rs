@@ -47,6 +47,10 @@ pub enum Error {
     EpochManagerCallFailed(#[from] web3::contract::Error),
     #[error("Epoch Manager latest epoch {manager} is behind Epoch Subgraph's: {subgraph}")]
     EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
+    #[error("Expected Epoch Subgraph state to be present, but it was not")]
+    MissingSubgraphState,
+    #[error("Expected latest epoch to be present in Epoch Subgraph state, but it was not")]
+    MissingSubgraphLatestEpoch,
 }
 
 impl MainLoopFlow for Error {
@@ -57,8 +61,14 @@ impl MainLoopFlow for Error {
             BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
             BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
             CantSubmitTx(_) => OracleControlFlow::Continue(None),
+
+            // TODO: Put those variants under a new `contracts::Error` enum
             EpochManagerCallFailed(_) => OracleControlFlow::Continue(None),
             EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(None),
+
+            // TODO: Put those variants under the `SubgraphQueryError` enum
+            MissingSubgraphState => OracleControlFlow::Continue(None),
+            MissingSubgraphLatestEpoch => OracleControlFlow::Continue(None),
         }
     }
 }
