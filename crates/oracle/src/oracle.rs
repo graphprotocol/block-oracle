@@ -64,8 +64,7 @@ impl Oracle {
             return Ok(());
         }
 
-        let is_new_epoch = self.is_new_epoch().await?;
-        if !is_new_epoch {
+        if !self.is_new_epoch().await? {
             return Ok(());
         }
 
