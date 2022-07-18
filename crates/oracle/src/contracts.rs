@@ -1,15 +1,12 @@
 use anyhow::Context;
 use secp256k1::SecretKey;
-use tracing::info;
 use web3::{
     api::Eth,
-    contract::{Contract, Options},
-    ethabi::{Address, Bytes},
+    contract::Contract,
+    ethabi::Address,
     types::{H256, U256},
     Transport,
 };
-
-const DATA_EDGE_CONTRACT_FUNCTION_NAME: &'static str = "crossChainEpochOracle";
 
 pub struct Contracts<T>
 where
