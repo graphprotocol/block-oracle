@@ -46,10 +46,10 @@ where
 
     fn new_contract(abi_file: &str, eth: &Eth<T>, address: Address) -> anyhow::Result<Contract<T>> {
         let json = std::fs::read_to_string(abi_file)
-            .context("Failed to read ABI JSON file for at {abi_file}")?;
+            .with_context(|| format!("Failed to read ABI JSON file for at {abi_file}"))?;
 
         Contract::from_json(eth.clone(), address, json.as_ref())
-            .context("Failed to create contract for ABI JSON file {abi_file}")
+            .with_context(|| format!("Failed to create contract for ABI JSON file {abi_file}"))
     }
 
     pub async fn query_current_epoch(&self) -> Result<u64, web3::contract::Error> {
