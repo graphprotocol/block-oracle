@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::{future::Future, pin::Pin, time::Duration};
 use tracing::{error, trace};
 use url::Url;
-use web3::types::{Transaction, H160, H256, U64};
+use web3::types::{BlockId, BlockNumber, Transaction, H160, H256, U64};
 use web3::{transports::Http, RequestId, Transport, Web3};
 
 /// A wrapper around [`web3::Transport`] that retries JSON-RPC calls on failure.
@@ -68,42 +68,23 @@ where
     }
 }
 
-pub async fn get_latest_block<T>(web3: Web3<T>) -> web3::Result<BlockPtr>
+pub async fn get_latest_block<T>(web3: Web3<T>) -> web3::Result<Option<BlockPtr>>
 where
     T: Transport,
 {
-    let block_num = web3.eth().block_number().await?;
-    let block_id = web3::types::BlockId::Number(block_num.into());
-    let block = web3.eth().block(block_id).await?;
+    let block = web3
+        .eth()
+        .block(BlockId::Number(BlockNumber::Latest))
+        .await?
+        .expect("`eth_getBlockByNumber` with `latest` has failed");
 
-    if block.is_none() {
-        return Ok(BlockPtr {
-            number: block_num.as_u64(),
-            hash: [0; 32],
-        });
+    match (block.number, block.hash) {
+        (Some(number), Some(hash)) => Ok(Some(BlockPtr {
+            number: number.as_u64(),
+            hash: hash.0,
+        })),
+        _ => Ok(None),
     }
-    // We were just told that's the latest block number, so it wouldn't
-    // make sense for this to fail. How can it *not* find a block with
-    // that block number?
-    //.expect("Invalid block number");
-
-    let block = block.unwrap();
-    // Same thing here. We expect data to be consistent across multiple
-    // JSON-RPC calls.
-    if block.number != Some(block_num) {
-        error!(
-            block_num1 = ?block_num,
-            block_num2 = ?block.number,
-            "The JSON-RPC provider is responding to queries with inconsistent data. This is most likely a bug."
-        );
-    }
-    assert_eq!(block.number, Some(block_num));
-    assert!(block.hash.is_some());
-
-    Ok(BlockPtr {
-        number: block_num.as_u64(),
-        hash: block.hash.unwrap().into(),
-    })
 }
 
 pub async fn get_latest_blocks<T>(
@@ -122,10 +103,12 @@ where
     while let Some((chain_id, jrpc_call_result)) = tasks.next().await {
         assert!(!block_ptr_per_chain.contains_key(&chain_id));
 
-        let block_ptr = jrpc_call_result.map_err(|error| Error::BadJrpcIndexedChain {
-            chain_id: chain_id.clone(),
-            error,
-        })?;
+        let block_ptr = jrpc_call_result
+            .map_err(|error| Error::BadJrpcIndexedChain {
+                chain_id: chain_id.clone(),
+                error,
+            })?
+            .unwrap();
         block_ptr_per_chain.insert(chain_id, block_ptr);
     }
 

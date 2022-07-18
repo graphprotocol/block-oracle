@@ -6,7 +6,7 @@ use crate::{
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::collections::{HashMap, HashSet};
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use web3::{
     contract::{Contract, Options},
     types::{Bytes, H256},
@@ -57,24 +57,46 @@ impl Oracle {
     }
 
     pub async fn run(&mut self) -> Result<(), Error> {
-        self.subgraph_state.refresh().await;
-        if let Some(subgraph_error) = self.subgraph_state.error() {
-            error!(error = %subgraph_error, "Found an error when fetching the subgraph latest state");
-            return Ok(());
-        }
-
         let block = get_latest_block(self.protocol_chain.web3.clone())
             .await
-            .map_err(Error::BadJrpcProtocolChain)?;
+            .map_err(Error::BadJrpcProtocolChain)?
+            .expect("Can't get latest block prom protocol chain");
         debug!(
             block = block.number,
             hash = hex::encode(block.hash).as_str(),
             "Got the latest block from the protocol chain."
         );
 
-        let is_new_epoch = self.epoch_tracker.is_new_epoch(block.number).await?;
+        self.subgraph_state.refresh().await;
+        if let Some(subgraph_error) = self.subgraph_state.error() {
+            error!(error = %subgraph_error, "Found an error when fetching the subgraph latest state");
+            return Ok(());
+        }
+
+        let last_block_number_indexed_by_subgraph =
+            self.subgraph_state.last_state().map(|state| state.0);
+
+        let is_new_epoch = last_block_number_indexed_by_subgraph.is_some()
+            || self.epoch_tracker.is_new_epoch(block.number).await?;
+
         if !is_new_epoch {
             return Ok(());
+        }
+
+        let is_fresh = freshness::subgraph_is_fresh(
+            last_block_number_indexed_by_subgraph.unwrap_or(0).into(),
+            block.number.into(),
+            self.protocol_chain.clone(),
+            self.config.owner_address,
+            self.config.contract_address,
+            self.config.freshness_threshold,
+        )
+        .await
+        .unwrap();
+
+        // FIXME
+        if !is_fresh {
+            warn!("Subgraph is not fresh");
         }
 
         info!("Entering a new epoch.");
@@ -256,19 +278,12 @@ mod freshness {
     use web3::types::{H160, U64};
 
     #[derive(Debug, Error)]
-    enum FreshnessCheckEror {
+    pub enum FreshnessCheckError {
         #[error("Epoch Subgraph advanced beyond protocol chain's head")]
         SubgraphBeyondChain,
         #[error(transparent)]
         Web3(#[from] web3::Error),
     }
-
-    /// Number of blocks that the Epoch Subgraph may be away from the protocol chain's head. If the
-    /// block distance is lower than this, a `trace_filter` JSON RPC call will be used to infer if
-    /// any relevant transaction happened within that treshold.
-    ///
-    /// This should be configurable.
-    const FRESHNESS_THRESHOLD: u64 = 10;
 
     /// The Epoch Subgraph is considered fresh if it has processed all relevant transactions
     /// targeting the DataEdge contract.
@@ -281,26 +296,27 @@ mod freshness {
     ///
     /// Otherwise, if block numbers are under a certain threshold apart, we could scan the blocks
     /// in between and ensure they’re not relevant to the DataEdge contract.
-    async fn subgaph_is_fresh<T>(
+    pub async fn subgraph_is_fresh<T>(
         subgraph_latest_block: U64,
         current_block: U64,
         protocol_chain: JrpcProviderForChain<T>,
         owner_address: H160,
         contract_address: H160,
-    ) -> Result<bool, FreshnessCheckEror>
+        freshness_threshold: u64,
+    ) -> Result<bool, FreshnessCheckError>
     where
         T: web3::Transport,
     {
         // If this ever happens, then there must be a serious bug in the code
         if subgraph_latest_block > current_block {
-            let anomaly = FreshnessCheckEror::SubgraphBeyondChain;
+            let anomaly = FreshnessCheckError::SubgraphBeyondChain;
             error!(%anomaly);
             return Err(anomaly);
         }
         let block_distance = (current_block - subgraph_latest_block).as_u64();
         if block_distance == 0 {
             return Ok(true);
-        } else if block_distance > FRESHNESS_THRESHOLD {
+        } else if block_distance > freshness_threshold {
             debug!(
                 %subgraph_latest_block,
                 %current_block,
