@@ -1,5 +1,4 @@
-epoch_manager_address = "0x0000000000000000000000000000000000000000"
-data_edge_address = "0xc4228701A7B92793b2428687DC37D0ed92e0d7A7"
+contract_address = "0xc4228701A7B92793b2428687DC37D0ed92e0d7A7"
 
 # HOTFIX: emulates a 15 minute epoch duration
 # FIXME: Once we have access to the Epoch Manager, this value should be something around 30 seconds.
