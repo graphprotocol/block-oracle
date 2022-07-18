@@ -1,7 +1,13 @@
-# Deployed in the first block.
-contract_address = "0xc4228701A7B92793b2428687DC37D0ed92e0d7A7"
-protocol_chain_polling_interval_in_seconds = 30
-epoch_duration = 40 # should be about 10 minutes in Goerli
+epoch_manager_address = "0x0000000000000000000000000000000000000000"
+data_edge_address = "0xc4228701A7B92793b2428687DC37D0ed92e0d7A7"
+
+# HOTFIX: emulates a 15 minute epoch duration
+# FIXME: Once we have access to the Epoch Manager, this value should be something around 30 seconds.
+protocol_chain_polling_interval_in_seconds = 900
+
+# FIXME: Once we have access to the Epoch Manager, we can completely remove this entry from configuration.
+# Should be about 10 minutes in Goerli
+epoch_duration = 40
 
 [protocol_chain]
 name = "goerli:0"
