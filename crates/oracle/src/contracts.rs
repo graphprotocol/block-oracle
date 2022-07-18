@@ -5,7 +5,7 @@ use web3::{
     api::Eth,
     contract::{Contract, Options},
     ethabi::{Address, Bytes},
-    types::H256,
+    types::{H256, U256},
     Transport,
 };
 
@@ -46,9 +46,11 @@ where
     }
 
     pub async fn query_current_epoch(&self) -> Result<u64, web3::contract::Error> {
-        self.epoch_manager
+        let epoch_number: U256 = self
+            .epoch_manager
             .query("currentEpoch", (), None, Default::default(), None)
-            .await
+            .await?;
+        Ok(epoch_number.as_u64())
     }
 
     pub async fn submit_call(
