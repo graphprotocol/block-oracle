@@ -28,9 +28,16 @@ where
         data_edge_address: Address,
         epoch_manager_address: Address,
     ) -> anyhow::Result<Self> {
-        let data_edge = Contracts::new_contract("abi/DataEdge.json", eth, data_edge_address)?;
-        let epoch_manager =
-            Contracts::new_contract("abi/EpochManager.json", eth, epoch_manager_address)?;
+        let data_edge = Contracts::new_contract(
+            "crates/oracle/src/abi/DataEdge.json",
+            eth,
+            data_edge_address,
+        )?;
+        let epoch_manager = Contracts::new_contract(
+            "crates/oracle/src/abi/EpochManager.json",
+            eth,
+            epoch_manager_address,
+        )?;
         Ok(Self {
             data_edge,
             epoch_manager,
