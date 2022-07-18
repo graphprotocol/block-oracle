@@ -1,6 +1,6 @@
 owner_address = "c4228701A7B92793b2428687DC37D0ed92e0d7A7"
 owner_private_key = "$PRIVATE_KEY"
-epoch_manager_address = "0x0000000000000000000000000000000000000000"
+epoch_manager_address = "0x03541c5cd35953CD447261122F93A5E7b812D697"
 data_edge_address = "0xc4228701A7B92793b2428687DC37D0ed92e0d7A7"
 log_level = "trace"
 subgraph_url = "https://api.thegraph.com/subgraphs/name/juanmardefago/block-oracle"
