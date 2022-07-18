@@ -7,7 +7,22 @@ edition = "2021"
 anyhow = "1.0.57"
 xshell = "0.2.2"
 glob = "0.3.0"
+web3 = "0.18.0"
+toml = "0.5.9"
+
 
 [dependencies.clap]
 version = "3.1.18"
 features = ["derive"]
+
+[dependencies.tokio]
+version = "1"
+features = ["rt", "rt-multi-thread", "macros", "sync"]
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
+[dependencies.url]
+version = "2"
+features = ["serde"]
