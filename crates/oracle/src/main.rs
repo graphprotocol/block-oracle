@@ -45,7 +45,7 @@ pub enum Error {
     CantSubmitTx(web3::Error),
     #[error("Failed to call Epoch Manager")]
     EpochManagerCallFailed(#[from] web3::contract::Error),
-    #[error("Epoch Manager latest epoch {manager} is behind Epoch Subgraph's: {subgraph}")]
+    #[error("Epoch Manager latest epoch ({manager}) is behind Epoch Subgraph's ({subgraph})")]
     EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
     #[error("Expected Epoch Subgraph state to be present, but it was not")]
     MissingSubgraphState,
