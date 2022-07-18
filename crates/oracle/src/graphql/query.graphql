@@ -1,4 +1,9 @@
 query SubgraphState {
+  _meta {
+    block {
+      number
+    }
+  }
   globalState(id: "0") {
     activeNetworkCount
     networks(orderBy: arrayIndex, orderDirection: asc) {

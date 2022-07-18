@@ -181,6 +181,7 @@ impl Oracle {
             .subgraph_state
             .last_state()
             .expect("expected data from a valid subgraph state, but found none")
+            .1
             .networks
             .iter()
             .map(|network| {
