@@ -4,7 +4,6 @@ owner_private_key = "4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b
 # Deployed in the first block.
 data_edge_address =     "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab"
 epoch_manager_address = "0x0000000000000000000000000000000000000000"
-
 subgraph_url = "$SUBGRAPH_URL"
 epoch_duration = 2
 
