@@ -9,9 +9,7 @@ protocol_chain_polling_interval_in_seconds = 30
 [protocol_chain]
 name = "goerli:0"
 jrpc = "$GOERLI_0"
-# HOTFIX: emulates a 15 minute epoch duration
-# FIXME: Once we have access to the Epoch Manager, this value should be something around 30 seconds.
-polling_interval_in_seconds = 900
+polling_interval_in_seconds = 30
 
 [indexed_chains]
 "arbitrum:0" = "$ARBITRUM_0"
