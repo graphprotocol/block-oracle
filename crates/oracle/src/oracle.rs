@@ -1,13 +1,16 @@
 use crate::{
-    contracts::Contracts, hex_string, jrpc_utils::get_latest_blocks, Caip2ChainId, Config, Error,
-    JrpcExpBackoff, JrpcProviderForChain, NetworksDiff, SubgraphQuery, SubgraphStateTracker,
+    contracts::Contracts,
+    hex_string,
+    jrpc_utils::{get_latest_block, get_latest_blocks},
+    Caip2ChainId, Config, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff, SubgraphQuery,
+    SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::{
     cmp::Ordering,
     collections::{HashMap, HashSet},
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 /// The main application in-memory state
 pub struct Oracle {
@@ -68,12 +71,25 @@ impl Oracle {
             return Ok(());
         }
 
+        let last_block_number_indexed_by_subgraph =
+            self.subgraph_state.last_state().map(|state| state.0);
+
+        let block = get_latest_block(self.protocol_chain.web3.clone())
+            .await
+            .map_err(Error::BadJrpcProtocolChain)?
+            .expect("Can't get latest block prom protocol chain");
+        debug!(
+            block = block.number,
+            hash = hex::encode(block.hash).as_str(),
+            "Got the latest block from the protocol chain."
+        );
+
         let is_fresh = freshness::subgraph_is_fresh(
             last_block_number_indexed_by_subgraph.unwrap_or(0).into(),
             block.number.into(),
             self.protocol_chain.clone(),
             self.config.owner_address,
-            self.config.contract_address,
+            self.config.data_edge_address,
             self.config.freshness_threshold,
         )
         .await
@@ -208,6 +224,7 @@ impl Oracle {
             .subgraph_state
             .last_state()
             .ok_or(Error::MissingSubgraphState)?
+            .1
             .latest_epoch_number
             .ok_or(Error::MissingSubgraphLatestEpoch)?;
         let manager_current_epoch = self.contracts.query_current_epoch().await?;
