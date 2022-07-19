@@ -29,8 +29,10 @@ pub struct Config {
     pub owner_private_key: SecretKey,
     pub contract_address: H160,
     pub subgraph_url: Url,
+    pub owner_address: H160,
     pub epoch_duration: u64,
     pub indexed_chains: Vec<IndexedChain>,
+    pub freshness_threshold: u64,
     pub protocol_chain: ProtocolChain,
     pub retry_strategy_max_wait_time: Duration,
 }
@@ -78,7 +80,9 @@ impl Config {
             owner_private_key: SecretKey::from_str(clap.owner_private_key.as_str()).unwrap(),
             contract_address: config_file.contract_address.parse().unwrap(),
             subgraph_url: clap.subgraph_url,
+            freshness_threshold: config_file.freshness_threshold,
             epoch_duration: config_file.epoch_duration,
+            owner_address: config_file.owner_address.parse().unwrap(),
             retry_strategy_max_wait_time,
             indexed_chains: config_file
                 .indexed_chains
@@ -132,9 +136,15 @@ struct Clap {
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
 struct ConfigFile {
+    owner_address: String,
     contract_address: String,
     indexed_chains: HashMap<Caip2ChainId, String>,
     protocol_chain: SerdeProtocolChain,
+    /// Number of blocks that the Epoch Subgraph may be away from the protocol chain's head. If the
+    /// block distance is lower than this, a `trace_filter` JSON RPC call will be used to infer if
+    /// any relevant transaction happened within that treshold.
+    #[serde(default = "serde_defaults::freshness_threshold")]
+    freshness_threshold: u64,
     #[serde(default = "serde_defaults::epoch_duration")]
     epoch_duration: u64,
     #[serde(default = "serde_defaults::protocol_chain_polling_interval_in_seconds")]
@@ -159,6 +169,10 @@ impl ConfigFile {
 /// https://github.com/serde-rs/serde/issues/368 is fixed.
 #[allow(unused)]
 mod serde_defaults {
+    pub fn freshness_threshold() -> u64 {
+        10
+    }
+
     pub fn epoch_duration() -> u64 {
         6_646
     }

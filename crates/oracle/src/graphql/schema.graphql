@@ -1,5 +1,14 @@
 type Query {
   globalState(id: String!): GlobalState
+  _meta: Meta,
+}
+
+type Meta {
+  block: Block!
+}
+
+type Block {
+  number: Int!
 }
 
 type GlobalState {

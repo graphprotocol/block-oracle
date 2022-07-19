@@ -28,7 +28,7 @@ pub trait SubgraphApi {
 
 #[async_trait]
 impl SubgraphApi for SubgraphQuery {
-    type State = GlobalState;
+    type State = (u64, GlobalState);
     type Error = SubgraphQueryError;
 
     async fn get_subgraph_state(&self) -> Result<Option<Self::State>, Self::Error> {
@@ -46,10 +46,14 @@ impl SubgraphApi for SubgraphQuery {
             }
         }
         if let Some(data) = response_body.data {
-            Ok(data
-                .global_state
-                .map(|gs| gs.try_into().map_err(SubgraphQueryError::BadData))
-                .transpose()?)
+            let (gs, meta) = match (data.global_state, data.meta) {
+                (Some(gs), Some(meta)) => (gs, meta),
+                _ => return Ok(None),
+            };
+            Ok(Some((
+                meta.block.number as u64,
+                gs.try_into().map_err(SubgraphQueryError::BadData)?,
+            )))
         } else {
             Err(SubgraphQueryError::Other(anyhow::anyhow!(
                 "No response data"
