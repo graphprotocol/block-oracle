@@ -203,7 +203,7 @@ impl Oracle {
         Ok(self
             .subgraph_state
             .last_state()
-            .expect("expected data from a valid subgraph state, but found none")
+            .ok_or(Error::MissingSubgraphState)?
             .1
             .networks
             .iter()
