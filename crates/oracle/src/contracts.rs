@@ -1,10 +1,11 @@
 use anyhow::Context;
 use secp256k1::SecretKey;
+use tracing::info;
 use web3::{
     api::Eth,
-    contract::Contract,
+    contract::{Contract, Options},
     ethabi::Address,
-    types::{H256, U256},
+    types::{Bytes, H256, U256},
     Transport,
 };
 
@@ -66,7 +67,7 @@ where
         let transaction_hash = self
             .data_edge
             .signed_call(
-                DATA_EDGE_CONTRACT_FUNCTION_NAME,
+                "crossChainEpochOracle",
                 (payload,),
                 Options::default(),
                 owner_private_key,
