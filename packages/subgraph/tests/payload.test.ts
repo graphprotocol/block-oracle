@@ -113,6 +113,51 @@ test("(SetBlockNumbersForNextEpoch) EMPTY", () => {
   assert.fieldEquals("Payload", "0x00", "valid", "true");
 });
 
+test("(SetBlockNumbersForNextEpoch) EMPTY and then reset", () => {
+  let payloadBytes1 = Bytes.fromHexString("0x00c9") as Bytes;
+  let payloadBytes2 = Bytes.fromHexString("0x0500") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000";
+  let txHash1 = "0x00";
+  let txHash2 = "0x01";
+
+  processPayload(submitter, payloadBytes1, txHash1);
+
+  processPayload(submitter, payloadBytes2, txHash2);
+
+  assert.entityCount("Epoch", 100);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 2);
+  assert.entityCount("MessageBlock", 2);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 1);
+  assert.entityCount("RegisterNetworksMessage", 0);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangeOwnershipMessage", 0);
+  assert.entityCount("ResetStateMessage", 1);
+
+  assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "0");
+  assert.fieldEquals("GlobalState", "0", "latestValidEpoch", "null");
+  assert.fieldEquals("Epoch", "100", "id", "100"); // assert that Epoch 100 exists
+
+  assert.fieldEquals(
+    "SetBlockNumbersForEpochMessage",
+    "0x00-0-0",
+    "id",
+    "0x00-0-0"
+  );
+  assert.fieldEquals(
+    "SetBlockNumbersForEpochMessage",
+    "0x00-0-0",
+    "block",
+    "0x00-0"
+  );
+
+  assert.fieldEquals("MessageBlock", "0x00-0", "payload", "0x00");
+  assert.fieldEquals("MessageBlock", "0x00-0", "data", "0x00c9");
+  assert.fieldEquals("Payload", "0x00", "valid", "true");
+});
+
 test("(SetBlockNumbersForNextEpoch) EMPTY but invalid", () => {
   let payloadBytes = Bytes.fromHexString("0x00c900") as Bytes;
   let submitter = "0x0000000000000000000000000000000000000000";
@@ -159,13 +204,10 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch)", () => {
   // Check message composition and entities created based on it
   assert.entityCount("Payload", 1);
   assert.entityCount("MessageBlock", 1);
-  // will need to double check why these interface based entities are being
-  // improperly saved as the same entity type, and thus, breaking the entityCount
-  // checks for these tests
-  // assert.entityCount("SetBlockNumbersForEpochMessage", 1);
-  // assert.entityCount("RegisterNetworksMessage", 1);
-  // assert.entityCount("CorrectEpochsMessage", 0);
-  // assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 1);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
   assert.fieldEquals("Network", "A", "id", "A");
@@ -202,10 +244,10 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
   // Check message composition and entities created based on it
   assert.entityCount("Payload", 1);
   assert.entityCount("MessageBlock", 1);
-  // assert.entityCount("SetBlockNumbersForEpochMessage", 0);
-  // assert.entityCount("RegisterNetworksMessage", 1);
-  // assert.entityCount("CorrectEpochsMessage", 0);
-  // assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
 
@@ -218,10 +260,10 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
   // Check message composition and entities created based on it
   assert.entityCount("Payload", 2);
   assert.entityCount("MessageBlock", 2);
-  // assert.entityCount("SetBlockNumbersForEpochMessage", 1);
-  // assert.entityCount("RegisterNetworksMessage", 1);
-  // assert.entityCount("CorrectEpochsMessage", 0);
-  // assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 1);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
 
   assert.fieldEquals("Network", "A", "id", "A");
   assert.fieldEquals("Epoch", "1", "id", "1");
@@ -263,10 +305,10 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch, SetBlockNumbersForNextEpoc
   // Check message composition and entities created based on it
   assert.entityCount("Payload", 1);
   assert.entityCount("MessageBlock", 2);
-  // assert.entityCount("SetBlockNumbersForEpochMessage", 3);
-  // assert.entityCount("RegisterNetworksMessage", 1);
-  // assert.entityCount("CorrectEpochsMessage", 0);
-  // assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 3);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "4");
 
@@ -400,10 +442,10 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   // Check message composition and entities created based on it
   assert.entityCount("Payload", 1);
   assert.entityCount("MessageBlock", 1);
-  // assert.entityCount("SetBlockNumbersForEpochMessage", 1);
-  // assert.entityCount("RegisterNetworksMessage", 1);
-  // assert.entityCount("CorrectEpochsMessage", 0);
-  // assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 1);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "4");
 
@@ -439,10 +481,10 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   // Check message composition and entities created based on it
   assert.entityCount("Payload", 2);
   assert.entityCount("MessageBlock", 2);
-  // assert.entityCount("SetBlockNumbersForEpochMessage", 2);
-  // assert.entityCount("RegisterNetworksMessage", 2);
-  // assert.entityCount("CorrectEpochsMessage", 0);
-  // assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 2);
+  assert.entityCount("RegisterNetworksMessage", 2);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "3");
 

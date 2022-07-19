@@ -23,7 +23,7 @@ import {
   parseCalldata
 } from "./helpers";
 import { StoreCache } from "./store-cache";
-import { BIGINT_ZERO, BIGINT_ONE } from "./constants";
+import { BIGINT_ZERO, BIGINT_ONE, OWNER_ADDRESS_STRING } from "./constants";
 
 export function handleLogCrossChainEpochOracle(event: Log): void {
   // this is only used in local development, and needs to strip the calldata to only
@@ -107,6 +107,11 @@ export function processMessageBlock(
   let snapshot = reader.snapshot();
   let tags = decodeTags(reader);
 
+  log.warning(
+    "Tags to process: {}. Remaining reader length: {}",
+    [tags.toString(), reader.length().toString()]
+  );
+
   for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     processMessage(cache, messageBlock, i, tags[i], reader);
   }
@@ -146,6 +151,8 @@ export function processMessage(
     executeRegisterNetworksMessage(cache, snapshot, reader, id, messageBlock);
   } else if (tag == MessageTag.ChangeOwnershipMessage) {
     executeChangeOwnershipMessage(cache, snapshot, reader, id, messageBlock);
+  } else if (tag == MessageTag.ResetStateMessage) {
+    executeResetStateMessage(cache, snapshot, reader, id, messageBlock);
   } else {
     reader.fail(
       "Unknown message tag '{}'. This is most likely a bug!".replace(
@@ -395,4 +402,30 @@ function executeChangeOwnershipMessage(
   message.data = reader.diff(snapshot);
 
   globalState.owner = message.newOwner;
+}
+
+function executeResetStateMessage(
+  cache: StoreCache,
+  snapshot: BytesReader,
+  reader: BytesReader,
+  id: String,
+  messageBlock: MessageBlock
+): void {
+  let globalState = cache.getGlobalState();
+  let message = cache.getResetStateMessage(id);
+  // advance 1 just so that we can make this a processable message
+  // otherwise if there's no more data, processing is halted, and
+  // changing how that works at the MessageBlock level has unintended
+  // consequences for the rest of the messages
+  reader.advance(1);
+
+  message.block = messageBlock.id;
+  message.data = reader.diff(snapshot);
+
+  globalState.networkCount = 0;
+  globalState.activeNetworkCount = 0;
+  globalState.encodingVersion = 0;
+  globalState.owner = OWNER_ADDRESS_STRING; // maybe not this one?
+  globalState.networkArrayHead = null;
+  globalState.latestValidEpoch = null;
 }

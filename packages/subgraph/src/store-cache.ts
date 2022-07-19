@@ -10,6 +10,7 @@ import {
   CorrectEpochsMessage,
   UpdateVersionsMessage,
   ChangeOwnershipMessage,
+  ResetStateMessage,
   MessageBlock
 } from "../generated/schema";
 
@@ -42,6 +43,7 @@ export class StoreCache {
   correctEpochsMessages: SafeMap<String, CorrectEpochsMessage>;
   updateVersionsMessages: SafeMap<String, UpdateVersionsMessage>;
   changeOwnershipMessages: SafeMap<String, ChangeOwnershipMessage>;
+  resetStateMessages: SafeMap<String, ResetStateMessage>;
   messageBlocks: SafeMap<String, MessageBlock>;
 
   constructor() {
@@ -69,6 +71,7 @@ export class StoreCache {
     this.correctEpochsMessages = new SafeMap<String, CorrectEpochsMessage>();
     this.updateVersionsMessages = new SafeMap<String, UpdateVersionsMessage>();
     this.changeOwnershipMessages = new SafeMap<String, ChangeOwnershipMessage>();
+    this.resetStateMessages = new SafeMap<String, ResetStateMessage>();
     this.messageBlocks = new SafeMap<String, MessageBlock>();
   }
 
@@ -176,6 +179,17 @@ export class StoreCache {
     return this.changeOwnershipMessages.safeGet(id)!;
   }
 
+  getResetStateMessage(id: String): ResetStateMessage {
+    if (this.resetStateMessages.safeGet(id) == null) {
+      let message = ResetStateMessage.load(id);
+      if (message == null) {
+        message = new ResetStateMessage(id);
+      }
+      this.resetStateMessages.set(id, message);
+    }
+    return this.resetStateMessages.safeGet(id)!;
+  }
+
   getMessageBlock(id: String): MessageBlock {
     if (this.messageBlocks.safeGet(id) == null) {
       let messageBlock = MessageBlock.load(id);
@@ -229,6 +243,11 @@ export class StoreCache {
     let changeOwnershipMessages = this.changeOwnershipMessages.values();
     for (let i = 0; i < changeOwnershipMessages.length; i++) {
       changeOwnershipMessages[i].save();
+    }
+
+    let resetStateMessages = this.resetStateMessages.values();
+    for (let i = 0; i < resetStateMessages.length; i++) {
+      resetStateMessages[i].save();
     }
 
     let messageBlocks = this.messageBlocks.values();

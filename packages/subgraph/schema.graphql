@@ -53,6 +53,12 @@ type ChangeOwnershipMessage implements Message @entity {
   oldOwner: String!
 }
 
+type ResetStateMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes
+}
+
 type RegisterNetworksMessage implements Message @entity {
   id: ID!
   block: MessageBlock!
