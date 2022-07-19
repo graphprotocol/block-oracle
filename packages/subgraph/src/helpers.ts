@@ -13,7 +13,8 @@ export enum MessageTag {
   CorrectEpochsMessage,
   UpdateVersionsMessage,
   RegisterNetworksMessage,
-  ChangeOwnershipMessage
+  ChangeOwnershipMessage,
+  ResetStateMessage
 }
 
 export namespace MessageTag {
@@ -23,7 +24,8 @@ export namespace MessageTag {
       "CorrectEpochsMessage",
       "UpdateVersionsMessage",
       "RegisterNetworksMessage",
-      "ChangeOwnershipMessage"
+      "ChangeOwnershipMessage",
+      "ResetStateMessage"
     ][tag]
   }
 }
