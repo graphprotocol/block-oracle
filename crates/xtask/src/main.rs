@@ -18,7 +18,7 @@ enum Tasks {
         environment: Environment,
     },
     /// Sends a message to the DataEdge contract
-    Message {
+    SendMessage {
         #[clap(long, short)]
         environment: Environment,
         #[clap(possible_values = &["reset"])]
@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
     match Tasks::parse() {
         EncodeMessageSamples => message_samples::encode()?,
         CurrentEpoch { environment } => epoch_manager::query(environment).await?,
-        Message {
+        SendMessage {
             environment,
             message,
         } => contracts::send_message(message, environment).await?,
