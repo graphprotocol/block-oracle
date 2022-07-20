@@ -2,6 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use clap::Parser;
 
+mod contracts;
 mod epoch_manager;
 mod message_samples;
 
@@ -16,15 +17,41 @@ enum Tasks {
         #[clap(long, short)]
         environment: Environment,
     },
+    /// Sends a message to the DataEdge contract
+    Message {
+        #[clap(long, short)]
+        environment: Environment,
+        message: Message,
+    },
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    use Tasks::*;
     match Tasks::parse() {
-        Tasks::EncodeMessageSamples => message_samples::encode()?,
-        Tasks::CurrentEpoch { environment } => epoch_manager::query(environment).await?,
+        EncodeMessageSamples => message_samples::encode()?,
+        CurrentEpoch { environment } => epoch_manager::query(environment).await?,
+        Message {
+            environment,
+            message,
+        } => contracts::send_message(message, environment).await?,
     };
     Ok(())
+}
+
+pub enum Message {
+    Reset,
+}
+
+impl FromStr for Message {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "reset" | "Reset" => Ok(Self::Reset),
+            _ => anyhow::bail!("failed to parse message name"),
+        }
+    }
 }
 
 pub enum Environment {

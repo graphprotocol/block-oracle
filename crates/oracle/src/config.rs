@@ -73,7 +73,7 @@ impl Config {
         Self::from_config_file(config_file)
     }
 
-    fn from_config_file(config_file: ConfigFile) -> Self {
+    pub fn from_config_file(config_file: ConfigFile) -> Self {
         Self {
             log_level: config_file.log_level.0,
             owner_private_key: config_file.owner_private_key.0,
@@ -118,7 +118,7 @@ struct Clap {
 /// Represents the TOML config file
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
-struct ConfigFile {
+pub struct ConfigFile {
     owner_address: FromStrWrapper<H160>,
     owner_private_key: EitherLiteralOrEnvVar<SecretKey>,
     data_edge_address: FromStrWrapper<H160>,
@@ -145,7 +145,7 @@ struct ConfigFile {
 
 impl ConfigFile {
     /// Tries to Create a [`ConfigFile`] from a TOML file.
-    fn from_file(file_path: &Path) -> Result<Self, ConfigError> {
+    pub fn from_file(file_path: &Path) -> Result<Self, ConfigError> {
         let string = read_to_string(file_path)?;
         toml::from_str(&string).map_err(ConfigError::Toml)
     }

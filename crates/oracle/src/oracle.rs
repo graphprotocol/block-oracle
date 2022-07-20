@@ -43,7 +43,6 @@ impl Oracle {
                 JrpcProviderForChain::new(chain.id.clone(), transport)
             })
             .collect();
-
         let contracts = Contracts::new(
             &protocol_chain.web3.eth(),
             config.data_edge_address,
