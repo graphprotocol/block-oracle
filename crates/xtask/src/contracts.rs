@@ -1,19 +1,24 @@
 use crate::{Environment, Message};
 use block_oracle::models::JrpcProviderForChain;
-use block_oracle::{
-    config::{Config, ConfigFile},
-    contracts::Contracts,
-};
+use block_oracle::{config::Config, contracts::Contracts};
 use epoch_encoding::{serialize_messages, CompressedMessage};
 use web3::transports::Http;
 
 pub(crate) async fn send_message(message: Message, environment: Environment) -> anyhow::Result<()> {
-    let config = resolve_config(environment)?;
+    let config = environment.resolve_config()?;
     let contracts = init_contracts(&config)?;
     let payload: Vec<u8> = build_payload(message);
     contracts
         .submit_call(payload, &config.owner_private_key)
         .await?;
+    Ok(())
+}
+
+pub(crate) async fn current_epoch(environment: Environment) -> anyhow::Result<()> {
+    let config = environment.resolve_config()?;
+    let contracts = init_contracts(&config)?;
+    let current_epoch = contracts.query_current_epoch().await?;
+    println!("{}", current_epoch);
     Ok(())
 }
 
@@ -27,12 +32,6 @@ fn init_contracts(config: &Config) -> anyhow::Result<Contracts<Http>> {
         config.data_edge_address,
         config.epoch_manager_address,
     )
-}
-
-fn resolve_config(environment: Environment) -> anyhow::Result<Config> {
-    let config_path = environment.resolve_configuration_path()?;
-    let config_file = ConfigFile::from_file(&config_path)?;
-    Ok(Config::from_config_file(config_file))
 }
 
 fn build_payload(message: Message) -> Vec<u8> {
