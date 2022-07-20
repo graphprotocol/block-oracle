@@ -60,9 +60,9 @@ impl MainLoopFlow for Error {
             Subgraph(_) => OracleControlFlow::Continue(None),
             BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
             BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
-            CantSubmitTx(_) => OracleControlFlow::Continue(None),
 
             // TODO: Put those variants under a new `contracts::Error` enum
+            CantSubmitTx(_) => OracleControlFlow::Continue(None),
             EpochManagerCallFailed(_) => OracleControlFlow::Continue(None),
             EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(None),
 
