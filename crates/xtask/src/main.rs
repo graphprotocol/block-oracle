@@ -21,6 +21,7 @@ enum Tasks {
     Message {
         #[clap(long, short)]
         environment: Environment,
+        #[clap(possible_values = &["reset"])]
         message: Message,
     },
 }
@@ -48,7 +49,7 @@ impl FromStr for Message {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "reset" | "Reset" => Ok(Self::Reset),
+            "reset" => Ok(Self::Reset),
             _ => anyhow::bail!("failed to parse message name"),
         }
     }
