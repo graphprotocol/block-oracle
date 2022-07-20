@@ -1,8 +1,8 @@
+use block_oracle::config::{Config, ConfigFile};
 use clap::Parser as _;
 use std::path::PathBuf;
 
 mod contracts;
-mod epoch_manager;
 mod message_samples;
 
 /// Block Oracle automation scripts
@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
     use Tasks::*;
     match Tasks::parse() {
         EncodeMessageSamples => message_samples::encode()?,
-        CurrentEpoch { environment } => epoch_manager::query(environment).await?,
+        CurrentEpoch { environment } => contracts::current_epoch(environment).await?,
         SendMessage {
             environment,
             message,
@@ -66,5 +66,11 @@ impl Environment {
             "Could not find configuration file at: {path:?}"
         );
         Ok(path)
+    }
+
+    fn resolve_config(&self) -> anyhow::Result<Config> {
+        let config_path = self.resolve_configuration_path()?;
+        let config_file = ConfigFile::from_file(&config_path)?;
+        Ok(Config::from_config_file(config_file))
     }
 }
