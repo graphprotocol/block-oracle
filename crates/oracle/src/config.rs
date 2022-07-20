@@ -269,8 +269,7 @@ mod tests {
 
     #[test]
     fn example_config() {
-        std::env::set_var("SUBGRAPH_URL", "https://example.com");
-        Config::parse_from(&["", config_file_path("dev/config.toml").as_str()]);
+        Config::parse_from(&["", config_file_path("test/config.sample.toml").as_str()]);
     }
 
     #[test]
