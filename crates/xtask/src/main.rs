@@ -1,27 +1,25 @@
-use std::{path::PathBuf, str::FromStr};
-
-use clap::Parser;
+use clap::Parser as _;
+use std::path::PathBuf;
 
 mod contracts;
 mod epoch_manager;
 mod message_samples;
 
 /// Block Oracle automation scripts
-#[derive(Parser)]
-#[clap()]
+#[derive(clap::Parser)]
 enum Tasks {
     /// Compile and display encoded message samples
     EncodeMessageSamples,
     /// Queries the Epoch Manager for the current epoch
     CurrentEpoch {
-        #[clap(long, short)]
+        #[clap(short, long, value_enum)]
         environment: Environment,
     },
     /// Sends a message to the DataEdge contract
     SendMessage {
-        #[clap(long, short)]
+        #[clap(short, long, value_enum)]
         environment: Environment,
-        #[clap(possible_values = &["reset"])]
+        #[clap(value_enum)]
         message: Message,
     },
 }
@@ -40,38 +38,16 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[derive(clap::ValueEnum, Clone)]
 pub enum Message {
     Reset,
 }
 
-impl FromStr for Message {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "reset" => Ok(Self::Reset),
-            _ => anyhow::bail!("failed to parse message name"),
-        }
-    }
-}
-
+#[derive(clap::ValueEnum, Clone)]
 pub enum Environment {
     Development,
     Staging,
     Production,
-}
-
-impl FromStr for Environment {
-    type Err = anyhow::Error;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            x if x.starts_with("dev") => Ok(Self::Development),
-            x if x.starts_with("stag") => Ok(Self::Staging),
-            "prod" | "production" => Ok(Self::Production),
-            _ => anyhow::bail!("failed to parse configuration name"),
-        }
-    }
 }
 
 impl Environment {

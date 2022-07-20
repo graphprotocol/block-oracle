@@ -13,7 +13,7 @@ epoch-encoding = { path = "../encoding" }
 block-oracle = { path = "../oracle" }
 
 [dependencies.clap]
-version = "3.1.18"
+version = "3"
 features = ["derive"]
 
 [dependencies.tokio]
