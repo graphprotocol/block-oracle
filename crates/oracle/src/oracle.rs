@@ -66,8 +66,23 @@ impl Oracle {
             return Ok(());
         }
 
-        if !self.is_new_epoch().await? {
-            return Ok(());
+        match self.is_new_epoch().await {
+            // The Epoch Subgraph is in the same epoch as the Epoch Manager.
+            // The Oracle should go back to sleep.
+            Ok(false) => return Ok(()),
+
+            // The Epoch Subgraph is one epoch behind the Epoch Manager.
+            // The Oracle should continue.
+            Ok(true) => {}
+
+            // The Epoch Subgraph is more than one epoch behind the Epoch Manager.
+            // The Oracle should update the Subgraph state and go back to sleep.
+            Err(Error::SubgraphLaggingBehind(distance)) => {
+                return self.send_backfill_message(distance).await;
+            }
+
+            // Other errors
+            Err(e) => return Err(e),
         }
 
         let last_block_number_indexed_by_subgraph =
@@ -228,13 +243,33 @@ impl Oracle {
             .ok_or(Error::MissingSubgraphLatestEpoch)?;
         let manager_current_epoch = self.contracts.query_current_epoch().await?;
         match subgraph_latest_epoch.cmp(&manager_current_epoch) {
-            Ordering::Less => Ok(true),
+            Ordering::Less => {
+                let distance = manager_current_epoch - subgraph_latest_epoch;
+                if distance == 1 {
+                    Ok(true)
+                } else {
+                    warn!(distance, "Subgraph is lagging behind Epoch Manager");
+                    Err(Error::SubgraphLaggingBehind(distance))
+                }
+            }
             Ordering::Equal => Ok(false),
             Ordering::Greater => Err(Error::EpochManagerBehindSubgraph {
                 manager: manager_current_epoch,
                 subgraph: subgraph_latest_epoch,
             }),
         }
+    }
+
+    pub async fn send_backfill_message(&self, distance: u64) -> Result<(), Error> {
+        debug!(distance, "Sending a backfill message");
+        let payload = create_backfill_payload(distance);
+        let transaction = self
+            .contracts
+            .submit_call(payload, &self.config.owner_private_key)
+            .await
+            .map_err(Error::Backfill)?;
+        info!(distance, ?transaction, "Sent backfill message");
+        Ok(())
     }
 }
 
@@ -346,4 +381,16 @@ mod freshness {
             Ok(false)
         }
     }
+}
+
+fn create_backfill_payload(distance: u64) -> Vec<u8> {
+    assert!(distance > 1, "epoch distance must be higher than one");
+    let mut bytes: Vec<u8> = Vec::new();
+    let compressed_message = ee::CompressedMessage::SetBlockNumbersForNextEpoch(
+        ee::CompressedSetBlockNumbersForNextEpoch::Empty {
+            count: distance - 1,
+        },
+    );
+    ee::serialize_messages(&vec![compressed_message], &mut bytes);
+    bytes
 }
