@@ -49,8 +49,6 @@ pub enum Error {
     EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
     #[error("Expected Epoch Subgraph state to be present, but it was not")]
     MissingSubgraphState,
-    #[error("Expected latest epoch to be present in Epoch Subgraph state, but it was not")]
-    MissingSubgraphLatestEpoch,
 }
 
 impl MainLoopFlow for Error {
@@ -68,7 +66,6 @@ impl MainLoopFlow for Error {
 
             // TODO: Put those variants under the `SubgraphQueryError` enum
             MissingSubgraphState => OracleControlFlow::Continue(None),
-            MissingSubgraphLatestEpoch => OracleControlFlow::Continue(None),
         }
     }
 }
