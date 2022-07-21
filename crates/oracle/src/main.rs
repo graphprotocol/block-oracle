@@ -51,10 +51,6 @@ pub enum Error {
     MissingSubgraphState,
     #[error("Expected latest epoch to be present in Epoch Subgraph state, but it was not")]
     MissingSubgraphLatestEpoch,
-    #[error("Epoch Subgraph is behind Epoch Manager by {0} epochs")]
-    SubgraphLaggingBehind(u64),
-    #[error("Failed to backfill the Epoch Subgraph")]
-    Backfill(#[source] web3::contract::Error),
 }
 
 impl MainLoopFlow for Error {
@@ -69,12 +65,10 @@ impl MainLoopFlow for Error {
             CantSubmitTx(_) => OracleControlFlow::Continue(None),
             EpochManagerCallFailed(_) => OracleControlFlow::Continue(None),
             EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(None),
-            Backfill(_) => OracleControlFlow::Continue(None),
 
             // TODO: Put those variants under the `SubgraphQueryError` enum
             MissingSubgraphState => OracleControlFlow::Continue(None),
             MissingSubgraphLatestEpoch => OracleControlFlow::Continue(None),
-            SubgraphLaggingBehind(_) => OracleControlFlow::Continue(None),
         }
     }
 }
