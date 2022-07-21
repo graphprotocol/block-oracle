@@ -219,13 +219,18 @@ impl Oracle {
     }
 
     pub async fn is_new_epoch(&self) -> Result<bool, Error> {
-        let subgraph_latest_epoch = self
+        let subgraph_latest_epoch = match self
             .subgraph_state
             .last_state()
             .ok_or(Error::MissingSubgraphState)?
             .1
             .latest_epoch_number
-            .ok_or(Error::MissingSubgraphLatestEpoch)?;
+        {
+            Some(epoch) => epoch,
+            // Subgraph is not initialized, so we return `true` because it is necessary to update
+            // its state.
+            None => return Ok(true),
+        };
         let manager_current_epoch = self.contracts.query_current_epoch().await?;
         match subgraph_latest_epoch.cmp(&manager_current_epoch) {
             Ordering::Less => Ok(true),
