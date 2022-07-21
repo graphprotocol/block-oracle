@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: block-oracle
-          image: gcr.io/the-graph-staging/block-oracle:latest
+          image: gcr.io/the-graph-staging/block-oracle:test
           command:
             - /usr/local/bin/block-oracle
             - config.toml

@@ -9,6 +9,9 @@ use web3::{
     Transport,
 };
 
+const EPOCH_MANAGER_ABI: &[u8; 6563] = include_bytes!("abi/EpochManager.json");
+const DATA_EDGE_ABI: &[u8; 320] = include_bytes!("abi/DataEdge.json");
+
 pub struct Contracts<T>
 where
     T: Clone + Transport,
@@ -26,28 +29,17 @@ where
         data_edge_address: Address,
         epoch_manager_address: Address,
     ) -> anyhow::Result<Self> {
-        let data_edge = Contracts::new_contract(
-            "crates/oracle/src/abi/DataEdge.json",
-            eth,
-            data_edge_address,
-        )?;
-        let epoch_manager = Contracts::new_contract(
-            "crates/oracle/src/abi/EpochManager.json",
-            eth,
-            epoch_manager_address,
-        )?;
+        let data_edge = Contracts::new_contract(DATA_EDGE_ABI, eth, data_edge_address)?;
+        let epoch_manager = Contracts::new_contract(EPOCH_MANAGER_ABI, eth, epoch_manager_address)?;
         Ok(Self {
             data_edge,
             epoch_manager,
         })
     }
 
-    fn new_contract(abi_file: &str, eth: &Eth<T>, address: Address) -> anyhow::Result<Contract<T>> {
-        let json = std::fs::read_to_string(abi_file)
-            .with_context(|| format!("Failed to read ABI JSON file for at {abi_file}"))?;
-
-        Contract::from_json(eth.clone(), address, json.as_ref())
-            .with_context(|| format!("Failed to create contract for ABI JSON file {abi_file}"))
+    fn new_contract(abi: &[u8], eth: &Eth<T>, address: Address) -> anyhow::Result<Contract<T>> {
+        Contract::from_json(eth.clone(), address, abi)
+            .with_context(|| format!("Failed to create contract"))
     }
 
     pub async fn query_current_epoch(&self) -> Result<u64, web3::contract::Error> {
