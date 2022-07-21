@@ -1,12 +1,13 @@
-import { BigInt, Bytes } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, Address } from "@graphprotocol/graph-ts";
 import {
   GlobalState,
   Epoch,
   NetworkEpochBlockNumber,
   Network
 } from "../generated/schema";
+import { EpochManager } from "../generated/DataEdge/EpochManager";
 import { StoreCache } from "./store-cache";
-import { BIGINT_ONE } from "./constants";
+import { BIGINT_ONE, EPOCH_MANAGER_ADDRESS } from "./constants";
 
 export enum MessageTag {
   SetBlockNumbersForEpochMessage = 0,
@@ -31,11 +32,9 @@ export namespace MessageTag {
 }
 
 export function nextEpochId(state: GlobalState): BigInt {
-  if (state.latestValidEpoch == null) {
-    return BIGINT_ONE;
-  } else {
-    return BigInt.fromString(state.latestValidEpoch!) + BIGINT_ONE;
-  }
+  let epochManager = EpochManager.bind(Address.fromString(EPOCH_MANAGER_ADDRESS))
+  let response = epochManager.currentEpoch() // maybe add try_ version later
+  return response
 }
 
 export function createOrUpdateNetworkEpochBlockNumber(

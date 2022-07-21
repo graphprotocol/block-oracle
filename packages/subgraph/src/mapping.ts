@@ -187,13 +187,14 @@ function executeSetBlockNumbersForEpochMessage(
       messageBlock
     );
   } else {
-    executeEmptySetBlockNumbersForEpochMessage(
-      cache,
-      snapshot,
-      reader,
-      id,
-      messageBlock
-    );
+    reader.fail("Network list is empty. Can't set new epoch block numbers");
+    // executeEmptySetBlockNumbersForEpochMessage(
+    //   cache,
+    //   snapshot,
+    //   reader,
+    //   id,
+    //   messageBlock
+    // );
   }
 }
 
@@ -209,7 +210,23 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
   message.block = messageBlock.id;
 
   let networks = getActiveNetworks(cache);
-  let newEpoch = cache.getEpoch(nextEpochId(globalState));
+
+  let previousEpochNumber = parseInt(globalState.latestValidEpoch != null ? globalState.latestValidEpoch! : "0") as i32;
+  let nextEpochID = nextEpochId(globalState);
+  let nextEpochNumber = nextEpochID.toI32();
+
+  if (nextEpochNumber > previousEpochNumber + 1) {
+    log.warning(
+      "Next Epoch number is {}, but previous epoch number is {}. Creating empty epochs to fill the gaps",
+      [nextEpochID.toString(), previousEpochNumber.toString()]
+    );
+    for (let i = previousEpochNumber + 1; i < nextEpochNumber; i++) {
+      log.warning("Backfilling epochs. Creating epoch #{}", [i.toString()]);
+      cache.getEpoch(BigInt.fromI32(i));
+    }
+  }
+
+  let newEpoch = cache.getEpoch(nextEpochID);
   globalState.latestValidEpoch = newEpoch.id;
 
   let merkleRoot = reader.advance(32);
@@ -257,37 +274,37 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
   message.data = reader.diff(snapshot);
 }
 
-function executeEmptySetBlockNumbersForEpochMessage(
-  cache: StoreCache,
-  snapshot: BytesReader,
-  reader: BytesReader,
-  id: String,
-  messageBlock: MessageBlock
-): void {
-  let globalState = cache.getGlobalState();
-  let message = cache.getSetBlockNumbersForEpochMessage(id);
-  message.block = messageBlock.id;
-
-  let numNetworks = BigInt.fromU64(decodeU64(reader));
-  if (!reader.ok) {
-    return;
-  }
-
-  message.count = numNetworks;
-
-  log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
-    message.count!.toString()
-  ]);
-
-  for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
-    log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
-    let newEpoch = cache.getEpoch(nextEpochId(globalState));
-    globalState.latestValidEpoch = newEpoch.id;
-  }
-  log.warning("AFTER EPOCH LOOP", []);
-
-  message.data = reader.diff(snapshot);
-}
+// function executeEmptySetBlockNumbersForEpochMessage(
+//   cache: StoreCache,
+//   snapshot: BytesReader,
+//   reader: BytesReader,
+//   id: String,
+//   messageBlock: MessageBlock
+// ): void {
+//   let globalState = cache.getGlobalState();
+//   let message = cache.getSetBlockNumbersForEpochMessage(id);
+//   message.block = messageBlock.id;
+//
+//   let emptyEpochCount = BigInt.fromU64(decodeU64(reader));
+//   if (!reader.ok) {
+//     return;
+//   }
+//
+//   message.count = emptyEpochCount;
+//
+//   log.warning("BEFORE EPOCH LOOP, AMOUNT TO CREATE: {}", [
+//     message.count!.toString()
+//   ]);
+//
+//   for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
+//     log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
+//     let newEpoch = cache.getEpoch(nextEpochId(globalState));
+//     globalState.latestValidEpoch = newEpoch.id;
+//   }
+//   log.warning("AFTER EPOCH LOOP", []);
+//
+//   message.data = reader.diff(snapshot);
+// }
 
 function executeCorrectEpochsMessage(
   cache: StoreCache,
