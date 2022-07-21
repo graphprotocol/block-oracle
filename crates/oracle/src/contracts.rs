@@ -1,6 +1,6 @@
 use anyhow::Context;
 use secp256k1::SecretKey;
-use tracing::info;
+use tracing::{debug, info, trace};
 use web3::{
     api::Eth,
     contract::{Contract, Options},
@@ -43,11 +43,14 @@ where
     }
 
     pub async fn query_current_epoch(&self) -> Result<u64, web3::contract::Error> {
+        trace!("Querying the Epoch Manager for the current epoch");
         let epoch_number: U256 = self
             .epoch_manager
             .query("currentEpoch", (), None, Default::default(), None)
             .await?;
-        Ok(epoch_number.as_u64())
+        let current_epoch = epoch_number.as_u64();
+        debug!(current_epoch, "Got current epoch from the Epoch Manager");
+        Ok(current_epoch)
     }
 
     pub async fn submit_call(

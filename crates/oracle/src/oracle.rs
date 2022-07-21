@@ -226,10 +226,16 @@ impl Oracle {
             .1
             .latest_epoch_number
         {
-            Some(epoch) => epoch,
+            Some(epoch) => {
+                debug!("Epoch Subgraph is at epoch {epoch}");
+                epoch
+            }
             // Subgraph is not initialized, so we return `true` because it is necessary to update
             // its state.
-            None => return Ok(true),
+            None => {
+                debug!("Epoch Subgraph has no latest valid epoch");
+                return Ok(true);
+            }
         };
         let manager_current_epoch = self.contracts.query_current_epoch().await?;
         match subgraph_latest_epoch.cmp(&manager_current_epoch) {
