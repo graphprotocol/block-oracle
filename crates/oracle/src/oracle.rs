@@ -66,14 +66,6 @@ impl Oracle {
             return Ok(());
         }
 
-        // If the subgraph is uninitialized, the Oracle must backfill it to one epoch behind the
-        // current and sleep for another cycle.
-        if self.subgraph_state.is_uninitialized() {
-            let manager_current_epoch = self.contracts.query_current_epoch().await?;
-            self.send_backfill_message(manager_current_epoch).await?;
-            return Ok(());
-        }
-
         match self.is_new_epoch().await {
             // The Epoch Subgraph is in the same epoch as the Epoch Manager.
             // The Oracle should go back to sleep.
