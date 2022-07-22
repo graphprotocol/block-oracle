@@ -1,4 +1,4 @@
-use crate::{Caip2ChainId, Error, JrpcProviderForChain};
+use crate::{Caip2ChainId, JrpcProviderForChain};
 use backoff::{future::retry, ExponentialBackoff, ExponentialBackoffBuilder};
 use epoch_encoding::BlockPtr;
 use futures::{future::try_join_all, TryFutureExt};
@@ -7,11 +7,12 @@ use futures::{
     FutureExt,
 };
 use jsonrpc_core::{Call, Value};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+use std::ops::RangeInclusive;
 use std::{future::Future, pin::Pin, time::Duration};
-use tracing::{error, trace};
+use tracing::trace;
 use url::Url;
-use web3::types::{BlockId, BlockNumber, Transaction, H160, H256, U64};
+use web3::types::{BlockId, BlockNumber, Transaction, H160, U64};
 use web3::{transports::Http, RequestId, Transport, Web3};
 
 /// A wrapper around [`web3::Transport`] that retries JSON-RPC calls on failure.
@@ -68,53 +69,48 @@ where
     }
 }
 
-pub async fn get_latest_block<T>(web3: Web3<T>) -> web3::Result<Option<BlockPtr>>
+pub async fn get_latest_block<T>(web3: Web3<T>) -> web3::Result<BlockPtr>
 where
     T: Transport,
 {
     let block = web3
         .eth()
+        // We're asking for the latest head of the blockchain.
         .block(BlockId::Number(BlockNumber::Latest))
         .await?
-        .expect("`eth_getBlockByNumber` with `latest` has failed");
+        .ok_or_else(|| web3::Error::InvalidResponse("No latest block found".to_string()))?;
 
     match (block.number, block.hash) {
-        (Some(number), Some(hash)) => Ok(Some(BlockPtr {
+        (Some(number), Some(hash)) => Ok(BlockPtr {
             number: number.as_u64(),
             hash: hash.0,
-        })),
-        _ => Ok(None),
+        }),
+        _ => Err(web3::Error::InvalidResponse(
+            "The latest block is missing a number or hash".to_string(),
+        )),
     }
 }
 
+/// Fetches the latest available block number and hash from all `chains`.
 pub async fn get_latest_blocks<T>(
     chains: &[JrpcProviderForChain<T>],
-) -> Result<HashMap<Caip2ChainId, BlockPtr>, Error>
+) -> BTreeMap<Caip2ChainId, web3::Result<BlockPtr>>
 where
     T: web3::Transport,
 {
-    let mut block_ptr_per_chain: HashMap<Caip2ChainId, BlockPtr> = HashMap::new();
     let mut tasks = chains
         .iter()
         .cloned()
         .map(|chain| get_latest_block(chain.web3).map(|block| (chain.chain_id, block)))
         .collect::<FuturesUnordered<_>>();
 
+    let mut block_ptr_per_chain = BTreeMap::new();
     while let Some((chain_id, jrpc_call_result)) = tasks.next().await {
-        assert!(!block_ptr_per_chain.contains_key(&chain_id));
-
-        let block_ptr = jrpc_call_result
-            .map_err(|error| Error::BadJrpcIndexedChain {
-                chain_id: chain_id.clone(),
-                error,
-            })?
-            .unwrap();
-        block_ptr_per_chain.insert(chain_id, block_ptr);
+        block_ptr_per_chain.insert(chain_id, jrpc_call_result);
     }
 
     assert!(block_ptr_per_chain.len() == chains.len());
-
-    Ok(block_ptr_per_chain)
+    block_ptr_per_chain
 }
 
 /// Scans a block range for relevant transactions.
@@ -122,57 +118,34 @@ where
 /// Returns a vector of the filtered transactions.
 pub async fn calls_in_block_range<T>(
     web3: Web3<T>,
-    from_block: U64,
-    to_block: U64,
+    block_range: RangeInclusive<u64>,
     from_address: H160,
     to_address: H160,
-) -> Result<Vec<Transaction>, web3::Error>
+) -> web3::Result<Vec<Transaction>>
 where
     T: Transport,
 {
-    let block_range: Vec<_> = (from_block.as_u64()..=to_block.as_u64()).collect();
-    // Prepare all async calls for fetching blocks in range
-    let block_futures: Vec<_> = block_range
+    let block_numbers: Vec<u64> = block_range.collect();
+    // Prepare all async calls for fetching blocks in range.
+    let block_futures = block_numbers
         .iter()
-        .map(|block_number| {
-            let block_number: U64 = (*block_number).into();
-            web3.eth().block(block_number.into())
-        })
-        .collect();
-    // Searching is fallible, so we get a vector of options
-    let optional_blocks = try_join_all(block_futures).await?;
-    // This will store all transaction hashes found within the fetched blocks
-    let mut transaction_hashes: Vec<H256> = Vec::new();
-    // Extract the transaction hashes from the the received blocks
-    for (opt, block_number) in optional_blocks.into_iter().zip(block_range) {
-        if let Some(block) = opt {
-            for transaction_hash in block.transactions.into_iter() {
-                transaction_hashes.push(transaction_hash)
-            }
-        } else {
-            error!(%block_number, "Failed to fetch block by number");
-        }
-    }
-    // Prepare the async calls for fetching the full transaction objects
-    let transaction_futures: Vec<_> = transaction_hashes
-        .iter()
-        .map(|transaction_hash| web3.eth().transaction((*transaction_hash).into()))
-        .collect();
-    // Again, searching is fallible, meaning we get back a vector of optional values
-    let optional_transactions = try_join_all(transaction_futures).await?;
-    // This will hold the filtered transactions that will be returned by thins function
-    let mut filtered_transactions: Vec<Transaction> = Vec::new();
-    // Iterate over all received transactions and filter the ones we are interested in
-    for (opt, transaction_hash) in optional_transactions.into_iter().zip(transaction_hashes) {
-        if let Some(transaction) = opt {
-            if matches!((transaction.from, transaction.to), (Some(a), Some(b)) if a == from_address && b == to_address)
-            {
-                filtered_transactions.push(transaction)
-            }
-        } else {
-            error!(%transaction_hash, "Failed to fetch transaction by hash");
-        }
+        .map(|block_number| web3.eth().block_with_txs(U64::from(*block_number).into()));
+
+    // Searching is fallible, so we get a vector of options.
+    let blocks = try_join_all(block_futures).await?;
+
+    let mut txs = vec![];
+    for (i, block_opt) in blocks.into_iter().enumerate() {
+        let block_number = block_numbers[i];
+        let block = block_opt.ok_or_else(|| {
+            web3::Error::InvalidResponse(format!(
+                "Block {} not found during range scan",
+                block_number
+            ))
+        })?;
+        txs.extend_from_slice(&block.transactions);
     }
 
-    Ok(filtered_transactions)
+    txs.retain(|tx| tx.from == Some(from_address) && tx.to == Some(to_address));
+    Ok(txs)
 }

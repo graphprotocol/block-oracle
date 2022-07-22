@@ -1,7 +1,7 @@
 use clap::Parser;
 use epoch_encoding as ee;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{collections::HashMap, io};
+use std::{collections::BTreeMap, io};
 
 #[derive(Parser)]
 #[clap(name = "oracle-encoder")]
@@ -32,7 +32,7 @@ fn main() -> io::Result<()> {
                 Message::CorrectEpochs {} => (
                     "CorrectEpochs",
                     ee::CompressedMessage::CorrectEpochs {
-                        data_by_network_id: HashMap::new(),
+                        data_by_network_id: BTreeMap::new(),
                     },
                 ),
                 Message::UpdateVersion { version_number } => ("UpdateVersion", {
