@@ -42,7 +42,8 @@ pub struct ProtocolChain {
 pub struct Config {
     pub log_level: LevelFilter,
     pub owner_private_key: SecretKey,
-    pub contract_address: H160,
+    pub data_edge_address: H160,
+    pub epoch_manager_address: H160,
     pub subgraph_url: Url,
     pub owner_address: H160,
     pub epoch_duration: u64,
@@ -72,11 +73,12 @@ impl Config {
         Self::from_config_file(config_file)
     }
 
-    fn from_config_file(config_file: ConfigFile) -> Self {
+    pub fn from_config_file(config_file: ConfigFile) -> Self {
         Self {
             log_level: config_file.log_level.0,
             owner_private_key: config_file.owner_private_key.0,
-            contract_address: config_file.contract_address.0,
+            data_edge_address: config_file.data_edge_address.0,
+            epoch_manager_address: config_file.epoch_manager_address.0,
             subgraph_url: config_file.subgraph_url.0,
             freshness_threshold: config_file.freshness_threshold,
             epoch_duration: config_file.epoch_duration,
@@ -116,10 +118,11 @@ struct Clap {
 /// Represents the TOML config file
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
-struct ConfigFile {
+pub struct ConfigFile {
     owner_address: FromStrWrapper<H160>,
     owner_private_key: EitherLiteralOrEnvVar<SecretKey>,
-    contract_address: FromStrWrapper<H160>,
+    data_edge_address: FromStrWrapper<H160>,
+    epoch_manager_address: FromStrWrapper<H160>,
     subgraph_url: EitherLiteralOrEnvVar<Url>,
     /// Number of blocks that the Epoch Subgraph may be away from the protocol chain's head. If the
     /// block distance is lower than this, a `trace_filter` JSON RPC call will be used to infer if
@@ -142,7 +145,7 @@ struct ConfigFile {
 
 impl ConfigFile {
     /// Tries to Create a [`ConfigFile`] from a TOML file.
-    fn from_file(file_path: &Path) -> Result<Self, ConfigError> {
+    pub fn from_file(file_path: &Path) -> Result<Self, ConfigError> {
         let string = read_to_string(file_path)?;
         toml::from_str(&string).map_err(ConfigError::Toml)
     }
@@ -266,8 +269,7 @@ mod tests {
 
     #[test]
     fn example_config() {
-        std::env::set_var("SUBGRAPH_URL", "https://example.com");
-        Config::parse_from(&["", config_file_path("dev/config.toml").as_str()]);
+        Config::parse_from(&["", config_file_path("test/config.sample.toml").as_str()]);
     }
 
     #[test]

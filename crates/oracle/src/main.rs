@@ -1,6 +1,6 @@
 mod config;
+mod contracts;
 mod ctrlc;
-mod epoch_tracker;
 mod error_handling;
 mod jrpc_utils;
 mod metrics;
@@ -11,7 +11,6 @@ mod subgraph;
 
 pub use crate::ctrlc::CtrlcHandler;
 pub use config::Config;
-pub use epoch_tracker::{EpochTracker, EpochTrackerError};
 pub use error_handling::{MainLoopFlow, OracleControlFlow};
 pub use jrpc_utils::JrpcExpBackoff;
 pub use metrics::Metrics;
@@ -42,10 +41,14 @@ pub enum Error {
     },
     #[error(transparent)]
     Subgraph(#[from] SubgraphQueryError),
-    #[error(transparent)]
-    EpochTracker(#[from] EpochTrackerError),
     #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
     CantSubmitTx(web3::Error),
+    #[error("Failed to call Epoch Manager")]
+    EpochManagerCallFailed(#[from] web3::contract::Error),
+    #[error("Epoch Manager latest epoch ({manager}) is behind Epoch Subgraph's ({subgraph})")]
+    EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
+    #[error("Expected Epoch Subgraph state to be present, but it was not")]
+    MissingSubgraphState,
 }
 
 impl MainLoopFlow for Error {
@@ -55,8 +58,14 @@ impl MainLoopFlow for Error {
             Subgraph(_) => OracleControlFlow::Continue(None),
             BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
             BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
-            EpochTracker(epoch_tracker) => epoch_tracker.instruction(),
+
+            // TODO: Put those variants under a new `contracts::Error` enum
             CantSubmitTx(_) => OracleControlFlow::Continue(None),
+            EpochManagerCallFailed(_) => OracleControlFlow::Continue(None),
+            EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(None),
+
+            // TODO: Put those variants under the `SubgraphQueryError` enum
+            MissingSubgraphState => OracleControlFlow::Continue(None),
         }
     }
 }

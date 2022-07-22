@@ -1,26 +1,24 @@
 use crate::{
+    contracts::Contracts,
     hex_string,
     jrpc_utils::{get_latest_block, get_latest_blocks},
-    Caip2ChainId, Config, EpochTracker, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff,
-    SubgraphQuery, SubgraphStateTracker,
+    Caip2ChainId, Config, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff, SubgraphQuery,
+    SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::collections::{HashMap, HashSet};
-use tracing::{debug, error, info, warn};
-use web3::{
-    contract::{Contract, Options},
-    types::{Bytes, H256},
+use std::{
+    cmp::Ordering,
+    collections::{HashMap, HashSet},
 };
-
-const CONTRACT_FUNCTION_NAME: &'static str = "crossChainEpochOracle";
+use tracing::{debug, error, info, warn};
 
 /// The main application in-memory state
 pub struct Oracle {
     config: &'static Config,
-    epoch_tracker: EpochTracker,
     protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
     indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
     subgraph_state: SubgraphStateTracker<SubgraphQuery>,
+    contracts: Contracts<JrpcExpBackoff>,
 }
 
 impl Oracle {
@@ -28,7 +26,6 @@ impl Oracle {
         let subgraph_api = SubgraphQuery::new(config.subgraph_url.clone());
         let subgraph_state = SubgraphStateTracker::new(subgraph_api);
         let backoff_max = config.retry_strategy_max_wait_time;
-        let epoch_tracker = EpochTracker::new(config);
         let protocol_chain = {
             let transport = JrpcExpBackoff::http(
                 config.protocol_chain.jrpc_url.clone(),
@@ -46,17 +43,36 @@ impl Oracle {
                 JrpcProviderForChain::new(chain.id.clone(), transport)
             })
             .collect();
+        let contracts = Contracts::new(
+            &protocol_chain.web3.eth(),
+            config.data_edge_address,
+            config.epoch_manager_address,
+        )
+        .expect("Failed to initialize Block Oracle's required contracts");
 
         Self {
             config,
             protocol_chain,
             indexed_chains,
-            epoch_tracker,
             subgraph_state,
+            contracts,
         }
     }
 
     pub async fn run(&mut self) -> Result<(), Error> {
+        self.subgraph_state.refresh().await;
+        if let Some(subgraph_error) = self.subgraph_state.error() {
+            error!(error = %subgraph_error, "Found an error when fetching the subgraph latest state");
+            return Ok(());
+        }
+
+        if !self.is_new_epoch().await? {
+            return Ok(());
+        }
+
+        let last_block_number_indexed_by_subgraph =
+            self.subgraph_state.last_state().map(|state| state.0);
+
         let block = get_latest_block(self.protocol_chain.web3.clone())
             .await
             .map_err(Error::BadJrpcProtocolChain)?
@@ -67,28 +83,12 @@ impl Oracle {
             "Got the latest block from the protocol chain."
         );
 
-        self.subgraph_state.refresh().await;
-        if let Some(subgraph_error) = self.subgraph_state.error() {
-            error!(error = %subgraph_error, "Found an error when fetching the subgraph latest state");
-            return Ok(());
-        }
-
-        let last_block_number_indexed_by_subgraph =
-            self.subgraph_state.last_state().map(|state| state.0);
-
-        let is_new_epoch = last_block_number_indexed_by_subgraph.is_some()
-            || self.epoch_tracker.is_new_epoch(block.number).await?;
-
-        if !is_new_epoch {
-            return Ok(());
-        }
-
         let is_fresh = freshness::subgraph_is_fresh(
             last_block_number_indexed_by_subgraph.unwrap_or(0).into(),
             block.number.into(),
             self.protocol_chain.clone(),
             self.config.owner_address,
-            self.config.contract_address,
+            self.config.data_edge_address,
             self.config.freshness_threshold,
         )
         .await
@@ -104,9 +104,9 @@ impl Oracle {
         // Get indexed chains' latest blocks.
         let latest_blocks = get_latest_blocks(&self.indexed_chains).await?;
         let payload = self.produce_next_payload(latest_blocks)?;
-        submit_call(self.config, self.protocol_chain.clone(), payload)
-            .await
-            .map_err(Error::CantSubmitTx)?;
+        self.contracts
+            .submit_call(payload, &self.config.owner_private_key)
+            .await?;
 
         // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
         // receipt, we should monitor it until it get enough confirmations. It's unclear which
@@ -202,7 +202,7 @@ impl Oracle {
         Ok(self
             .subgraph_state
             .last_state()
-            .expect("expected data from a valid subgraph state, but found none")
+            .ok_or(Error::MissingSubgraphState)?
             .1
             .networks
             .iter()
@@ -216,6 +216,36 @@ impl Oracle {
                 )
             })
             .collect())
+    }
+
+    pub async fn is_new_epoch(&self) -> Result<bool, Error> {
+        let subgraph_latest_epoch = match self
+            .subgraph_state
+            .last_state()
+            .ok_or(Error::MissingSubgraphState)?
+            .1
+            .latest_epoch_number
+        {
+            Some(epoch) => {
+                debug!("Epoch Subgraph is at epoch {epoch}");
+                epoch
+            }
+            // Subgraph is not initialized, so we return `true` because it is necessary to update
+            // its state.
+            None => {
+                debug!("Epoch Subgraph has no latest valid epoch");
+                return Ok(true);
+            }
+        };
+        let manager_current_epoch = self.contracts.query_current_epoch().await?;
+        match subgraph_latest_epoch.cmp(&manager_current_epoch) {
+            Ordering::Less => Ok(true),
+            Ordering::Equal => Ok(false),
+            Ordering::Greater => Err(Error::EpochManagerBehindSubgraph {
+                manager: manager_current_epoch,
+                subgraph: subgraph_latest_epoch,
+            }),
+        }
     }
 }
 
@@ -241,34 +271,6 @@ fn networks_diff_to_message(diff: &NetworksDiff) -> Option<ee::Message> {
                 .collect(),
         })
     }
-}
-
-async fn submit_call<T>(
-    config: &Config,
-    protocol_chain: JrpcProviderForChain<T>,
-    payload: Vec<u8>,
-) -> web3::Result<H256>
-where
-    T: web3::Transport,
-{
-    let contract = Contract::from_json(
-        protocol_chain.web3.eth(),
-        config.contract_address,
-        include_bytes!("abi/data_edge.json"),
-    )
-    .expect("Can't read the ABI JSON file");
-
-    let payload = Bytes::from(payload);
-    let tx = contract
-        .signed_call(
-            CONTRACT_FUNCTION_NAME,
-            (payload,),
-            Options::default(),
-            &config.owner_private_key,
-        )
-        .await?;
-    info!(transaction_hash = ?tx, "Sent transaction");
-    Ok(tx)
 }
 
 mod freshness {
