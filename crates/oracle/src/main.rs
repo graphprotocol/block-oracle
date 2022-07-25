@@ -55,7 +55,7 @@ impl MainLoopFlow for Error {
     fn instruction(&self) -> OracleControlFlow {
         use Error::*;
         match self {
-            Subgraph(_) => OracleControlFlow::Continue(None),
+            Subgraph(err) => err.instruction(),
             BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
             BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
             EpochTracker(epoch_tracker) => epoch_tracker.instruction(),
