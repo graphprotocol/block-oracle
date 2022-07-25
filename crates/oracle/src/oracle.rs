@@ -6,13 +6,15 @@ use crate::{
     SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-};
+use std::collections::{BTreeMap, HashSet};
 use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, warn};
+use web3::{
+    contract::{Contract, Options},
+    types::{Bytes, H256},
+};
 
-/// The main application in-memory state
+/// The main application in-memory state.
 pub struct Oracle {
     config: &'static Config,
     protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
@@ -59,32 +61,47 @@ impl Oracle {
         }
     }
 
+    /// Runs a new polling iteration and submits new messages to the subgraph,
+    /// if necessary.
     pub async fn run(&mut self) -> Result<(), Error> {
-        self.subgraph_state.refresh().await;
-        if let Some(subgraph_error) = self.subgraph_state.error() {
-            error!(error = %subgraph_error, "Found an error when fetching the subgraph latest state");
+        info!("New polling iteration.");
+        if !self.detect_new_epoch().await? {
+            debug!("No epoch change detected.");
             return Ok(());
         }
 
-        if !self.is_new_epoch().await? {
-            return Ok(());
-        }
+        info!("Entering a new epoch.");
+        self.handle_new_epoch().await?;
 
-        let last_block_number_indexed_by_subgraph =
-            self.subgraph_state.last_state().map(|state| state.0);
+        Ok(())
+    }
 
+    async fn detect_new_epoch(&mut self) -> Result<bool, Error> {
         let block = get_latest_block(self.protocol_chain.web3.clone())
             .await
-            .map_err(Error::BadJrpcProtocolChain)?
-            .expect("Can't get latest block prom protocol chain");
+            .map_err(Error::BadJrpcProtocolChain)?;
         debug!(
-            block = block.number,
+            number = block.number,
             hash = hex::encode(block.hash).as_str(),
             "Got the latest block from the protocol chain."
         );
 
+        debug!("Querying the subgraph state...");
+        self.subgraph_state.refresh().await;
+        if let Some(subgraph_error) = self.subgraph_state.error() {
+            return Err(Error::Subgraph(subgraph_error));
+        }
+
+        let last_block_number_indexed_by_subgraph =
+            if let Some(state) = self.subgraph_state.last_state() {
+                state.0
+            } else {
+                warn!("The subgraph state is uninitialized");
+                0
+            };
+
         let is_fresh = freshness::subgraph_is_fresh(
-            last_block_number_indexed_by_subgraph.unwrap_or(0).into(),
+            last_block_number_indexed_by_subgraph.into(),
             block.number.into(),
             self.protocol_chain.clone(),
             self.config.owner_address,
@@ -92,21 +109,42 @@ impl Oracle {
             self.config.freshness_threshold,
         )
         .await
-        .unwrap();
-
-        // FIXME
+        .map_err(Error::BadJrpcProtocolChain)?;
         if !is_fresh {
-            warn!("Subgraph is not fresh");
+            error!("Subgraph is not fresh");
+            return Err(Error::SubgraphNotFresh);
         }
 
-        info!("Entering a new epoch.");
+        Ok(self.epoch_tracker.is_new_epoch(block.number).await?)
+    }
+
+    async fn handle_new_epoch(&mut self) -> Result<(), Error> {
         info!("Collecting latest block information from all indexed chains.");
-        // Get indexed chains' latest blocks.
-        let latest_blocks = get_latest_blocks(&self.indexed_chains).await?;
+
+        let latest_blocks_res = get_latest_blocks(&self.indexed_chains).await;
+        let latest_blocks = latest_blocks_res
+            .iter()
+            .filter_map(|(chain_id, res)| match res {
+                Ok(block) => Some((chain_id.clone(), block.clone())),
+                Err(e) => {
+                    warn!(
+                        chain_id = chain_id.as_str(),
+                        error = e.to_string().as_str(),
+                        "Failed to get latest block from chain. Skipping."
+                    );
+                    None
+                }
+            })
+            .collect();
+
         let payload = self.produce_next_payload(latest_blocks)?;
-        self.contracts
-            .submit_call(payload, &self.config.owner_private_key)
-            .await?;
+        let tx_hash = submit_call(self.config, self.protocol_chain.clone(), payload)
+            .await
+            .map_err(Error::CantSubmitTx)?;
+        info!(
+            tx_hash = tx_hash.to_string().as_str(),
+            "Contract call submitted successfully."
+        );
 
         // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
         // receipt, we should monitor it until it get enough confirmations. It's unclear which
@@ -117,10 +155,9 @@ impl Oracle {
 
     fn produce_next_payload(
         &self,
-        latest_blocks: HashMap<Caip2ChainId, BlockPtr>,
+        latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>,
     ) -> Result<Vec<u8>, Error> {
-        info!("A new epoch started in the protocol chain");
-        let registered_networks = self.registered_networks()?;
+        let registered_networks = registered_networks(&self.subgraph_state);
 
         let mut messages = vec![];
 
@@ -130,13 +167,7 @@ impl Oracle {
             // `NetworksDiff::calculate` uses u32's but `registered_networks` has u64's
             let networks_and_block_numbers = registered_networks
                 .iter()
-                .map(|(chain_id, network)| {
-                    let block_number = u32::try_from(network.block_number).expect(&format!(
-                        "expected a block number that would fit a u32, but found {}",
-                        network.block_number
-                    ));
-                    (chain_id.clone(), block_number)
-                })
+                .map(|(chain_id, network)| (chain_id.clone(), network.block_number))
                 .collect();
             NetworksDiff::calculate(networks_and_block_numbers, self.config)
         };
@@ -189,20 +220,13 @@ impl Oracle {
         );
         Ok(encoded)
     }
+}
 
-    fn registered_networks(&self) -> Result<Vec<(Caip2ChainId, epoch_encoding::Network)>, Error> {
-        if self.subgraph_state.is_failed() {
-            todo!("Handle this as an error")
-        }
-        if self.subgraph_state.is_uninitialized() {
-            info!("Epoch Subgraph contains no initial state");
-            return Ok(Default::default());
-        };
-        info!("subgraph data is {:?}", self.subgraph_state.last_state());
-        Ok(self
-            .subgraph_state
-            .last_state()
-            .ok_or(Error::MissingSubgraphState)?
+fn registered_networks(
+    subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
+) -> Vec<(Caip2ChainId, ee::Network)> {
+    if let Some(state) = subgraph_state.last_state() {
+        state
             .1
             .networks
             .iter()
@@ -215,7 +239,10 @@ impl Oracle {
                     },
                 )
             })
-            .collect())
+            .collect()
+    } else {
+        // The subgraph is uninitialized, so there's no registered networks at all.
+        vec![]
     }
 
     pub async fn is_new_epoch(&self) -> Result<bool, Error> {
@@ -249,7 +276,7 @@ impl Oracle {
     }
 }
 
-fn latest_blocks_to_message(latest_blocks: HashMap<Caip2ChainId, BlockPtr>) -> ee::Message {
+fn latest_blocks_to_message(latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>) -> ee::Message {
     Message::SetBlockNumbersForNextEpoch(
         latest_blocks
             .into_iter()
@@ -275,17 +302,8 @@ fn networks_diff_to_message(diff: &NetworksDiff) -> Option<ee::Message> {
 
 mod freshness {
     use crate::{jrpc_utils::calls_in_block_range, models::JrpcProviderForChain};
-    use thiserror::Error;
-    use tracing::{debug, error, trace};
+    use tracing::{debug, trace};
     use web3::types::{H160, U64};
-
-    #[derive(Debug, Error)]
-    pub enum FreshnessCheckError {
-        #[error("Epoch Subgraph advanced beyond protocol chain's head")]
-        SubgraphBeyondChain,
-        #[error(transparent)]
-        Web3(#[from] web3::Error),
-    }
 
     /// The Epoch Subgraph is considered fresh if it has processed all relevant transactions
     /// targeting the DataEdge contract.
@@ -305,15 +323,13 @@ mod freshness {
         owner_address: H160,
         contract_address: H160,
         freshness_threshold: u64,
-    ) -> Result<bool, FreshnessCheckError>
+    ) -> web3::Result<bool>
     where
         T: web3::Transport,
     {
         // If this ever happens, then there must be a serious bug in the code
         if subgraph_latest_block > current_block {
-            let anomaly = FreshnessCheckError::SubgraphBeyondChain;
-            error!(%anomaly);
-            return Err(anomaly);
+            return Ok(true);
         }
         let block_distance = (current_block - subgraph_latest_block).as_u64();
         if block_distance == 0 {
@@ -331,8 +347,7 @@ mod freshness {
         // Scan the blocks in betwenn for transactions from the Owner to the Data Edge contract
         let calls = calls_in_block_range(
             protocol_chain.web3,
-            subgraph_latest_block,
-            current_block,
+            subgraph_latest_block.as_u64()..=current_block.as_u64(),
             owner_address,
             contract_address,
         )

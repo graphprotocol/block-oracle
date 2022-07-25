@@ -3,17 +3,17 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct NetworksDiff {
-    pub deletions: HashMap<Caip2ChainId, u32>,
-    pub insertions: HashMap<Caip2ChainId, u32>,
+    pub deletions: HashMap<Caip2ChainId, u64>,
+    pub insertions: HashMap<Caip2ChainId, u64>,
 }
 
 impl NetworksDiff {
-    pub fn calculate(subgraph_networks: HashMap<Caip2ChainId, u32>, config: &Config) -> Self {
+    pub fn calculate(subgraph_networks: HashMap<Caip2ChainId, u64>, config: &Config) -> Self {
         let new = config.indexed_chains.iter().map(|c| c.id.clone()).collect();
         Self::diff(subgraph_networks, new)
     }
 
-    fn diff(old: HashMap<Caip2ChainId, u32>, new: Vec<Caip2ChainId>) -> Self {
+    fn diff(old: HashMap<Caip2ChainId, u64>, new: Vec<Caip2ChainId>) -> Self {
         // Turn `new` into a `HashSet` to easily check for the presence of
         // items.
         let new: HashSet<Caip2ChainId> = new.into_iter().collect();

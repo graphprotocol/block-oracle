@@ -1,10 +1,11 @@
+use std::sync::Arc;
+
 use crate::models::Caip2ChainId;
 use anyhow::ensure;
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Url;
-use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct SubgraphQuery {
@@ -92,7 +93,7 @@ where
     A: SubgraphApi,
 {
     last_state: Option<A::State>,
-    error: Option<Arc<anyhow::Error>>,
+    error: Option<Arc<A::Error>>,
     subgraph_api: A,
 }
 
@@ -100,7 +101,6 @@ impl<A> SubgraphStateTracker<A>
 where
     A: SubgraphApi,
     A::State: Clone,
-    A::Error: Into<anyhow::Error>,
 {
     pub fn new(api: A) -> Self {
         Self {
@@ -126,7 +126,7 @@ where
         self.last_state.as_ref()
     }
 
-    pub fn error(&self) -> Option<Arc<anyhow::Error>> {
+    pub fn error(&self) -> Option<Arc<A::Error>> {
         self.error.clone()
     }
 
@@ -143,7 +143,7 @@ where
                 if self.is_failed() {
                     error!("Failed to retrieve state from a previously failed subgraph");
                 }
-                self.error = Some(Arc::new(err.into()));
+                self.error = Some(Arc::new(err));
             }
         }
     }
