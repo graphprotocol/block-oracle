@@ -6,13 +6,11 @@ use crate::{
     SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::collections::{BTreeMap, HashSet};
-use tracing::{debug, error, info, warn};
-use tracing::{debug, error, info, warn};
-use web3::{
-    contract::{Contract, Options},
-    types::{Bytes, H256},
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, HashSet},
 };
+use tracing::{debug, error, info, warn};
 
 /// The main application in-memory state.
 pub struct Oracle {
@@ -115,7 +113,37 @@ impl Oracle {
             return Err(Error::SubgraphNotFresh);
         }
 
-        Ok(self.epoch_tracker.is_new_epoch(block.number).await?)
+        Ok(self.is_new_epoch().await?)
+    }
+
+    pub async fn is_new_epoch(&self) -> Result<bool, Error> {
+        let subgraph_latest_epoch = match self
+            .subgraph_state
+            .last_state()
+            .ok_or(Error::MissingSubgraphState)?
+            .1
+            .latest_epoch_number
+        {
+            Some(epoch) => {
+                debug!("Epoch Subgraph is at epoch {epoch}");
+                epoch
+            }
+            // Subgraph is not initialized, so we return `true` because it is necessary to update
+            // its state.
+            None => {
+                debug!("Epoch Subgraph has no latest valid epoch");
+                return Ok(true);
+            }
+        };
+        let manager_current_epoch = self.contracts.query_current_epoch().await?;
+        match subgraph_latest_epoch.cmp(&manager_current_epoch) {
+            Ordering::Less => Ok(true),
+            Ordering::Equal => Ok(false),
+            Ordering::Greater => Err(Error::EpochManagerBehindSubgraph {
+                manager: manager_current_epoch,
+                subgraph: subgraph_latest_epoch,
+            }),
+        }
     }
 
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
@@ -138,7 +166,9 @@ impl Oracle {
             .collect();
 
         let payload = self.produce_next_payload(latest_blocks)?;
-        let tx_hash = submit_call(self.config, self.protocol_chain.clone(), payload)
+        let tx_hash = self
+            .contracts
+            .submit_call(payload, &self.config.owner_private_key)
             .await
             .map_err(Error::CantSubmitTx)?;
         info!(
@@ -243,36 +273,6 @@ fn registered_networks(
     } else {
         // The subgraph is uninitialized, so there's no registered networks at all.
         vec![]
-    }
-
-    pub async fn is_new_epoch(&self) -> Result<bool, Error> {
-        let subgraph_latest_epoch = match self
-            .subgraph_state
-            .last_state()
-            .ok_or(Error::MissingSubgraphState)?
-            .1
-            .latest_epoch_number
-        {
-            Some(epoch) => {
-                debug!("Epoch Subgraph is at epoch {epoch}");
-                epoch
-            }
-            // Subgraph is not initialized, so we return `true` because it is necessary to update
-            // its state.
-            None => {
-                debug!("Epoch Subgraph has no latest valid epoch");
-                return Ok(true);
-            }
-        };
-        let manager_current_epoch = self.contracts.query_current_epoch().await?;
-        match subgraph_latest_epoch.cmp(&manager_current_epoch) {
-            Ordering::Less => Ok(true),
-            Ordering::Equal => Ok(false),
-            Ordering::Greater => Err(Error::EpochManagerBehindSubgraph {
-                manager: manager_current_epoch,
-                subgraph: subgraph_latest_epoch,
-            }),
-        }
     }
 }
 

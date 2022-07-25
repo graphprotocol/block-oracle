@@ -43,7 +43,7 @@ pub enum Error {
     #[error(transparent)]
     Subgraph(#[from] Arc<SubgraphQueryError>),
     #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
-    CantSubmitTx(web3::Error),
+    CantSubmitTx(web3::contract::Error),
     #[error("Failed to call Epoch Manager")]
     EpochManagerCallFailed(#[from] web3::contract::Error),
     #[error("Epoch Manager latest epoch ({manager}) is behind Epoch Subgraph's ({subgraph})")]
