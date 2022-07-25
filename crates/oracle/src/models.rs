@@ -24,7 +24,7 @@ where
 }
 
 /// See https://github.com/ChainAgnostic/CAIPs/blob/master/CAIPs/caip-2.md.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, DeserializeFromStr)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, DeserializeFromStr)]
 #[repr(transparent)]
 pub struct Caip2ChainId {
     chain_id: String,

@@ -21,7 +21,8 @@ pub use oracle::Oracle;
 pub use subgraph::{SubgraphApi, SubgraphQuery, SubgraphQueryError, SubgraphStateTracker};
 
 use lazy_static::lazy_static;
-use std::env::set_var;
+use std::time::Duration;
+use std::{env::set_var, sync::Arc};
 use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -41,11 +42,13 @@ pub enum Error {
         error: web3::Error,
     },
     #[error(transparent)]
-    Subgraph(#[from] SubgraphQueryError),
+    Subgraph(#[from] Arc<SubgraphQueryError>),
     #[error(transparent)]
     EpochTracker(#[from] EpochTrackerError),
     #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
     CantSubmitTx(web3::Error),
+    #[error("The subgraph hasn't indexed all relevant transactions yet.")]
+    SubgraphNotFresh,
 }
 
 impl MainLoopFlow for Error {
@@ -57,6 +60,7 @@ impl MainLoopFlow for Error {
             BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
             EpochTracker(epoch_tracker) => epoch_tracker.instruction(),
             CantSubmitTx(_) => OracleControlFlow::Continue(None),
+            SubgraphNotFresh => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
         }
     }
 }
@@ -80,12 +84,12 @@ async fn main() -> Result<(), Error> {
             handle_error(err).await?;
         }
 
-        info!(
-            seconds = CONFIG.protocol_chain.polling_interval.as_secs(),
-            "Going to sleep before polling for the next epoch."
-        );
         // After every polling iteration, we go to sleep for a bit. Wouldn't
         // want to DDoS our data providers, wouldn't we?
+        info!(
+            seconds = CONFIG.protocol_chain.polling_interval.as_secs(),
+            "Going to sleep before next polling iteration."
+        );
         tokio::time::sleep(CONFIG.protocol_chain.polling_interval).await;
     }
 
@@ -93,7 +97,10 @@ async fn main() -> Result<(), Error> {
 }
 
 async fn handle_error(err: Error) -> Result<(), Error> {
-    error!("An error occurred: {}.", err);
+    error!(
+        error = err.to_string().as_str(),
+        "An error occurred and interrupted the last polling iteration."
+    );
     match err.instruction() {
         OracleControlFlow::Break(()) => {
             error!("This error is non-recoverable. Exiting now.");
