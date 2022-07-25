@@ -112,12 +112,15 @@ export function swapAndPop(index: u32, networks: Array<Network>): Network {
 export function commitNetworkChanges(
   removedNetworks: Array<Network>,
   newNetworksList: Array<Network>,
-  state: GlobalState
+  state: GlobalState,
+  messageId: String
 ): void {
   for (let i = 0; i < removedNetworks.length; i++) {
     removedNetworks[i].state = null;
     removedNetworks[i].nextArrayElement = null;
     removedNetworks[i].arrayIndex = null;
+    removedNetworks[i].removedAt = messageId;
+    removedNetworks[i].lastUpdatedAt = messageId;
   }
 
   for (let i = 0; i < newNetworksList.length; i++) {
@@ -125,6 +128,7 @@ export function commitNetworkChanges(
     newNetworksList[i].nextArrayElement =
       i < newNetworksList.length - 1 ? newNetworksList[i + 1].id : null;
     newNetworksList[i].arrayIndex = i;
+    newNetworksList[i].lastUpdatedAt = messageId;
   }
 
   if (newNetworksList.length > 0) {

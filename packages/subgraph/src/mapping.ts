@@ -363,7 +363,6 @@ function executeRegisterNetworksMessage(
       return;
     }
 
-    networks[networkId].removedAt = message.id;
     removedNetworks.push(swapAndPop(networkId, networks));
   }
 
@@ -394,7 +393,7 @@ function executeRegisterNetworksMessage(
   globalState.activeNetworkCount -= numRemovals;
   globalState.networkCount += numInsertions;
 
-  commitNetworkChanges(removedNetworks, networks, globalState);
+  commitNetworkChanges(removedNetworks, networks, globalState, message.id);
 
   message.removeCount = BigInt.fromU64(numRemovals);
   message.addCount = BigInt.fromU64(numInsertions);
@@ -440,7 +439,7 @@ function executeResetStateMessage(
   message.block = messageBlock.id;
   message.data = reader.diff(snapshot);
 
-  commitNetworkChanges(networks, [], globalState);
+  commitNetworkChanges(networks, [], globalState, message.id);
 
   globalState.networkCount = 0;
   globalState.activeNetworkCount = 0;

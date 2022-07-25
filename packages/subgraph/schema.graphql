@@ -65,15 +65,14 @@ type RegisterNetworksMessage implements Message @entity {
   data: Bytes
   removeCount: BigInt!
   addCount: BigInt!
-  networksRemoved: [Network!]! @derivedFrom(field: "removedAt")
-  networksAdded: [Network!]! @derivedFrom(field: "addedAt")
 }
 
 type Network @entity {
   id: ID! # chainID now
   #chainID: String!
-  addedAt: RegisterNetworksMessage!
-  removedAt: RegisterNetworksMessage
+  addedAt: Message!
+  lastUpdatedAt: Message!
+  removedAt: Message
   blockNumbers: [NetworkEpochBlockNumber!]! @derivedFrom(field:"network")
   # Linked-list implementation for pop-and-swap
   "Next element on the linked-list implementation for networks. Used for list recreation"
