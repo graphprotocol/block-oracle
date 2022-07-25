@@ -212,7 +212,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
   let networks = getActiveNetworks(cache);
 
   let previousEpochNumber = parseInt(globalState.latestValidEpoch != null ? globalState.latestValidEpoch! : "0") as i32;
-  let nextEpochID = nextEpochId(globalState);
+  let nextEpochID = nextEpochId(globalState, reader);
   let nextEpochNumber = nextEpochID.toI32();
 
   if (nextEpochNumber > previousEpochNumber + 1) {
@@ -298,7 +298,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
 //
 //   for (let i = BIGINT_ZERO; i < message.count!; i += BIGINT_ONE) {
 //     log.warning("EPOCH LOOP, CREATING EPOCH: {}", [i.toString()]);
-//     let newEpoch = cache.getEpoch(nextEpochId(globalState));
+//     let newEpoch = cache.getEpoch(nextEpochId(globalState, reader));
 //     globalState.latestValidEpoch = newEpoch.id;
 //   }
 //   log.warning("AFTER EPOCH LOOP", []);
