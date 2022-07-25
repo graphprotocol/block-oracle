@@ -1,4 +1,5 @@
 deploy-contract: ./deploy-contract.sh
+deploy-network: ./deploy-network.sh
 deploy-subgraph: ./deploy-subgraph.sh
 graph-node: ./graph-node.sh
 hardhat: ./hardhat.sh

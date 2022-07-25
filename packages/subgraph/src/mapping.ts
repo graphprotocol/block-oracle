@@ -107,10 +107,10 @@ export function processMessageBlock(
   let snapshot = reader.snapshot();
   let tags = decodeTags(reader);
 
-  log.warning(
-    "Tags to process: {}. Remaining reader length: {}",
-    [tags.toString(), reader.length().toString()]
-  );
+  log.warning("Tags to process: {}. Remaining reader length: {}", [
+    tags.toString(),
+    reader.length().toString()
+  ]);
 
   for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     processMessage(cache, messageBlock, i, tags[i], reader);
@@ -413,6 +413,7 @@ function executeResetStateMessage(
 ): void {
   let globalState = cache.getGlobalState();
   let message = cache.getResetStateMessage(id);
+  let networks = getActiveNetworks(cache);
   // advance 1 just so that we can make this a processable message
   // otherwise if there's no more data, processing is halted, and
   // changing how that works at the MessageBlock level has unintended
@@ -421,6 +422,8 @@ function executeResetStateMessage(
 
   message.block = messageBlock.id;
   message.data = reader.diff(snapshot);
+
+  commitNetworkChanges(networks, [], globalState);
 
   globalState.networkCount = 0;
   globalState.activeNetworkCount = 0;
