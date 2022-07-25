@@ -131,6 +131,11 @@ impl Encoder {
                 self.networks.clear();
                 self.compressed.push(CompressedMessage::Reset);
             }
+            Message::ChangeOwnership { new_owner_address } => {
+                self.compressed.push(CompressedMessage::ChangeOwnership {
+                    new_owner_address: *new_owner_address,
+                });
+            }
         })
     }
 
