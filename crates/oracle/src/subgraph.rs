@@ -1,11 +1,11 @@
-use std::sync::Arc;
-
-use crate::models::Caip2ChainId;
+use crate::{models::Caip2ChainId, MainLoopFlow, OracleControlFlow};
 use anyhow::ensure;
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Url;
+use std::sync::Arc;
+use std::time::Duration;
 use tracing::{error, info};
 
 pub struct SubgraphQuery {
@@ -73,6 +73,21 @@ pub enum SubgraphQueryError {
     BadData(anyhow::Error),
     #[error("Unknown error: {0}")]
     Other(anyhow::Error),
+}
+
+impl MainLoopFlow for SubgraphQueryError {
+    fn instruction(&self) -> OracleControlFlow {
+        match self {
+            SubgraphQueryError::Transport(_) => {
+                // There's no guarantee that the `reqwest::Error` disappears if we wait a full
+                // minute, it's just a simple heuristic that might work when dealing with
+                // straightforward connectivity issues.
+                OracleControlFlow::Continue(Some(Duration::from_secs(60)))
+            }
+            // Other errors require external intervention, so we poll less frequently.
+            _ => OracleControlFlow::Continue(Some(Duration::from_secs(600))),
+        }
+    }
 }
 
 async fn query(url: Url) -> reqwest::Result<Response<graphql::subgraph_state::ResponseData>> {
