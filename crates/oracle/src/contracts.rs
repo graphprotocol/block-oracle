@@ -9,8 +9,8 @@ use web3::{
     Transport,
 };
 
-const EPOCH_MANAGER_ABI: &[u8; 6563] = include_bytes!("abi/EpochManager.json");
-const DATA_EDGE_ABI: &[u8; 320] = include_bytes!("abi/DataEdge.json");
+static EPOCH_MANAGER_ABI: &[u8] = include_bytes!("abi/EpochManager.json");
+static DATA_EDGE_ABI: &[u8] = include_bytes!("abi/DataEdge.json");
 
 pub struct Contracts<T>
 where
