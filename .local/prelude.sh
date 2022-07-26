@@ -14,6 +14,22 @@ await() {
 	set -e
 }
 
+signal_ready() {
+    name="${1}"
+    filename="build/.${name}-ready"
+    echo "Signaling ${filename}"
+    touch "$filename"
+    echo "done"
+    # shellcheck disable=SC2064
+    trap "rm -f build/.${name}-ready" INT
+    while true; do sleep 100; done
+}
+
+await_ready() {
+    name="${1}"
+    await "test -f build/.${name}-ready"
+}
+
 docker_run() {
 	name="$1"
 	shift
@@ -32,6 +48,7 @@ github_clone() {
 }
 
 fetch_contract_code() {
+    CONTRACT_ADDRESS=${1:?}
 
 	read -r -d '' body <<EOF
 {
@@ -39,7 +56,7 @@ fetch_contract_code() {
   "id": 0,
   "method": "eth_getCode",
   "params": [
-    "$DATA_EDGE_CONTRACT_ADDRESS",
+    "$CONTRACT_ADDRESS",
     "latest"
   ]
 }
@@ -52,16 +69,18 @@ EOF
 }
 
 await_contract() {
-	timeout="${1:-2}"
+        CONTRACT_NAME=${1:?}
+        CONTRACT_ADDRESS=${2:?}
+   	timeout="${3:-2}"
 	set +e
 	while true; do
-		response=$(fetch_contract_code)
+		response=$(fetch_contract_code "$CONTRACT_ADDRESS")
 		exit_code=$?
 		if [ $exit_code -eq 0 ]; then
 			if jq --exit-status '.result != "0x"' <<<"$response" >/dev/null; then
 				break
 			else
-				echo "DataEdge contract was not deployed yet." >&2
+				echo "${CONTRACT_NAME} contract was not deployed yet." >&2
 			fi
 		else
 			echo "Failed to send request to JRPC." >&2

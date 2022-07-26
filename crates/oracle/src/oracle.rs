@@ -94,8 +94,13 @@ impl Oracle {
             if let Some(state) = self.subgraph_state.last_state() {
                 state.0
             } else {
+                // If the subgraph is uninitialized, we should skip the freshness and epoch check
+                // and return `true`, indicating that the Oracle should send a message.
+                //
+                // Otherwise this could lead to a deadlock in which the Oracle never sends any
+                // message to the Subgraph while waiting for it to be initialized.
                 warn!("The subgraph state is uninitialized");
-                0
+                return Ok(true);
             };
 
         let is_fresh = freshness::subgraph_is_fresh(
