@@ -44,4 +44,8 @@ debug.log
 # oracle encoder json samples
 crates/oracle-encoder/examples/*.json
 !crates/oracle-encoder/examples/samples.json
-crates/oracle/config/dev/
+
+# configuration files
+config.dev.toml
+config.staging.toml
+config.prod.toml

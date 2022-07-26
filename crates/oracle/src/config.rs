@@ -251,7 +251,7 @@ mod tests {
     }
 
     fn config_file_path(filename: &str) -> String {
-        format!("{}/config/{}", env!("CARGO_MANIFEST_DIR"), filename)
+        format!("{}/test/config/{}", env!("CARGO_MANIFEST_DIR"), filename)
     }
 
     #[test]
@@ -259,13 +259,13 @@ mod tests {
     fn invalid_jrpc_provider_url() {
         Config::parse_from(&[
             "",
-            config_file_path("test/invalid_jrpc_provider_url.toml").as_str(),
+            config_file_path("invalid_jrpc_provider_url.toml").as_str(),
         ]);
     }
 
     #[test]
     fn example_config() {
-        Config::parse_from(&["", config_file_path("test/config.sample.toml").as_str()]);
+        Config::parse_from(&["", config_file_path("config.sample.toml").as_str()]);
     }
 
     #[test]
@@ -275,7 +275,7 @@ mod tests {
 
         let config = Config::parse_from(&[
             "",
-            config_file_path("test/indexed_chain_provider_via_env_var.toml").as_str(),
+            config_file_path("indexed_chain_provider_via_env_var.toml").as_str(),
         ]);
 
         assert_eq!(

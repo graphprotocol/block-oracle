@@ -19,7 +19,7 @@ await_contract "EpochManager" "$EPOCH_MANAGER_CONTRACT_ADDRESS"
 await_subgraph
 
 pushd ../
-./target/debug/block-oracle ./crates/oracle/config/dev/config.toml || true
+./target/debug/block-oracle ./crates/oracle/config.dev.toml || true
 
 echo
 echo "Epoch Block Oracle crashed."

@@ -31,6 +31,6 @@ RUN apt-get update -y && \
 	apt-get install -y libc-dev pkg-config libssl-dev ca-certificates
 
 COPY --from=builder /app/target/release/block-oracle /usr/local/bin
-COPY --from=builder /app/crates/oracle/config/staging/config.toml ./config.toml
+COPY --from=builder /app/crates/oracle/config.staging.config.toml ./config.toml
 
 CMD /usr/local/bin/block-oracle
