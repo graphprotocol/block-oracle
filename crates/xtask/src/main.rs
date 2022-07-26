@@ -1,4 +1,4 @@
-use block_oracle::config::{Config, ConfigFile};
+use block_oracle::config::Config;
 use clap::Parser as _;
 use std::path::PathBuf;
 
@@ -70,7 +70,7 @@ impl Environment {
 
     fn resolve_config(&self) -> anyhow::Result<Config> {
         let config_path = self.resolve_configuration_path()?;
-        let config_file = ConfigFile::from_file(&config_path)?;
-        Ok(Config::from_config_file(config_file))
+        let config = Config::parse_from(&[config_path]);
+        Ok(config)
     }
 }

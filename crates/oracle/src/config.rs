@@ -6,6 +6,7 @@ use serde::Deserialize;
 use serde_utils::{EitherLiteralOrEnvVar, FromStrWrapper};
 use std::{
     collections::HashMap,
+    ffi::OsString,
     fmt::Display,
     fs::read_to_string,
     path::{Path, PathBuf},
@@ -65,15 +66,18 @@ impl Config {
         Self::from_config_file(config_file)
     }
 
-    #[cfg(test)]
-    fn parse_from(args: &[&str]) -> Self {
-        let clap = Clap::parse_from(args);
+    pub fn parse_from<I, T>(itr: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString> + Clone,
+    {
+        let clap = Clap::parse_from(itr);
         let config_file = ConfigFile::from_file(&clap.config_file).unwrap();
 
         Self::from_config_file(config_file)
     }
 
-    pub fn from_config_file(config_file: ConfigFile) -> Self {
+    fn from_config_file(config_file: ConfigFile) -> Self {
         Self {
             log_level: config_file.log_level.0,
             owner_private_key: config_file.owner_private_key.0,
@@ -118,7 +122,7 @@ struct Clap {
 /// Represents the TOML config file
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub struct ConfigFile {
+struct ConfigFile {
     owner_address: FromStrWrapper<H160>,
     owner_private_key: EitherLiteralOrEnvVar<SecretKey>,
     data_edge_address: FromStrWrapper<H160>,
