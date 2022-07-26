@@ -6,6 +6,7 @@ use serde::Deserialize;
 use serde_utils::{EitherLiteralOrEnvVar, FromStrWrapper};
 use std::{
     collections::HashMap,
+    ffi::OsString,
     fmt::Display,
     fs::read_to_string,
     path::{Path, PathBuf},
@@ -42,10 +43,10 @@ pub struct ProtocolChain {
 pub struct Config {
     pub log_level: LevelFilter,
     pub owner_private_key: SecretKey,
-    pub contract_address: H160,
+    pub data_edge_address: H160,
+    pub epoch_manager_address: H160,
     pub subgraph_url: Url,
     pub owner_address: H160,
-    pub epoch_duration: u64,
     pub indexed_chains: Vec<IndexedChain>,
     pub freshness_threshold: u64,
     pub protocol_chain: ProtocolChain,
@@ -64,9 +65,12 @@ impl Config {
         Self::from_config_file(config_file)
     }
 
-    #[cfg(test)]
-    fn parse_from(args: &[&str]) -> Self {
-        let clap = Clap::parse_from(args);
+    pub fn parse_from<I, T>(itr: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<OsString> + Clone,
+    {
+        let clap = Clap::parse_from(itr);
         let config_file = ConfigFile::from_file(&clap.config_file).unwrap();
 
         Self::from_config_file(config_file)
@@ -76,10 +80,10 @@ impl Config {
         Self {
             log_level: config_file.log_level.0,
             owner_private_key: config_file.owner_private_key.0,
-            contract_address: config_file.contract_address.0,
+            data_edge_address: config_file.data_edge_address.0,
+            epoch_manager_address: config_file.epoch_manager_address.0,
             subgraph_url: config_file.subgraph_url.0,
             freshness_threshold: config_file.freshness_threshold,
-            epoch_duration: config_file.epoch_duration,
             owner_address: config_file.owner_address.0,
             retry_strategy_max_wait_time: Duration::from_secs(
                 config_file.web3_transport_retry_max_wait_time_in_seconds,
@@ -119,15 +123,14 @@ struct Clap {
 struct ConfigFile {
     owner_address: FromStrWrapper<H160>,
     owner_private_key: EitherLiteralOrEnvVar<SecretKey>,
-    contract_address: FromStrWrapper<H160>,
+    data_edge_address: FromStrWrapper<H160>,
+    epoch_manager_address: EitherLiteralOrEnvVar<H160>,
     subgraph_url: EitherLiteralOrEnvVar<Url>,
     /// Number of blocks that the Epoch Subgraph may be away from the protocol chain's head. If the
     /// block distance is lower than this, a `trace_filter` JSON RPC call will be used to infer if
     /// any relevant transaction happened within that treshold.
     #[serde(default = "serde_defaults::freshness_threshold")]
     freshness_threshold: u64,
-    #[serde(default = "serde_defaults::epoch_duration")]
-    epoch_duration: u64,
     #[serde(default = "serde_defaults::web3_transport_retry_max_wait_time_in_seconds")]
     web3_transport_retry_max_wait_time_in_seconds: u64,
     #[serde(default = "serde_defaults::transaction_confirmation_poll_interval_in_seconds")]
@@ -142,7 +145,7 @@ struct ConfigFile {
 
 impl ConfigFile {
     /// Tries to Create a [`ConfigFile`] from a TOML file.
-    fn from_file(file_path: &Path) -> Result<Self, ConfigError> {
+    pub fn from_file(file_path: &Path) -> Result<Self, ConfigError> {
         let string = read_to_string(file_path)?;
         toml::from_str(&string).map_err(ConfigError::Toml)
     }
@@ -217,10 +220,6 @@ mod serde_defaults {
         10
     }
 
-    pub fn epoch_duration() -> u64 {
-        6_646
-    }
-
     pub fn protocol_chain_polling_interval_in_seconds() -> u64 {
         120
     }
@@ -252,7 +251,7 @@ mod tests {
     }
 
     fn config_file_path(filename: &str) -> String {
-        format!("{}/config/{}", env!("CARGO_MANIFEST_DIR"), filename)
+        format!("{}/test/config/{}", env!("CARGO_MANIFEST_DIR"), filename)
     }
 
     #[test]
@@ -260,14 +259,13 @@ mod tests {
     fn invalid_jrpc_provider_url() {
         Config::parse_from(&[
             "",
-            config_file_path("test/invalid_jrpc_provider_url.toml").as_str(),
+            config_file_path("invalid_jrpc_provider_url.toml").as_str(),
         ]);
     }
 
     #[test]
     fn example_config() {
-        std::env::set_var("SUBGRAPH_URL", "https://example.com");
-        Config::parse_from(&["", config_file_path("dev/config.toml").as_str()]);
+        Config::parse_from(&["", config_file_path("config.sample.toml").as_str()]);
     }
 
     #[test]
@@ -277,7 +275,7 @@ mod tests {
 
         let config = Config::parse_from(&[
             "",
-            config_file_path("test/indexed_chain_provider_via_env_var.toml").as_str(),
+            config_file_path("indexed_chain_provider_via_env_var.toml").as_str(),
         ]);
 
         assert_eq!(

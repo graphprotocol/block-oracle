@@ -98,8 +98,7 @@ async fn query(url: Url) -> reqwest::Result<Response<graphql::subgraph_state::Re
         .unwrap();
     let request_body = graphql::SubgraphState::build_query(graphql::subgraph_state::Variables);
     let request = client.post(url).json(&request_body);
-    let response = request.send().await?;
-
+    let response = request.send().await?.error_for_status()?;
     Ok(response.json().await?)
 }
 

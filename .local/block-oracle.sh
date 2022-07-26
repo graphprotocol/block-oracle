@@ -3,14 +3,23 @@ set -eu
 
 . ./prelude.sh
 
-cd ../
+pushd ../
 
 cargo build
 
-await_contract
+await_contract "DataEdge" "$DATA_EDGE_CONTRACT_ADDRESS"
+
+popd
+await_ready epoch-manager
+
+EPOCH_MANAGER_CONTRACT_ADDRESS=$(jq -r '."1337".EpochManager.address' < build/graphprotocol/contracts/addresses.json)
+export EPOCH_MANAGER_CONTRACT_ADDRESS
+
+await_contract "EpochManager" "$EPOCH_MANAGER_CONTRACT_ADDRESS"
 await_subgraph
 
-./target/debug/block-oracle ./crates/oracle/config/dev/config.toml || true
+pushd ../
+./target/debug/block-oracle ./crates/oracle/config.dev.toml || true
 
 echo
 echo "Epoch Block Oracle crashed."
