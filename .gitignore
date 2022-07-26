@@ -47,5 +47,3 @@ crates/oracle-encoder/examples/*.json
 
 # configuration files
 config.dev.toml
-config.staging.toml
-config.prod.toml
