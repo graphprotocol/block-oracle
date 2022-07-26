@@ -4,7 +4,7 @@ mod serialize;
 
 use merkle::{merkle_root, MerkleLeaf};
 use messages::*;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub use messages::{BlockPtr, CompressedMessage, CompressedSetBlockNumbersForNextEpoch, Message};
 pub use serialize::serialize_messages;
@@ -131,6 +131,11 @@ impl Encoder {
                 self.networks.clear();
                 self.compressed.push(CompressedMessage::Reset);
             }
+            Message::ChangeOwnership { new_owner_address } => {
+                self.compressed.push(CompressedMessage::ChangeOwnership {
+                    new_owner_address: *new_owner_address,
+                });
+            }
         })
     }
 
@@ -146,7 +151,7 @@ impl Encoder {
     /// network indices.
     fn sort_network_data_by_index<T>(
         &self,
-        chain_data: &HashMap<String, T>,
+        chain_data: &BTreeMap<String, T>,
     ) -> Result<Vec<T>, Error>
     where
         T: Clone,
@@ -167,13 +172,29 @@ impl Encoder {
         Ok(sorted.into_iter().map(|(_, x)| x).collect())
     }
 
-    fn compress_block_ptrs(&mut self, block_ptrs: &HashMap<String, BlockPtr>) -> Result<(), Error> {
+    fn compress_block_ptrs(
+        &mut self,
+        block_ptrs: &BTreeMap<String, BlockPtr>,
+    ) -> Result<(), Error> {
+        let mut block_ptrs = block_ptrs.clone();
+        for network in &self.networks {
+            if block_ptrs.contains_key(&network.0) {
+                block_ptrs.insert(
+                    network.0.clone(),
+                    BlockPtr {
+                        number: network.1.block_number,
+                        hash: [0; 32],
+                    },
+                );
+            }
+        }
+
         // Prepare to get accelerations and merkle leaves based on previous deltas.
         let mut accelerations = Vec::with_capacity(block_ptrs.len());
         let mut merkle_leaves = Vec::with_capacity(block_ptrs.len());
 
         // Sort the block pointers by network index.
-        let sorted_block_ptrs = self.sort_network_data_by_index(block_ptrs)?;
+        let sorted_block_ptrs = self.sort_network_data_by_index(&block_ptrs)?;
 
         for (i, ptr) in sorted_block_ptrs.into_iter().enumerate() {
             let network_data = &self.networks[i].1;
@@ -226,7 +247,6 @@ mod tests {
     use {
         super::*,
         crate::messages::{BlockPtr, Message},
-        std::collections::HashMap,
         tokio::test,
     };
 
@@ -236,7 +256,7 @@ mod tests {
 
         // Skip some empty epochs
         for _ in 0..20 {
-            messages.push(Message::SetBlockNumbersForNextEpoch(HashMap::new()));
+            messages.push(Message::SetBlockNumbersForNextEpoch(BTreeMap::new()));
         }
 
         let networks: Vec<_> = ["A:1991", "B:2kl", "C:190", "D:18818"]

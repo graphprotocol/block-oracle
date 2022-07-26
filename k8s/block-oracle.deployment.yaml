@@ -46,11 +46,11 @@ spec:
                 secretKeyRef:
                   name: block-oracle
                   key: avalnche_0
-            - name: BINANCE_ANKR
+            - name: BINANCE_0
               valueFrom:
                 secretKeyRef:
                   name: block-oracle
-                  key: binance_ankr
+                  key: binance_0
             - name: BOBA_0
               valueFrom:
                 secretKeyRef:

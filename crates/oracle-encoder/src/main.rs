@@ -1,7 +1,7 @@
 use clap::Parser;
 use epoch_encoding as ee;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{collections::HashMap, io};
+use std::{collections::BTreeMap, io};
 
 #[derive(Parser)]
 #[clap(name = "oracle-encoder")]
@@ -32,7 +32,7 @@ fn main() -> io::Result<()> {
                 Message::CorrectEpochs {} => (
                     "CorrectEpochs",
                     ee::CompressedMessage::CorrectEpochs {
-                        data_by_network_id: HashMap::new(),
+                        data_by_network_id: BTreeMap::new(),
                     },
                 ),
                 Message::UpdateVersion { version_number } => ("UpdateVersion", {
@@ -40,6 +40,13 @@ fn main() -> io::Result<()> {
                 }),
                 Message::RegisterNetworks { remove, add } => ("RegisterNetworks", {
                     ee::CompressedMessage::RegisterNetworks { remove, add }
+                }),
+                Message::ChangeOwnership { new_owner_address } => ("ChangeOwnership", {
+                    ee::CompressedMessage::ChangeOwnership {
+                        new_owner_address: new_owner_address
+                            .try_into()
+                            .expect("Bad owner address length; must be 20 bytes"),
+                    }
                 }),
                 Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::Empty {
                     count,
@@ -108,6 +115,11 @@ pub enum Message {
         version_number: u64,
     },
     Reset,
+    #[serde(rename_all = "camelCase")]
+    ChangeOwnership {
+        #[serde(deserialize_with = "deserialize_hex")]
+        new_owner_address: Vec<u8>,
+    },
 }
 
 #[derive(Serialize, Deserialize)]

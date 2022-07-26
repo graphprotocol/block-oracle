@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 pub type NetworkIndex = u64;
 pub type Bytes32 = [u8; 32];
@@ -21,7 +21,7 @@ impl std::fmt::Debug for BlockPtr {
 #[derive(Debug, Clone)]
 pub enum Message {
     // TODO: Consider specifying epoch number here?
-    SetBlockNumbersForNextEpoch(HashMap<String, BlockPtr>),
+    SetBlockNumbersForNextEpoch(BTreeMap<String, BlockPtr>),
     RegisterNetworks {
         // Remove is by index
         remove: Vec<NetworkIndex>,
@@ -30,10 +30,13 @@ pub enum Message {
     },
     CorrectEpochs {
         // TODO: include hash, count, and (if count is nonzero) merkle root
-        data_by_network_id: HashMap<NetworkIndex, EpochDetails>,
+        data_by_network_id: BTreeMap<NetworkIndex, EpochDetails>,
     },
     UpdateVersion {
         version_number: u64,
+    },
+    ChangeOwnership {
+        new_owner_address: [u8; 20],
     },
     Reset,
 }
@@ -42,7 +45,7 @@ pub enum Message {
 pub enum CompressedMessage {
     SetBlockNumbersForNextEpoch(CompressedSetBlockNumbersForNextEpoch),
     CorrectEpochs {
-        data_by_network_id: HashMap<NetworkIndex, EpochDetails>,
+        data_by_network_id: BTreeMap<NetworkIndex, EpochDetails>,
     },
     RegisterNetworks {
         remove: Vec<u64>,
@@ -50,6 +53,9 @@ pub enum CompressedMessage {
     },
     UpdateVersion {
         version_number: u64,
+    },
+    ChangeOwnership {
+        new_owner_address: [u8; 20],
     },
     Reset,
 }
