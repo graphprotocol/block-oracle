@@ -3,7 +3,6 @@ owner_private_key = "00000000000000000000000000000000000000000000000000000000000
 data_edge_address =     "0x0000000000000000000000000000000000000000"
 epoch_manager_address = "0x0000000000000000000000000000000000000000"
 subgraph_url = "http://example.com"
-epoch_duration = 2
 
 [protocol_chain]
 name = "eip155:1"

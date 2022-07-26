@@ -47,7 +47,6 @@ pub struct Config {
     pub epoch_manager_address: H160,
     pub subgraph_url: Url,
     pub owner_address: H160,
-    pub epoch_duration: u64,
     pub indexed_chains: Vec<IndexedChain>,
     pub freshness_threshold: u64,
     pub protocol_chain: ProtocolChain,
@@ -85,7 +84,6 @@ impl Config {
             epoch_manager_address: config_file.epoch_manager_address.0,
             subgraph_url: config_file.subgraph_url.0,
             freshness_threshold: config_file.freshness_threshold,
-            epoch_duration: config_file.epoch_duration,
             owner_address: config_file.owner_address.0,
             retry_strategy_max_wait_time: Duration::from_secs(
                 config_file.web3_transport_retry_max_wait_time_in_seconds,
@@ -133,8 +131,6 @@ struct ConfigFile {
     /// any relevant transaction happened within that treshold.
     #[serde(default = "serde_defaults::freshness_threshold")]
     freshness_threshold: u64,
-    #[serde(default = "serde_defaults::epoch_duration")]
-    epoch_duration: u64,
     #[serde(default = "serde_defaults::web3_transport_retry_max_wait_time_in_seconds")]
     web3_transport_retry_max_wait_time_in_seconds: u64,
     #[serde(default = "serde_defaults::transaction_confirmation_poll_interval_in_seconds")]
@@ -222,10 +218,6 @@ mod serde_defaults {
 
     pub fn freshness_threshold() -> u64 {
         10
-    }
-
-    pub fn epoch_duration() -> u64 {
-        6_646
     }
 
     pub fn protocol_chain_polling_interval_in_seconds() -> u64 {
