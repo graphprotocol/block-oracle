@@ -125,7 +125,7 @@ impl Oracle {
         let subgraph_latest_epoch = match self
             .subgraph_state
             .last_state()
-            .ok_or(Error::MissingSubgraphState)?
+            .expect("Expected subgraph state to be present, but it was not")
             .1
             .latest_epoch_number
         {

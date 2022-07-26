@@ -48,8 +48,6 @@ pub enum Error {
     EpochManagerCallFailed(#[from] web3::contract::Error),
     #[error("Epoch Manager latest epoch ({manager}) is behind Epoch Subgraph's ({subgraph})")]
     EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
-    #[error("Expected Epoch Subgraph state to be present, but it was not")]
-    MissingSubgraphState,
     #[error("The subgraph hasn't indexed all relevant transactions yet.")]
     SubgraphNotFresh,
 }
@@ -68,7 +66,6 @@ impl MainLoopFlow for Error {
             EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(None),
 
             // TODO: Put those variants under the `SubgraphQueryError` enum
-            MissingSubgraphState => OracleControlFlow::Continue(None),
             SubgraphNotFresh => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
         }
     }
