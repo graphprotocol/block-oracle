@@ -37,7 +37,7 @@ fn serialize_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
         CompressedMessage::UpdateVersion { version_number } => {
             serialize_u64(*version_number, bytes);
         }
-        CompressedMessage::Reset => {}
+        CompressedMessage::Reset => serialize_u64(0, bytes),
         CompressedMessage::CorrectEpochs { .. } => {
             todo!()
         }
