@@ -41,6 +41,13 @@ fn main() -> io::Result<()> {
                 Message::RegisterNetworks { remove, add } => ("RegisterNetworks", {
                     ee::CompressedMessage::RegisterNetworks { remove, add }
                 }),
+                Message::ChangeOwnership { new_owner_address } => ("ChangeOwnership", {
+                    ee::CompressedMessage::ChangeOwnership {
+                        new_owner_address: new_owner_address
+                            .try_into()
+                            .expect("Bad owner address length; must be 20 bytes"),
+                    }
+                }),
                 Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::Empty {
                     count,
                 }) => ("SetBlockNumbersForNextEpoch", {
@@ -108,6 +115,11 @@ pub enum Message {
         version_number: u64,
     },
     Reset,
+    #[serde(rename_all = "camelCase")]
+    ChangeOwnership {
+        #[serde(deserialize_with = "deserialize_hex")]
+        new_owner_address: Vec<u8>,
+    },
 }
 
 #[derive(Serialize, Deserialize)]

@@ -35,6 +35,9 @@ pub enum Message {
     UpdateVersion {
         version_number: u64,
     },
+    ChangeOwnership {
+        new_owner_address: [u8; 20],
+    },
     Reset,
 }
 
@@ -50,6 +53,9 @@ pub enum CompressedMessage {
     },
     UpdateVersion {
         version_number: u64,
+    },
+    ChangeOwnership {
+        new_owner_address: [u8; 20],
     },
     Reset,
 }

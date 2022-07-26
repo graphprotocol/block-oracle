@@ -41,6 +41,9 @@ fn serialize_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
         CompressedMessage::CorrectEpochs { .. } => {
             todo!()
         }
+        CompressedMessage::ChangeOwnership { new_owner_address } => {
+            bytes.extend_from_slice(new_owner_address);
+        }
     }
 }
 
@@ -114,7 +117,8 @@ fn message_tag(m: &CompressedMessage) -> u8 {
         CompressedMessage::CorrectEpochs { .. } => 1,
         CompressedMessage::UpdateVersion { .. } => 2,
         CompressedMessage::RegisterNetworks { .. } => 3,
-        CompressedMessage::Reset => 4,
+        CompressedMessage::ChangeOwnership { .. } => 4,
+        CompressedMessage::Reset => 5,
     }
 }
 
