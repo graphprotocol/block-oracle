@@ -63,49 +63,53 @@ impl Oracle {
     /// if necessary.
     pub async fn run(&mut self) -> Result<(), Error> {
         info!("New polling iteration.");
-        if !self.detect_new_epoch().await? {
+        if self.detect_new_epoch().await? {
+            self.handle_new_epoch().await?;
+        } else {
             debug!("No epoch change detected.");
-            return Ok(());
         }
-
-        info!("Entering a new epoch.");
-        self.handle_new_epoch().await?;
-
         Ok(())
     }
 
+    /// Checks if the Subgraph should consider that the Subgraph is at a previous epoch compared to
+    /// the Epoch Manager.
     async fn detect_new_epoch(&mut self) -> Result<bool, Error> {
-        let block = get_latest_block(self.protocol_chain.web3.clone())
-            .await
-            .map_err(Error::BadJrpcProtocolChain)?;
-        debug!(
-            number = block.number,
-            hash = hex::encode(block.hash).as_str(),
-            "Got the latest block from the protocol chain."
-        );
-
+        // Before anything else, we must get the latest subgraph state
         debug!("Querying the subgraph state...");
         self.subgraph_state.refresh().await;
         if let Some(subgraph_error) = self.subgraph_state.error() {
             return Err(Error::Subgraph(subgraph_error));
         }
 
-        let last_block_number_indexed_by_subgraph =
-            if let Some(state) = self.subgraph_state.last_state() {
-                state.0
-            } else {
-                // If the subgraph is uninitialized, we should skip the freshness and epoch check
-                // and return `true`, indicating that the Oracle should send a message.
-                //
-                // Otherwise this could lead to a deadlock in which the Oracle never sends any
-                // message to the Subgraph while waiting for it to be initialized.
-                warn!("The subgraph state is uninitialized");
-                return Ok(true);
-            };
+        // Then we check if there is a new epoch by looking at the current Subgraph state.
+        let last_block_number_indexed_by_subgraph = match self.is_new_epoch().await? {
+            // If the Subgraph is uninitialized, we should skip the freshness and epoch check
+            // and return `true`, indicating that the Oracle should send a message.
+            //
+            // Otherwise this could lead to a deadlock in which the Oracle never sends any
+            // message to the Subgraph while waiting for it to be initialized.
+            None => return Ok(true),
+
+            // The Subgraph is at the same epoch as the Epoch Manager.
+            Some((true, _)) => return Ok(false),
+
+            // The Subgraph is at a previous epoch than the Epoch Manager, but we still need to
+            // check if the former is fresh.
+            Some((_, block_number)) => block_number,
+        };
+
+        let protocol_chain_current_block = get_latest_block(self.protocol_chain.web3.clone())
+            .await
+            .map_err(Error::BadJrpcProtocolChain)?;
+        debug!(
+            number = protocol_chain_current_block.number,
+            hash = hex::encode(protocol_chain_current_block.hash).as_str(),
+            "Got the latest block from the protocol chain."
+        );
 
         let is_fresh = freshness::subgraph_is_fresh(
             last_block_number_indexed_by_subgraph.into(),
-            block.number.into(),
+            protocol_chain_current_block.number.into(),
             self.protocol_chain.clone(),
             self.config.owner_address,
             self.config.data_edge_address,
@@ -115,35 +119,35 @@ impl Oracle {
         .map_err(Error::BadJrpcProtocolChain)?;
         if !is_fresh {
             error!("Subgraph is not fresh");
-            return Err(Error::SubgraphNotFresh);
+            Err(Error::SubgraphNotFresh)
+        } else {
+            Ok(true)
         }
-
-        Ok(self.is_new_epoch().await?)
     }
 
-    pub async fn is_new_epoch(&self) -> Result<bool, Error> {
-        let subgraph_latest_epoch = match self
-            .subgraph_state
-            .last_state()
-            .expect("Expected subgraph state to be present, but it was not")
-            .1
-            .latest_epoch_number
-        {
-            Some(epoch) => {
-                debug!("Epoch Subgraph is at epoch {epoch}");
-                epoch
-            }
-            // Subgraph is not initialized, so we return `true` because it is necessary to update
-            // its state.
-            None => {
-                debug!("Epoch Subgraph has no latest valid epoch");
-                return Ok(true);
+    /// Checks if the Subgraph epoch is behind the Epoch Manager's current epoch.
+    ///
+    /// Returns a pair of values indicating: 1) if there is a new epoch; and 2) the latest block
+    /// number indexed by the subgraph. Returns `None` if the Subgraph is not initialized.
+    async fn is_new_epoch(&self) -> Result<Option<(bool, u64)>, Error> {
+        let (latest_indexed_block, subgraph_latest_epoch) = {
+            match self
+                .subgraph_state
+                .last_state()
+                .and_then(|(block, state)| state.latest_epoch_number.map(|en| (*block, en)))
+            {
+                Some(state) => state,
+                None => {
+                    warn!("The subgraph state is uninitialized");
+                    return Ok(None);
+                }
             }
         };
+        debug!("Subgraph is at epoch {subgraph_latest_epoch}");
         let manager_current_epoch = self.contracts.query_current_epoch().await?;
         match subgraph_latest_epoch.cmp(&manager_current_epoch) {
-            Ordering::Less => Ok(true),
-            Ordering::Equal => Ok(false),
+            Ordering::Less => Ok(Some((true, latest_indexed_block))),
+            Ordering::Equal => Ok(Some((false, latest_indexed_block))),
             Ordering::Greater => Err(Error::EpochManagerBehindSubgraph {
                 manager: manager_current_epoch,
                 subgraph: subgraph_latest_epoch,
@@ -152,8 +156,9 @@ impl Oracle {
     }
 
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
-        info!("Collecting latest block information from all indexed chains.");
+        info!("Entering a new epoch.");
 
+        info!("Collecting latest block information from all indexed chains.");
         let latest_blocks_res = get_latest_blocks(&self.indexed_chains).await;
         let latest_blocks = latest_blocks_res
             .iter()
