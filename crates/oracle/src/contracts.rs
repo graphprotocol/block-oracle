@@ -5,7 +5,7 @@ use web3::{
     api::Eth,
     contract::{Contract, Options},
     ethabi::Address,
-    types::{Bytes, H256, U256},
+    types::{H256, U256},
     Transport,
 };
 
@@ -58,7 +58,6 @@ where
         payload: Vec<u8>,
         owner_private_key: &SecretKey,
     ) -> Result<H256, web3::contract::Error> {
-        let payload = Bytes::from(payload);
         let transaction_hash = self
             .data_edge
             .signed_call(
