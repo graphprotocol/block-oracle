@@ -6,7 +6,6 @@ use serde::Deserialize;
 use serde_utils::{EitherLiteralOrEnvVar, FromStrWrapper};
 use std::{
     collections::HashMap,
-    ffi::OsString,
     fmt::Display,
     fs::read_to_string,
     path::{Path, PathBuf},
@@ -65,13 +64,8 @@ impl Config {
         Self::from_config_file(config_file)
     }
 
-    pub fn parse_from<I, T>(itr: I) -> Self
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<OsString> + Clone,
-    {
-        let clap = Clap::parse_from(itr);
-        let config_file = ConfigFile::from_file(&clap.config_file).unwrap();
+    pub fn parse_from(config_file: impl AsRef<Path>) -> Self {
+        let config_file = ConfigFile::from_file(config_file.as_ref()).unwrap();
 
         Self::from_config_file(config_file)
     }
@@ -257,15 +251,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn invalid_jrpc_provider_url() {
-        Config::parse_from(&[
-            "",
-            config_file_path("invalid_jrpc_provider_url.toml").as_str(),
-        ]);
+        Config::parse_from(config_file_path("invalid_jrpc_provider_url.toml"));
     }
 
     #[test]
     fn example_config() {
-        Config::parse_from(&["", config_file_path("config.sample.toml").as_str()]);
+        Config::parse_from(config_file_path("config.sample.toml"));
     }
 
     #[test]
@@ -273,10 +264,8 @@ mod tests {
         let jrpc_url = "https://sokol-archive.blockscout.com/";
         std::env::set_var("FOOBAR_EIP155:77", jrpc_url);
 
-        let config = Config::parse_from(&[
-            "",
-            config_file_path("indexed_chain_provider_via_env_var.toml").as_str(),
-        ]);
+        let config =
+            Config::parse_from(config_file_path("indexed_chain_provider_via_env_var.toml"));
 
         assert_eq!(
             indexed_chain(&config, "eip155:77").jrpc_url.as_str(),

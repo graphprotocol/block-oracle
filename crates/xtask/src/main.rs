@@ -30,14 +30,14 @@ async fn main() -> anyhow::Result<()> {
     match Tasks::parse() {
         EncodeMessageSamples => message_samples::encode()?,
         CurrentEpoch { config_file } => {
-            let config = Config::parse_from(&[config_file]);
+            let config = Config::parse_from(config_file);
             contracts::current_epoch(config).await?
         }
         SendMessage {
             config_file,
             message,
         } => {
-            let config = Config::parse_from(&[config_file]);
+            let config = Config::parse_from(config_file);
             contracts::send_message(message, config).await?
         }
     };
