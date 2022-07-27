@@ -7,9 +7,10 @@ use web3::transports::Http;
 pub(crate) async fn send_message(message: Message, config: Config) -> anyhow::Result<()> {
     let contracts = init_contracts(&config)?;
     let payload: Vec<u8> = build_payload(message);
-    contracts
+    let tx = contracts
         .submit_call(payload, &config.owner_private_key)
         .await?;
+    println!("Sent message.\nTransaction hash: {tx:?}");
     Ok(())
 }
 
