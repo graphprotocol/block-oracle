@@ -81,6 +81,7 @@ type Network @entity {
   arrayIndex: Int
   # Link to global state to be able to recreate the list on query time for the GlobalState entity
   state: GlobalState
+  latestValidBlockNumber: NetworkEpochBlockNumber
 }
 
 type GlobalState @entity {

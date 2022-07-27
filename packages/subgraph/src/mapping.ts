@@ -252,7 +252,7 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
 
     // Create new NetworkEpochBlockNumber and save it for negative delta checks
     let blockNumberEntity = createOrUpdateNetworkEpochBlockNumber(
-      networks[i].id,
+      networks[i],
       newEpoch.epochNumber,
       acceleration,
       cache

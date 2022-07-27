@@ -204,6 +204,100 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
   assert.assertNull(networkA.nextArrayElement);
 });
 
+// Test Backfilling
+
+test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch) -> epochs elapsing -> (SetBlockNumbersForNextEpoch)", () => {
+  let payloadBytes1 = Bytes.fromHexString("0x0301030341") as Bytes;
+  let payloadBytes2 = Bytes.fromHexString(
+    "0x0066ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc493d"
+  ) as Bytes;
+  let payloadBytes3 = Bytes.fromHexString(
+    "0x0066ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc493d"
+  ) as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000";
+  let txHash1 = "0x00";
+  let txHash2 = "0x01";
+  let txHash3 = "0x02";
+
+  processPayload(submitter, payloadBytes1, txHash1); // Network registration
+
+  assert.entityCount("Epoch", 0);
+  assert.entityCount("Network", 1);
+  assert.entityCount("NetworkEpochBlockNumber", 0);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 1);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+
+  assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
+
+  processPayload(submitter, payloadBytes2, txHash2); // Acceleration
+
+  assert.entityCount("Epoch", 1);
+  assert.entityCount("Network", 1);
+  assert.entityCount("NetworkEpochBlockNumber", 1);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 2);
+  assert.entityCount("MessageBlock", 2);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 1);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+
+  assert.fieldEquals("Network", "A", "id", "A");
+  assert.fieldEquals("Epoch", "1", "id", "1");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "15");
+  assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
+  assert.fieldEquals("Network", "A", "state", "0");
+  assert.fieldEquals("Network", "A", "arrayIndex", "0");
+
+  mockEpochNumber(5)
+
+  processPayload(submitter, payloadBytes3, txHash3); // Acceleration
+
+  assert.entityCount("Epoch", 5);
+  assert.entityCount("Network", 1);
+  assert.entityCount("NetworkEpochBlockNumber", 2);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 3);
+  assert.entityCount("MessageBlock", 3);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 2);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+
+  assert.fieldEquals("Network", "A", "id", "A");
+  assert.fieldEquals("Epoch", "1", "id", "1");
+  assert.fieldEquals("Epoch", "2", "id", "2");
+  assert.fieldEquals("Epoch", "3", "id", "3");
+  assert.fieldEquals("Epoch", "4", "id", "4");
+  assert.fieldEquals("Epoch", "5", "id", "5");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "15");
+  assert.notInStore("NetworkEpochBlockNumber", "2-A")
+  assert.notInStore("NetworkEpochBlockNumber", "3-A")
+  assert.notInStore("NetworkEpochBlockNumber", "4-A")
+  assert.fieldEquals("NetworkEpochBlockNumber", "5-A", "id", "5-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "5-A", "acceleration", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "5-A", "delta", "30");
+  assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
+  assert.fieldEquals("Network", "A", "state", "0");
+  assert.fieldEquals("Network", "A", "arrayIndex", "0");
+  let networkA = Network.load("A")!;
+  assert.assertNull(networkA.nextArrayElement);
+});
+
+
+
 
 // crates/oracle-encoder/examples/05-register-multiple-and-unregister.json
 // 1 (RegisterNetworks, SetBlockNumbersForNextEpoch): 0x030109034103420343034466ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4905090d11

@@ -44,13 +44,14 @@ export function nextEpochId(state: GlobalState, reader: BytesReader): BigInt {
 }
 
 export function createOrUpdateNetworkEpochBlockNumber(
-  networkId: string,
+  network: Network,
   epochId: BigInt,
   acceleration: BigInt,
   cache: StoreCache
 ): NetworkEpochBlockNumber {
+  let networkId = network.id
   let id = epochBlockNumberId(epochId, networkId);
-  let previousId = epochBlockNumberId(epochId - BIGINT_ONE, networkId);
+  let previousId = network.latestValidBlockNumber;
 
   let networkEpochBlockNumber = cache.getNetworkEpochBlockNumber(id);
   networkEpochBlockNumber.network = networkId;
@@ -58,9 +59,9 @@ export function createOrUpdateNetworkEpochBlockNumber(
   networkEpochBlockNumber.epochNumber = epochId;
   networkEpochBlockNumber.acceleration = acceleration;
 
-  if (cache.hasNetworkEpochBlockNumber(previousId)) {
+  if (previousId && cache.hasNetworkEpochBlockNumber(previousId!)) {
     let previousNetworkEpochBlockNumber = cache.getNetworkEpochBlockNumber(
-      previousId
+      previousId!
     );
     networkEpochBlockNumber.delta = previousNetworkEpochBlockNumber.delta.plus(
       acceleration
@@ -69,13 +70,11 @@ export function createOrUpdateNetworkEpochBlockNumber(
       networkEpochBlockNumber.delta
     );
   } else {
-    // If there's no previous entity then we consider the previous delta 0
-    // There might be an edge case if the previous entity isn't 1 epoch behind
-    // in case where a network is removed and then re-added
-    // (^ Should we retain the progress of the network if it's removed?)
     networkEpochBlockNumber.delta = acceleration;
     networkEpochBlockNumber.blockNumber = networkEpochBlockNumber.delta;
   }
+
+  network.latestValidBlockNumber = networkEpochBlockNumber.id
 
   return networkEpochBlockNumber;
 }
