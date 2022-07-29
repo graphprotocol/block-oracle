@@ -37,6 +37,13 @@ services:
       GRAPH_NODE_JRPC_PORT: '8030'
       GRAPH_NODE_METRICS_PORT: '8040'
       GRAPH_IPFS_TIMEOUT: '10'
+    depends_on:
+      contracts:
+        condition: service_completed_successfully
+      ipfs:
+        condition: service_started
+      postgres:
+        condition: service_started
 
   ipfs:
     image: ipfs/go-ipfs:latest
@@ -54,9 +61,20 @@ services:
       POSTGRES_USER: graph-node
       POSTGRES_PASSWORD: let-me-in
       POSTGRES_DB: graph-node
-      # The custom PGDATA will cause the loss of data across runs, which is
-      # what we want.
-      PGDATA: /var/psql/
+    depends_on:
+      cleanup-postgres:
+        condition: service_completed_successfully
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+
+  cleanup-postgres:
+    image: alpine:latest
+    build:
+      context: .
+    volumes:
+      - ./pgdata:/pgdata
+    # Erase all Postgres data.
+    command: "/bin/sh -c 'rm -rf /pgdata/*'"
 
   hardhat:
     build:
@@ -72,10 +90,9 @@ services:
     # Retry until successful.
     restart: on-failure
     # Deploy the Data Edge contract, then also the rest of the network.
-    command: sh -c "yarn hardhat run --network localhost scripts/deploy-local.ts && cd network-contracts && yarn deploy-localhost --skip-confirmation"
+    command: sh -c "yarn hardhat run --network localhost scripts/deploy-local.ts && cd network-contracts && yarn deploy-localhost"
 
   epoch-subgraph:
-    image: epoch-subgraph:latest
     build:
       context: ../../packages/subgraph
       dockerfile: ../../k8s/compose/epoch-subgraph/Dockerfile
