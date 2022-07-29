@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 hex = "0.4.3"
 tiny-keccak = { version = "2.0", features = ["keccak"] }
+thiserror = "1.0.30"
 
 [dev-dependencies]
 tokio = { version = "1.14", features = ["sync", "parking_lot", "rt", "macros"] }

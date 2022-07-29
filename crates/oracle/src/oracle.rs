@@ -245,10 +245,17 @@ impl Oracle {
         );
 
         let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks)
-            .unwrap_or_else(|_| panic!("Can't prepare for encoding because something went wrong"));
+            .unwrap_or_else(|error| {
+                panic!(
+                    "Can't prepare for encoding because something went wrong: {}",
+                    error
+                )
+            });
         let encoded = compression_engine
             .encode(&messages[..])
-            .unwrap_or_else(|_| panic!("Encoding failed: {:?}", messages));
+            .unwrap_or_else(|error| {
+                panic!("Encoding failed. Messages {:?}. Error: {}", messages, error)
+            });
         debug!(
             encoded = hex_string(&encoded).as_str(),
             "Successfully encoded message(s)."
