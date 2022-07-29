@@ -128,9 +128,9 @@ struct ConfigFile {
     #[serde(default = "serde_defaults::web3_transport_retry_max_wait_time_in_seconds")]
     web3_transport_retry_max_wait_time_in_seconds: u64,
     #[serde(default = "serde_defaults::transaction_confirmation_poll_interval_in_seconds")]
-    transaction_confirmation_poll_interval_in_seconds: u64,
+    _transaction_confirmation_poll_interval_in_seconds: u64,
     #[serde(default = "serde_defaults::transaction_confirmation_count")]
-    transaction_confirmation_count: usize,
+    _transaction_confirmation_count: usize,
     #[serde(default = "serde_defaults::log_level")]
     log_level: FromStrWrapper<LevelFilter>,
     protocol_chain: SerdeProtocolChain,
