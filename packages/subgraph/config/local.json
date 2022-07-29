@@ -1,4 +1,5 @@
 {
   "local": true,
-  "owner": "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1"
+  "owner": "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
+  "epochManager": "0x0000000000000000000000000000000000000000"
 }
