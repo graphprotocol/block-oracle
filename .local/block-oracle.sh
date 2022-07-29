@@ -12,9 +12,6 @@ await_contract "DataEdge" "$DATA_EDGE_CONTRACT_ADDRESS"
 popd
 await_ready epoch-manager
 
-EPOCH_MANAGER_CONTRACT_ADDRESS=$(jq -r '."1337".EpochManager.address' < build/graphprotocol/contracts/addresses.json)
-export EPOCH_MANAGER_CONTRACT_ADDRESS
-
 await_contract "EpochManager" "$EPOCH_MANAGER_CONTRACT_ADDRESS"
 await_subgraph
 
