@@ -15,8 +15,7 @@ cd build/graphprotocol/contracts
 yarn install && yarn deploy-localhost --skip-confirmation
 
 
-echo "Sending JRPC for hardhat mine blocks at ever 2 seconds:"
+# Send a JRPC to hardhat so it mines blocks periodically
 curl -X POST -H "Content-Type: application/json" -d @"$BASE_PATH"/hardhat-set-interval.json http://localhost:8545
-echo "Done."
 
 signal_ready epoch-manager
