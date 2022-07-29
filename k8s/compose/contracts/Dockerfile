@@ -13,6 +13,8 @@ RUN git clone https://github.com/graphprotocol/contracts.git network-contracts &
 	cd network-contracts && \
 	git checkout 35aa93
 
-RUN cd network-contracts && yarn install
+RUN cd network-contracts && yarn install && yarn build
 
 COPY . .
+
+RUN yarn compile
