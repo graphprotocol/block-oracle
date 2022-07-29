@@ -90,7 +90,7 @@ impl Encoder {
             return Err(Error::MessageAfterEncodingVersionChange);
         }
 
-        Ok(match message {
+        match message {
             Message::SetBlockNumbersForNextEpoch(block_ptrs) => {
                 // There are separate cases for empty sets and non-empty sets.
                 if block_ptrs.is_empty() {
@@ -136,7 +136,8 @@ impl Encoder {
                     new_owner_address: *new_owner_address,
                 });
             }
-        })
+        };
+        Ok(())
     }
 
     fn add_network(&mut self, id: &str) {

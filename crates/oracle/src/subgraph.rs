@@ -99,7 +99,7 @@ async fn query(url: Url) -> reqwest::Result<Response<graphql::subgraph_state::Re
     let request_body = graphql::SubgraphState::build_query(graphql::subgraph_state::Variables);
     let request = client.post(url).json(&request_body);
     let response = request.send().await?.error_for_status()?;
-    Ok(response.json().await?)
+    response.json().await
 }
 
 /// Coordinates the retrieval of subgraph data and the transition of its own internal [`State`].
