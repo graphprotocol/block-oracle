@@ -13,8 +13,6 @@ services:
     depends_on:
       epoch-subgraph-check:
         condition: service_completed_successfully
-      contracts:
-        condition: service_completed_successfully
     volumes:
       - ../../crates/oracle/config.dev.toml:/app/config.dev.toml
     command: [ "/usr/local/bin/block-oracle", "/app/config.dev.toml" ]
@@ -41,10 +39,6 @@ services:
     depends_on:
       contracts:
         condition: service_completed_successfully
-      ipfs:
-        condition: service_started
-      postgres:
-        condition: service_started
 
   ipfs:
     image: ipfs/go-ipfs:latest
@@ -61,6 +55,11 @@ services:
     depends_on:
       postgres-cleanup:
         condition: service_completed_successfully
+    command:
+      [
+        "postgres",
+        "-cshared_preload_libraries=pg_stat_statements"
+      ]
     volumes:
       - ./pgdata:/var/lib/postgresql/data
 
@@ -79,15 +78,19 @@ services:
       dockerfile: ../../k8s/compose/hardhat/Dockerfile
     network_mode: host
 
-  contracts:
-    build:
-      context: ../../packages/contracts
-      dockerfile: ../../k8s/compose/contracts/Dockerfile
+  epoch-subgraph-check:
+    image: python:alpine
     network_mode: host
-    # Retry until successful.
     restart: on-failure
-    # Deploy the Data Edge contract, then also the rest of the network.
-    command: sh -c "yarn hardhat run --network localhost scripts/deploy-local.ts && cd network-contracts && yarn deploy-localhost"
+    command: python check_subgraph.py
+    volumes:
+      - ./check_subgraph.py:/check_subgraph.py
+    depends_on:
+      epoch-subgraph:
+        condition: service_completed_successfully
+    environment:
+      GRAPH_NODE_GRAPHQL_PORT: '8000'
+      DEPLOYMENT_NAME: 'edgeandnode/block-oracle'
 
   epoch-subgraph:
     build:
@@ -97,16 +100,18 @@ services:
     # Retry until successful.
     restart: on-failure
     command: sh -c "yarn create-local && yarn deploy-local"
+    depends_on:
+      contracts:
+        condition: service_completed_successfully
     environment:
       IPFS_PORT: '5001'
 
-  epoch-subgraph-check:
-    image: python:alpine
+  contracts:
+    build:
+      context: ../../packages/contracts
+      dockerfile: ../../k8s/compose/contracts/Dockerfile
     network_mode: host
+    # Retry until successful.
     restart: on-failure
-    command: sh -c 'sleep 5 && python check_subgraph.py'
-    volumes:
-      - ./check_subgraph.py:/check_subgraph.py
-    environment:
-      GRAPH_NODE_GRAPHQL_PORT: '8000'
-      DEPLOYMENT_NAME: 'edgeandnode/block-oracle'
+    # Deploy the Data Edge contract, then also the rest of the network.
+    command: sh -c "yarn hardhat run --network localhost scripts/deploy-local.ts && cd network-contracts && yarn deploy-localhost"
