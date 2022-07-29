@@ -11,7 +11,7 @@ services:
       RUST_BACKTRACE: '1'
       DATA_EDGE_CONTRACT_ADDRESS: '0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab'
     depends_on:
-      epoch-subgraph:
+      epoch-subgraph-check:
         condition: service_completed_successfully
       contracts:
         condition: service_completed_successfully
@@ -22,6 +22,7 @@ services:
   graph-node:
     image: graphprotocol/graph-node
     network_mode: host
+    restart: always
     environment:
       ipfs: '127.0.0.1:5001'
       postgres_host: localhost
@@ -52,22 +53,18 @@ services:
   postgres:
     image: postgres
     network_mode: host
-    command:
-      [
-        "postgres",
-        "-cshared_preload_libraries=pg_stat_statements"
-      ]
+    restart: always
     environment:
       POSTGRES_USER: graph-node
       POSTGRES_PASSWORD: let-me-in
       POSTGRES_DB: graph-node
     depends_on:
-      cleanup-postgres:
+      postgres-cleanup:
         condition: service_completed_successfully
     volumes:
       - ./pgdata:/var/lib/postgresql/data
 
-  cleanup-postgres:
+  postgres-cleanup:
     image: alpine:latest
     build:
       context: .
@@ -102,3 +99,14 @@ services:
     command: sh -c "yarn create-local && yarn deploy-local"
     environment:
       IPFS_PORT: '5001'
+
+  epoch-subgraph-check:
+    image: python:alpine
+    network_mode: host
+    restart: on-failure
+    command: sh -c 'sleep 5 && python check_subgraph.py'
+    volumes:
+      - ./check_subgraph.py:/check_subgraph.py
+    environment:
+      GRAPH_NODE_GRAPHQL_PORT: '8000'
+      DEPLOYMENT_NAME: 'edgeandnode/block-oracle'
