@@ -245,12 +245,8 @@ impl Oracle {
         );
 
         let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks)
-            .unwrap_or_else(|error| {
-                panic!(
-                    "Can't prepare for encoding because something went wrong: {}",
-                    error
-                )
-            });
+            .expect("Can't prepare for encoding because something went wrong.");
+
         let encoded = compression_engine
             .encode(&messages[..])
             .unwrap_or_else(|error| {
