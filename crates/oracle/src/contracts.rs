@@ -49,7 +49,7 @@ where
             .query("currentEpoch", (), None, Default::default(), None)
             .await?;
         let current_epoch = epoch_number.as_u64();
-        debug!(current_epoch, "Got current epoch from the Epoch Manager");
+        debug!("Epoch Manager is at epoch {current_epoch}");
         Ok(current_epoch)
     }
 
