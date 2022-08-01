@@ -49,19 +49,6 @@ services:
       POSTGRES_USER: graph-node
       POSTGRES_PASSWORD: let-me-in
       POSTGRES_DB: graph-node
-    depends_on:
-      postgres-cleanup:
-        condition: service_completed_successfully
-    volumes:
-      - ./pgdata:/var/lib/postgresql/data
-
-  postgres-cleanup:
-    image: alpine:latest
-    network_mode: host
-    # Erase all Postgres data.
-    command: "/bin/sh -c 'rm -rf /pgdata/*'"
-    volumes:
-      - ./pgdata:/pgdata
 
   hardhat:
     build:
