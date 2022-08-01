@@ -59,6 +59,7 @@ impl FromStr for Caip2ChainId {
         let is_ascii_alphanumberic_or_hyphen =
             |s: &str| s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-');
 
+        #[allow(clippy::len_zero)]
         if split.len() == 2
             && split[0].len() >= 3
             && split[0].len() <= 8

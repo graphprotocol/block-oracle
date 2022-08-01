@@ -110,7 +110,7 @@ async fn handle_error(err: Error) -> Result<(), Error> {
     match err.instruction() {
         OracleControlFlow::Break(()) => {
             error!("This error is non-recoverable. Exiting now.");
-            return Err(err);
+            Err(err)
         }
         OracleControlFlow::Continue(wait) => {
             error!(

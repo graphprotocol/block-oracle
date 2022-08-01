@@ -118,7 +118,7 @@ impl Oracle {
             return Err(Error::SubgraphNotFresh);
         }
 
-        Ok(self.is_new_epoch().await?)
+        self.is_new_epoch().await
     }
 
     pub async fn is_new_epoch(&self) -> Result<bool, Error> {
@@ -158,7 +158,7 @@ impl Oracle {
         let latest_blocks = latest_blocks_res
             .iter()
             .filter_map(|(chain_id, res)| match res {
-                Ok(block) => Some((chain_id.clone(), block.clone())),
+                Ok(block) => Some((chain_id.clone(), *block)),
                 Err(e) => {
                     warn!(
                         chain_id = chain_id.as_str(),
@@ -245,10 +245,13 @@ impl Oracle {
         );
 
         let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks)
-            .expect(format!("Can't prepare for encoding because something went wrong",).as_str());
+            .expect("Can't prepare for encoding because something went wrong.");
+
         let encoded = compression_engine
             .encode(&messages[..])
-            .expect(format!("Encoding failed: {:?}", messages).as_str());
+            .unwrap_or_else(|error| {
+                panic!("Encoding failed. Messages {:?}. Error: {}", messages, error)
+            });
         debug!(
             encoded = hex_string(&encoded).as_str(),
             "Successfully encoded message(s)."
