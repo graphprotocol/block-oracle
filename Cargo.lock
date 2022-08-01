@@ -682,6 +682,7 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "never",
+ "thiserror",
  "tiny-keccak",
  "tokio",
 ]

@@ -39,7 +39,7 @@ where
 
     fn new_contract(abi: &[u8], eth: &Eth<T>, address: Address) -> anyhow::Result<Contract<T>> {
         Contract::from_json(eth.clone(), address, abi)
-            .with_context(|| format!("Failed to create contract"))
+            .with_context(|| "Failed to create contract".to_string())
     }
 
     pub async fn query_current_epoch(&self) -> Result<u64, web3::contract::Error> {

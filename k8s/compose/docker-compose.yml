@@ -1,0 +1,114 @@
+version: '3'
+services:
+
+  block-oracle:
+    build:
+      context: ../..
+      dockerfile: k8s/Dockerfile
+    network_mode: host
+    restart: always
+    command: [ "/usr/local/bin/block-oracle", "/app/config.toml" ]
+    depends_on:
+      epoch-subgraph-check:
+        condition: service_completed_successfully
+    environment:
+      RUST_BACKTRACE: '1'
+      SUBGRAPH_URL: 'http://127.0.0.1:8000/subgraphs/name/edgeandnode/block-oracle'
+      DATA_EDGE_CONTRACT_ADDRESS: 'e78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab'
+      EPOCH_MANAGER_CONTRACT_ADDRESS: 'D833215cBcc3f914bD1C9ece3EE7BF8B14f841bb'
+    volumes:
+      - ./config.toml:/app/config.toml
+
+  graph-node:
+    image: graphprotocol/graph-node
+    network_mode: host
+    restart: always
+    environment:
+      ipfs: '127.0.0.1:5001'
+      postgres_host: localhost
+      postgres_port: '5432'
+      postgres_user: graph-node
+      postgres_db: graph-node
+      postgres_pass: let-me-in
+      ethereum: 'hardhat:http://localhost:8545'
+      GRAPH_LOG: debug
+    depends_on:
+      contracts:
+        condition: service_completed_successfully
+
+  ipfs:
+    image: ipfs/go-ipfs:latest
+    network_mode: host
+
+  postgres:
+    image: postgres
+    network_mode: host
+    restart: always
+    command: postgres -cshared_preload_libraries=pg_stat_statements
+    environment:
+      POSTGRES_USER: graph-node
+      POSTGRES_PASSWORD: let-me-in
+      POSTGRES_DB: graph-node
+    depends_on:
+      postgres-cleanup:
+        condition: service_completed_successfully
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+
+  postgres-cleanup:
+    image: alpine:latest
+    network_mode: host
+    # Erase all Postgres data.
+    command: "/bin/sh -c 'rm -rf /pgdata/*'"
+    volumes:
+      - ./pgdata:/pgdata
+
+  hardhat:
+    build:
+      context: ../../packages/contracts
+      dockerfile: ../../k8s/compose/hardhat/Dockerfile
+    network_mode: host
+
+  epoch-subgraph:
+    build:
+      context: ../../packages/subgraph
+      dockerfile: ../../k8s/compose/epoch-subgraph/Dockerfile
+    network_mode: host
+    restart: on-failure
+    command: sh -c "yarn create-local && yarn deploy-local"
+    environment:
+      IPFS_PORT: '5001'
+    depends_on:
+      contracts:
+        condition: service_completed_successfully
+
+  epoch-subgraph-check:
+    image: python:alpine
+    network_mode: host
+    restart: on-failure
+    command: python check_subgraph.py
+    volumes:
+      - ./check_subgraph.py:/check_subgraph.py
+    depends_on:
+      epoch-subgraph:
+        condition: service_completed_successfully
+    environment:
+      GRAPH_NODE_GRAPHQL_PORT: '8000'
+      DEPLOYMENT_NAME: 'edgeandnode/block-oracle'
+
+  contracts:
+    build:
+      context: ../../packages/contracts
+      dockerfile: ../../k8s/compose/contracts/Dockerfile
+    network_mode: host
+    restart: on-failure
+    # Deploy the Data Edge contract, then also the rest of the network.
+    command: >
+      bash -c "
+        yarn hardhat run --network localhost scripts/deploy-local.ts &&
+        cd network-contracts &&
+        yarn deploy-localhost --skip-confirmation &&
+        yarn hardhat run --network localhost /set-automining-interval.js
+      "
+    volumes:
+      - ./set-automining-interval.js:/set-automining-interval.js

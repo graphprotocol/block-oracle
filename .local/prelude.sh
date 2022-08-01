@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euf
 
+FULL_PATH=$(realpath "$0")
+BASE_PATH=$(dirname "$FULL_PATH")
+export BASE_PATH
+
 await() {
 	command="${1}"
 	exit_code="${2:-0}"
@@ -16,18 +20,18 @@ await() {
 
 signal_ready() {
     name="${1}"
-    filename="build/.${name}-ready"
+    filename="${BASE_PATH}/build/.${name}-ready"
     echo "Signaling ${filename}"
     touch "$filename"
     echo "done"
     # shellcheck disable=SC2064
-    trap "rm -f build/.${name}-ready" INT
+    trap "rm -f ${filename}" INT
     while true; do sleep 100; done
 }
 
 await_ready() {
     name="${1}"
-    await "test -f build/.${name}-ready"
+    await "test -f ${BASE_PATH}/build/.${name}-ready"
 }
 
 docker_run() {

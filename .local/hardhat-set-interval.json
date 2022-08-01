@@ -1,0 +1,8 @@
+{
+  "jsonrpc": "2.0",
+  "id": 0,
+  "method": "evm_setIntervalMining",
+  "params": [
+    5000
+  ]
+}

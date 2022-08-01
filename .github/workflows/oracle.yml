@@ -19,6 +19,8 @@ jobs:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: "-D warnings"
         with:
           command: check
           args: --workspace --tests
@@ -30,6 +32,8 @@ jobs:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: "-D warnings"
         with:
           command: test
           args: --workspace
@@ -40,6 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/cargo@v1
+        env:
+          RUSTFLAGS: "-D warnings"
         with:
           command: fmt
           args: --all --check

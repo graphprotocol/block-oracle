@@ -12,10 +12,15 @@ pub use serialize::serialize_messages;
 pub const CURRENT_ENCODING_VERSION: u64 = 0;
 
 /// Something that went wrong when using the [`Encoder`].
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("Unsuported encoding version: {0}")]
     UnsupportedEncodingVersion(u64),
+    #[error(
+        "After updating the encoding version, no more messages can be encoded in the same batch"
+    )]
     MessageAfterEncodingVersionChange,
+    #[error("Invalid Network ID: {0}")]
     InvalidNetworkId(String),
 }
 
@@ -90,7 +95,7 @@ impl Encoder {
             return Err(Error::MessageAfterEncodingVersionChange);
         }
 
-        Ok(match message {
+        match message {
             Message::SetBlockNumbersForNextEpoch(block_ptrs) => {
                 // There are separate cases for empty sets and non-empty sets.
                 if block_ptrs.is_empty() {
@@ -136,7 +141,8 @@ impl Encoder {
                     new_owner_address: *new_owner_address,
                 });
             }
-        })
+        };
+        Ok(())
     }
 
     fn add_network(&mut self, id: &str) {

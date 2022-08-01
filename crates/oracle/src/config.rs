@@ -117,7 +117,7 @@ struct Clap {
 struct ConfigFile {
     owner_address: FromStrWrapper<H160>,
     owner_private_key: EitherLiteralOrEnvVar<SecretKey>,
-    data_edge_address: FromStrWrapper<H160>,
+    data_edge_address: EitherLiteralOrEnvVar<H160>,
     epoch_manager_address: EitherLiteralOrEnvVar<H160>,
     subgraph_url: EitherLiteralOrEnvVar<Url>,
     /// Number of blocks that the Epoch Subgraph may be away from the protocol chain's head. If the
@@ -128,9 +128,9 @@ struct ConfigFile {
     #[serde(default = "serde_defaults::web3_transport_retry_max_wait_time_in_seconds")]
     web3_transport_retry_max_wait_time_in_seconds: u64,
     #[serde(default = "serde_defaults::transaction_confirmation_poll_interval_in_seconds")]
-    transaction_confirmation_poll_interval_in_seconds: u64,
+    _transaction_confirmation_poll_interval_in_seconds: u64,
     #[serde(default = "serde_defaults::transaction_confirmation_count")]
-    transaction_confirmation_count: usize,
+    _transaction_confirmation_count: usize,
     #[serde(default = "serde_defaults::log_level")]
     log_level: FromStrWrapper<LevelFilter>,
     protocol_chain: SerdeProtocolChain,
