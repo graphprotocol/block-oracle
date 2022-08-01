@@ -1,8 +1,0 @@
-deploy-contract: ./deploy-contract.sh
-deploy-network: ./deploy-network.sh
-deploy-subgraph: ./deploy-subgraph.sh
-graph-node: ./graph-node.sh
-hardhat: ./hardhat.sh
-ipfs: ./ipfs.sh
-postgres: ./postgres.sh
-block-oracle: ./block-oracle.sh
