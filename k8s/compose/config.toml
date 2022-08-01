@@ -1,0 +1,16 @@
+# Hardhat's first account.
+owner_address = "90F8bf6A479f320ead074411a4B0e7944Ea8c9C1"
+owner_private_key = "4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d"
+data_edge_address = "$DATA_EDGE_CONTRACT_ADDRESS"
+epoch_manager_address = "$EPOCH_MANAGER_CONTRACT_ADDRESS"
+subgraph_url = "$SUBGRAPH_URL"
+epoch_duration = 2
+
+[protocol_chain]
+name = "eip155:1"               # the CAIP2 network identifier for this chain
+jrpc = "http://127.0.0.1:8545/" # The URL to the JSON RPC for this network. Using Ganache in this example.
+polling_interval_in_seconds = 5
+
+[indexed_chains]
+"eip155:77" = "https://sokol-archive.blockscout.com/" # POA Network Sokol
+"eip155:99" = "https://core-archive.blockscout.com/"  # POA Network Core

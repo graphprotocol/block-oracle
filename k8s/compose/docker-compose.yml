@@ -6,16 +6,18 @@ services:
       context: ../..
       dockerfile: k8s/Dockerfile
     network_mode: host
-    environment:
-      SUBGRAPH_URL: 'http://127.0.0.1:8000/subgraphs/name/edgeandnode/block-oracle'
-      RUST_BACKTRACE: '1'
-      DATA_EDGE_CONTRACT_ADDRESS: '0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab'
+    restart: always
+    command: [ "/usr/local/bin/block-oracle", "/app/config.toml" ]
     depends_on:
       epoch-subgraph-check:
         condition: service_completed_successfully
+    environment:
+      RUST_BACKTRACE: '1'
+      SUBGRAPH_URL: 'http://127.0.0.1:8000/subgraphs/name/edgeandnode/block-oracle'
+      DATA_EDGE_CONTRACT_ADDRESS: 'e78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab'
+      EPOCH_MANAGER_CONTRACT_ADDRESS: 'D833215cBcc3f914bD1C9ece3EE7BF8B14f841bb'
     volumes:
-      - ../../crates/oracle/config.dev.toml:/app/config.dev.toml
-    command: [ "/usr/local/bin/block-oracle", "/app/config.dev.toml" ]
+      - ./config.toml:/app/config.toml
 
   graph-node:
     image: graphprotocol/graph-node
@@ -28,14 +30,8 @@ services:
       postgres_user: graph-node
       postgres_db: graph-node
       postgres_pass: let-me-in
-      postgres_url: 'postgresql://graph-node:let-me-in@localhost:5432/graph-node'
       ethereum: 'hardhat:http://localhost:8545'
       GRAPH_LOG: debug
-      GRAPH_NODE_GRAPHQL_PORT: '8000'
-      GRAPH_NODE_STATUS_PORT: '8020'
-      GRAPH_NODE_JRPC_PORT: '8030'
-      GRAPH_NODE_METRICS_PORT: '8040'
-      GRAPH_IPFS_TIMEOUT: '10'
     depends_on:
       contracts:
         condition: service_completed_successfully
@@ -48,6 +44,7 @@ services:
     image: postgres
     network_mode: host
     restart: always
+    command: postgres -cshared_preload_libraries=pg_stat_statements
     environment:
       POSTGRES_USER: graph-node
       POSTGRES_PASSWORD: let-me-in
@@ -55,28 +52,35 @@ services:
     depends_on:
       postgres-cleanup:
         condition: service_completed_successfully
-    command:
-      [
-        "postgres",
-        "-cshared_preload_libraries=pg_stat_statements"
-      ]
     volumes:
       - ./pgdata:/var/lib/postgresql/data
 
   postgres-cleanup:
     image: alpine:latest
-    build:
-      context: .
-    volumes:
-      - ./pgdata:/pgdata
+    network_mode: host
     # Erase all Postgres data.
     command: "/bin/sh -c 'rm -rf /pgdata/*'"
+    volumes:
+      - ./pgdata:/pgdata
 
   hardhat:
     build:
       context: ../../packages/contracts
       dockerfile: ../../k8s/compose/hardhat/Dockerfile
     network_mode: host
+
+  epoch-subgraph:
+    build:
+      context: ../../packages/subgraph
+      dockerfile: ../../k8s/compose/epoch-subgraph/Dockerfile
+    network_mode: host
+    restart: on-failure
+    command: sh -c "yarn create-local && yarn deploy-local"
+    environment:
+      IPFS_PORT: '5001'
+    depends_on:
+      contracts:
+        condition: service_completed_successfully
 
   epoch-subgraph-check:
     image: python:alpine
@@ -92,26 +96,19 @@ services:
       GRAPH_NODE_GRAPHQL_PORT: '8000'
       DEPLOYMENT_NAME: 'edgeandnode/block-oracle'
 
-  epoch-subgraph:
-    build:
-      context: ../../packages/subgraph
-      dockerfile: ../../k8s/compose/epoch-subgraph/Dockerfile
-    network_mode: host
-    # Retry until successful.
-    restart: on-failure
-    command: sh -c "yarn create-local && yarn deploy-local"
-    depends_on:
-      contracts:
-        condition: service_completed_successfully
-    environment:
-      IPFS_PORT: '5001'
-
   contracts:
     build:
       context: ../../packages/contracts
       dockerfile: ../../k8s/compose/contracts/Dockerfile
     network_mode: host
-    # Retry until successful.
     restart: on-failure
     # Deploy the Data Edge contract, then also the rest of the network.
-    command: sh -c "yarn hardhat run --network localhost scripts/deploy-local.ts && cd network-contracts && yarn deploy-localhost"
+    command: >
+      bash -c "
+        yarn hardhat run --network localhost scripts/deploy-local.ts &&
+        cd network-contracts &&
+        yarn deploy-localhost --skip-confirmation &&
+        yarn hardhat run --network localhost /set-automining-interval.js
+      "
+    volumes:
+      - ./set-automining-interval.js:/set-automining-interval.js

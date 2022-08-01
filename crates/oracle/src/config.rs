@@ -123,7 +123,7 @@ struct Clap {
 struct ConfigFile {
     owner_address: FromStrWrapper<H160>,
     owner_private_key: EitherLiteralOrEnvVar<SecretKey>,
-    data_edge_address: FromStrWrapper<H160>,
+    data_edge_address: EitherLiteralOrEnvVar<H160>,
     epoch_manager_address: EitherLiteralOrEnvVar<H160>,
     subgraph_url: EitherLiteralOrEnvVar<Url>,
     /// Number of blocks that the Epoch Subgraph may be away from the protocol chain's head. If the

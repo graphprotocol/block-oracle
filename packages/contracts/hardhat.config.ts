@@ -107,7 +107,7 @@ const config: HardhatUserConfig = {
       },
       mining: {
         auto: true,
-        interval: 2000
+        interval: 20000
       }
     },
     ganache: {
