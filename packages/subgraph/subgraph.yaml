@@ -4,11 +4,11 @@ schema:
 dataSources:
   - kind: ethereum
     name: DataEdge
-    network: hardhat
+    network: goerli
     source:
       abi: DataEdge
-      address: "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab"
-      startBlock: 1
+      address: "0xc4228701A7B92793b2428687DC37D0ed92e0d7A7"
+      startBlock: 7105079
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
@@ -19,7 +19,7 @@ dataSources:
       abis:
         - name: DataEdge
           file: ./abis/DataEdgeFull.json
-      eventHandlers:
-        - event: Log(bytes)
-          handler: handleLogCrossChainEpochOracle
+      callHandlers:
+        - function: crossChainEpochOracle(bytes)
+          handler: handleCrossChainEpochOracle
       file: ./src/mapping.ts
