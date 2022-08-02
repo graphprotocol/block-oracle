@@ -88,14 +88,16 @@ impl Oracle {
             //
             // Otherwise this could lead to a deadlock in which the Oracle never sends any
             // message to the Subgraph while waiting for it to be initialized.
-            None => return Ok(true),
+            NewEpochCheck::SubgraphIsUninitialized => return Ok(true),
 
             // The Subgraph is at the same epoch as the Epoch Manager.
-            Some((true, _)) => return Ok(false),
+            NewEpochCheck::SameEpoch => return Ok(false),
 
             // The Subgraph is at a previous epoch than the Epoch Manager, but we still need to
             // check if the former is fresh.
-            Some((_, block_number)) => block_number,
+            NewEpochCheck::PreviousEpoch {
+                subgraph_latest_indexed_block,
+            } => subgraph_latest_indexed_block,
         };
 
         let protocol_chain_current_block = get_latest_block(self.protocol_chain.web3.clone())
@@ -129,8 +131,9 @@ impl Oracle {
     ///
     /// Returns a pair of values indicating: 1) if there is a new epoch; and 2) the latest block
     /// number indexed by the subgraph. Returns `None` if the Subgraph is not initialized.
-    async fn is_new_epoch(&self) -> Result<Option<(bool, u64)>, Error> {
-        let (latest_indexed_block, subgraph_latest_epoch) = {
+    async fn is_new_epoch(&self) -> Result<NewEpochCheck, Error> {
+        use NewEpochCheck::*;
+        let (subgraph_latest_indexed_block, subgraph_latest_epoch) = {
             match self
                 .subgraph_state
                 .last_state()
@@ -139,15 +142,17 @@ impl Oracle {
                 Some(state) => state,
                 None => {
                     warn!("The subgraph state is uninitialized");
-                    return Ok(None);
+                    return Ok(SubgraphIsUninitialized);
                 }
             }
         };
         debug!("Subgraph is at epoch {subgraph_latest_epoch}");
         let manager_current_epoch = self.contracts.query_current_epoch().await?;
         match subgraph_latest_epoch.cmp(&manager_current_epoch) {
-            Ordering::Less => Ok(Some((true, latest_indexed_block))),
-            Ordering::Equal => Ok(Some((false, latest_indexed_block))),
+            Ordering::Less => Ok(PreviousEpoch {
+                subgraph_latest_indexed_block,
+            }),
+            Ordering::Equal => Ok(SameEpoch),
             Ordering::Greater => Err(Error::EpochManagerBehindSubgraph {
                 manager: manager_current_epoch,
                 subgraph: subgraph_latest_epoch,
@@ -385,4 +390,15 @@ mod freshness {
             Ok(false)
         }
     }
+}
+
+/// Used inside the 'Oracle::is_new_epoch' method to return information about the Epoch Subgraph
+/// current state.
+enum NewEpochCheck {
+    /// The Epoch Subgraph has no initial state.
+    SubgraphIsUninitialized,
+    /// The Epoch Subgraph is at a previous epoch than the Epoch Manager.
+    PreviousEpoch { subgraph_latest_indexed_block: u64 },
+    /// The Epoch Subgraph is at the same epoch as the Epoch Manager.
+    SameEpoch,
 }
