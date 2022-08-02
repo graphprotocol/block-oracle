@@ -30,6 +30,15 @@ pub struct Network {
     pub block_delta: i64,
 }
 
+impl Network {
+    pub fn new(block_number: u64, block_delta: i64) -> Self {
+        Self {
+            block_number,
+            block_delta,
+        }
+    }
+}
+
 /// The [`Encoder`]'s job is to take in sequences of high-level [`Message`]s, compress them,
 /// perform validation, and spit out bytes.
 ///
@@ -101,7 +110,7 @@ impl Encoder {
                 if block_ptrs.is_empty() {
                     self.compress_empty_block_ptrs();
                 } else {
-                    self.compress_block_ptrs(block_ptrs)?;
+                    self.compress_block_ptrs(block_ptrs.clone())?;
                 }
             }
             Message::RegisterNetworks { remove, add } => {
@@ -180,17 +189,13 @@ impl Encoder {
 
     fn compress_block_ptrs(
         &mut self,
-        block_ptrs: &BTreeMap<String, BlockPtr>,
+        mut block_ptrs: BTreeMap<String, BlockPtr>,
     ) -> Result<(), Error> {
-        let mut block_ptrs = block_ptrs.clone();
         for network in &self.networks {
-            if block_ptrs.contains_key(&network.0) {
+            if !block_ptrs.contains_key(&network.0) {
                 block_ptrs.insert(
                     network.0.clone(),
-                    BlockPtr {
-                        number: network.1.block_number,
-                        hash: [0; 32],
-                    },
+                    BlockPtr::new(network.1.block_number, [0; 32]),
                 );
             }
         }
@@ -253,11 +258,38 @@ mod tests {
     use {
         super::*,
         crate::messages::{BlockPtr, Message},
-        tokio::test,
     };
 
     #[test]
-    async fn pipeline() {
+    fn block_numbers_increase() {
+        let networks = vec![
+            ("A:1".to_string(), Network::new(0, 0)),
+            ("B:2".to_string(), Network::new(100, 0)),
+        ];
+        let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, networks).unwrap();
+
+        let block_updates = vec![
+            ("A:1".to_string(), BlockPtr::new(1, [0; 32])),
+            ("B:2".to_string(), BlockPtr::new(250, [0; 32])),
+        ];
+        encoder
+            .compress(&Message::SetBlockNumbersForNextEpoch(
+                block_updates.into_iter().collect(),
+            ))
+            .unwrap();
+
+        let accelerations = encoder
+            .compressed
+            .last()
+            .unwrap()
+            .as_non_empty_block_numbers()
+            .unwrap()
+            .0;
+        assert_eq!(accelerations, [1, 150]);
+    }
+
+    #[test]
+    fn pipeline() {
         let mut messages = Vec::new();
 
         // Skip some empty epochs
