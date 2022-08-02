@@ -261,6 +261,31 @@ mod tests {
     };
 
     #[test]
+    fn include_skipped_blocks() {
+        let networks = vec![
+            ("A:1".to_string(), Network::new(0, 0)),
+            ("B:2".to_string(), Network::new(100, 0)),
+        ];
+        let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, networks).unwrap();
+
+        let block_updates = vec![("A:1".to_string(), BlockPtr::new(1, [0; 32]))];
+        encoder
+            .compress(&Message::SetBlockNumbersForNextEpoch(
+                block_updates.into_iter().collect(),
+            ))
+            .unwrap();
+
+        let accelerations = encoder
+            .compressed
+            .last()
+            .unwrap()
+            .as_non_empty_block_numbers()
+            .unwrap()
+            .0;
+        assert_eq!(accelerations, [1, 0]);
+    }
+
+    #[test]
     fn block_numbers_increase() {
         let networks = vec![
             ("A:1".to_string(), Network::new(0, 0)),
