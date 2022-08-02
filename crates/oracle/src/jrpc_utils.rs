@@ -7,12 +7,14 @@ use futures::{
     FutureExt,
 };
 use jsonrpc_core::{Call, Value};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::RangeInclusive;
 use std::{future::Future, pin::Pin, time::Duration};
 use tracing::trace;
 use url::Url;
-use web3::types::{BlockId, BlockNumber, Transaction, H160, U64};
+use web3::helpers::CallFuture;
+use web3::types::{BlockNumber, Transaction, H160, H256, U64};
 use web3::{transports::Http, RequestId, Transport, Web3};
 
 /// A wrapper around [`web3::Transport`] that retries JSON-RPC calls on failure.
@@ -69,26 +71,38 @@ where
     }
 }
 
+/// It'd pretty weird if a provider wouldn't respond with a valid latest block; in that case,
+/// we'll raise a [`web3::Error`].
+///
+/// Note: Hardhat and other test setups might force us to rethink this and return an [`Option`].
 pub async fn get_latest_block<T>(web3: Web3<T>) -> web3::Result<BlockPtr>
 where
     T: Transport,
 {
-    let block = web3
-        .eth()
-        // We're asking for the latest head of the blockchain.
-        .block(BlockId::Number(BlockNumber::Latest))
-        .await?
-        .ok_or_else(|| web3::Error::InvalidResponse("No latest block found".to_string()))?;
-
-    match (block.number, block.hash) {
-        (Some(number), Some(hash)) => Ok(BlockPtr {
-            number: number.as_u64(),
-            hash: hash.0,
-        }),
-        _ => Err(web3::Error::InvalidResponse(
-            "The latest block is missing a number or hash".to_string(),
-        )),
+    /// A subset of [`web3::types::Block`] that is compatible with Celo. Should only be used for mined
+    /// blocks, i.e. with a block number. You can add fields as necessary, but you MUST make sure
+    /// they're widely available across all supported indexed chains.
+    #[derive(Debug, Default, Clone, PartialEq, Deserialize, Serialize)]
+    struct LatestBlockCeloCompatible {
+        hash: H256,
+        number: U64,
     }
+
+    // We're asking for the chain head.
+    let block_num = web3::helpers::serialize(&BlockNumber::Latest);
+    // We don't care about the transactions in the block.
+    let include_txs = web3::helpers::serialize(&false);
+
+    let fut = web3
+        .transport()
+        .execute("eth_getBlockByNumber", vec![block_num, include_txs]);
+    let call_fut: CallFuture<LatestBlockCeloCompatible, T::Out> = CallFuture::new(fut);
+    let latest_block = call_fut.await?;
+
+    Ok(BlockPtr {
+        number: latest_block.number.as_u64(),
+        hash: latest_block.hash.0,
+    })
 }
 
 /// Fetches the latest available block number and hash from all `chains`.
