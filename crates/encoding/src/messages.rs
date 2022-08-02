@@ -9,6 +9,12 @@ pub struct BlockPtr {
     pub hash: Bytes32,
 }
 
+impl BlockPtr {
+    pub fn new(number: u64, hash: Bytes32) -> Self {
+        BlockPtr { number, hash }
+    }
+}
+
 impl std::fmt::Debug for BlockPtr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BlockPtr")
@@ -58,6 +64,20 @@ pub enum CompressedMessage {
         new_owner_address: [u8; 20],
     },
     Reset,
+}
+
+impl CompressedMessage {
+    pub fn as_non_empty_block_numbers(&self) -> Option<(&[i64], Bytes32)> {
+        match self {
+            CompressedMessage::SetBlockNumbersForNextEpoch(
+                CompressedSetBlockNumbersForNextEpoch::NonEmpty {
+                    accelerations,
+                    root,
+                },
+            ) => Some((accelerations, *root)),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
