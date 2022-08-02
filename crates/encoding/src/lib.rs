@@ -184,7 +184,7 @@ impl Encoder {
     ) -> Result<(), Error> {
         let mut block_ptrs = block_ptrs.clone();
         for network in &self.networks {
-            if block_ptrs.contains_key(&network.0) {
+            if !block_ptrs.contains_key(&network.0) {
                 block_ptrs.insert(
                     network.0.clone(),
                     BlockPtr {
