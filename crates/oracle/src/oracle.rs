@@ -251,6 +251,7 @@ impl Oracle {
 
         let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks)
             .expect("Can't prepare for encoding because something went wrong.");
+        let compression_engine_initially = compression_engine.clone();
 
         let encoded = compression_engine
             .encode(&messages[..])
@@ -261,6 +262,13 @@ impl Oracle {
             encoded = hex_string(&encoded).as_str(),
             "Successfully encoded message(s)."
         );
+
+        assert_ne!(
+            compression_engine, compression_engine_initially,
+            "The encoder has identical internal state compared to what \
+            it had before these new messages. This is a bug!"
+        );
+
         Ok(encoded)
     }
 }

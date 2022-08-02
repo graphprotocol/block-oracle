@@ -45,7 +45,7 @@ impl Network {
 /// # Panics
 ///
 /// The [`Encoder`] should never panic on malformed [`Message`]s, but rather return an [`Error`].
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Encoder {
     networks: Vec<(String, Network)>,
     encoding_version: u64,
