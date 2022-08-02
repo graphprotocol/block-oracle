@@ -374,4 +374,54 @@ mod tests {
         // TODO: Add ability to skip epochs? Right now the way to get past this is to
         // just add 80 or so SetBlockNumbers.
     }
+
+    #[test]
+    fn register_networks_changes_state() {
+        let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, vec![]).unwrap();
+        let networks_before = encoder.networks.clone();
+
+        encoder
+            .encode(&[Message::RegisterNetworks {
+                remove: vec![],
+                add: vec!["foo:bar".to_string()],
+            }])
+            .unwrap();
+
+        let networks_after = encoder.networks.clone();
+
+        assert_ne!(networks_before, networks_after);
+    }
+
+    #[test]
+    fn set_block_numbers_changes_state() {
+        let mut encoder = Encoder::new(
+            CURRENT_ENCODING_VERSION,
+            vec![("foo:bar".to_string(), Network::new(42, 0))],
+        )
+        .unwrap();
+        let networks_before = encoder.networks.clone();
+
+        encoder
+            .encode(&[Message::SetBlockNumbersForNextEpoch(
+                vec![("foo:bar".to_string(), BlockPtr::new(42, [0; 32]))]
+                    .into_iter()
+                    .collect(),
+            )])
+            .unwrap();
+
+        // We didn't update any block numbers.
+        assert_eq!(networks_before, encoder.networks);
+
+        encoder
+            .encode(&[Message::SetBlockNumbersForNextEpoch(
+                vec![("foo:bar".to_string(), BlockPtr::new(1337, [0; 32]))]
+                    .into_iter()
+                    .collect(),
+            )])
+            .unwrap();
+
+        // We did update block numbers, this time around.
+        assert_ne!(networks_before, encoder.networks);
+        assert_ne!(encoder.networks.last().unwrap().1.block_delta, 0);
+    }
 }
