@@ -77,9 +77,7 @@ impl Oracle {
         // Before anything else, we must get the latest subgraph state
         debug!("Querying the subgraph state...");
         self.subgraph_state.refresh().await;
-        if let Some(subgraph_error) = self.subgraph_state.error() {
-            return Err(Error::Subgraph(subgraph_error));
-        }
+        self.subgraph_state.result()?;
 
         // Then we check if there is a new epoch by looking at the current Subgraph state.
         let last_block_number_indexed_by_subgraph = match self.is_new_epoch().await? {
@@ -133,7 +131,7 @@ impl Oracle {
         let (latest_indexed_block, subgraph_latest_epoch) = {
             match self
                 .subgraph_state
-                .last_state()
+                .result()?
                 .and_then(|(block, state)| state.latest_epoch_number.map(|en| (*block, en)))
             {
                 Some(state) => state,
@@ -268,7 +266,7 @@ impl Oracle {
 fn registered_networks(
     subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
 ) -> Vec<(Caip2ChainId, ee::Network)> {
-    if let Some(state) = subgraph_state.last_state() {
+    if let Ok(Some(state)) = subgraph_state.result() {
         state
             .1
             .networks
