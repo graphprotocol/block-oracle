@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: block-oracle
+  name: block-oracle-goerli
   labels:
-    app: block-oracle
+    app: block-oracle-goerli
 spec:
   selector:
     matchLabels:
-      app: block-oracle
+      app: block-oracle-goerli
   replicas: 1
   template:
     metadata:
       labels:
-        app: block-oracle
+        app: block-oracle-goerli
     spec:
       containers:
-        - name: block-oracle
+        - name: block-oracle-goerli
           image: gcr.io/the-graph-staging/block-oracle:latest
           command:
             - /usr/local/bin/block-oracle
