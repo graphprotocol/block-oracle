@@ -5,97 +5,100 @@ services:
     build:
       context: ../..
       dockerfile: k8s/Dockerfile
-    network_mode: host
-    restart: always
     command: [ "/usr/local/bin/block-oracle", "/app/config.toml" ]
-    depends_on:
-      epoch-subgraph-check:
-        condition: service_completed_successfully
     environment:
       RUST_BACKTRACE: '1'
-      SUBGRAPH_URL: 'http://127.0.0.1:8000/subgraphs/name/edgeandnode/block-oracle'
+      SUBGRAPH_URL: 'http://graph-node:8000/subgraphs/name/edgeandnode/block-oracle'
       DATA_EDGE_CONTRACT_ADDRESS: 'e78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab'
-      EPOCH_MANAGER_CONTRACT_ADDRESS: 'D833215cBcc3f914bD1C9ece3EE7BF8B14f841bb'
+      EPOCH_MANAGER_CONTRACT_ADDRESS: 'd833215cbcc3f914bd1c9ece3ee7bf8b14f841bb'
+      PROTOCOL_CHAIN_JRPC_URL: "http://hardhat:8545"
     volumes:
       - ./config.toml:/app/config.toml
+    depends_on:
+      graph-node:
+        condition: service_healthy
+      epoch-subgraph:
+        condition: service_completed_successfully
 
   graph-node:
     image: graphprotocol/graph-node
-    network_mode: host
-    restart: always
     environment:
-      ipfs: '127.0.0.1:5001'
-      postgres_host: localhost
+      ipfs: 'ipfs:5001'
+      postgres_host: postgres
       postgres_port: '5432'
       postgres_user: graph-node
       postgres_db: graph-node
       postgres_pass: let-me-in
-      ethereum: 'hardhat:http://localhost:8545'
+      ethereum: 'hardhat:http://hardhat:8545'
       GRAPH_LOG: debug
+    ports:
+      - 8020
+      - 8000
+    healthcheck:
+      test: nc -z localhost 8020 || exit 1
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
     depends_on:
-      contracts:
-        condition: service_completed_successfully
+      hardhat:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      ipfs:
+        condition: service_healthy
 
   ipfs:
     image: ipfs/go-ipfs:latest
-    network_mode: host
+    healthcheck:
+      test: nc -z localhost 5001 || exit 1
+      interval: 5s
+      timeout: 5s
+      start_period: 10s
 
   postgres:
     image: postgres
-    network_mode: host
-    restart: always
     command: postgres -cshared_preload_libraries=pg_stat_statements
     environment:
       POSTGRES_USER: graph-node
       POSTGRES_PASSWORD: let-me-in
       POSTGRES_DB: graph-node
+    healthcheck:
+      test: psql -U graph-node -c '\q' || exit 1
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
 
   hardhat:
     build:
       context: ../../packages/contracts
       dockerfile: ../../k8s/compose/hardhat/Dockerfile
-    network_mode: host
+    healthcheck:
+      test: nc -z localhost 8545 || exit 1
+      interval: 10s
+      timeout: 5s
+      start_period: 10s
 
   epoch-subgraph:
     build:
       context: ../../packages/subgraph
       dockerfile: ../../k8s/compose/epoch-subgraph/Dockerfile
-    network_mode: host
     restart: on-failure
-    command: sh -c "yarn create-local && yarn deploy-local"
-    environment:
-      IPFS_PORT: '5001'
+    command: >
+      sh -c "yarn graph create --node http://graph-node:8020/ edgeandnode/block-oracle &&
+             yarn graph deploy --node http://graph-node:8020/ --ipfs http://ipfs:5001 edgeandnode/block-oracle --version-label 0.1.0"
     depends_on:
-      contracts:
-        condition: service_completed_successfully
-
-  epoch-subgraph-check:
-    image: python:alpine
-    network_mode: host
-    restart: on-failure
-    command: python check_subgraph.py
-    volumes:
-      - ./check_subgraph.py:/check_subgraph.py
-    depends_on:
-      epoch-subgraph:
-        condition: service_completed_successfully
-    environment:
-      GRAPH_NODE_GRAPHQL_PORT: '8000'
-      DEPLOYMENT_NAME: 'edgeandnode/block-oracle'
+      graph-node:
+        condition: service_healthy
 
   contracts:
     build:
       context: ../../packages/contracts
       dockerfile: ../../k8s/compose/contracts/Dockerfile
-    network_mode: host
-    restart: on-failure
-    # Deploy the Data Edge contract, then also the rest of the network.
-    command: >
-      bash -c "
-        yarn hardhat run --network localhost scripts/deploy-local.ts &&
-        cd network-contracts &&
-        yarn deploy-localhost --skip-confirmation &&
-        yarn hardhat run --network localhost /set-automining-interval.js
-      "
+    command: sh /app/run.sh
     volumes:
-      - ./set-automining-interval.js:/set-automining-interval.js
+      - ./contracts/set-automining-interval.js:/set-automining-interval.js
+      - ./contracts/extended.config.ts:/app/network-contracts/extended.config.ts
+      - ./contracts/run.sh:/app/run.sh
+    depends_on:
+      hardhat:
+        condition: service_healthy
