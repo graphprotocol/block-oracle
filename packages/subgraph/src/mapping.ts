@@ -32,7 +32,8 @@ export function handleLogCrossChainEpochOracle(event: Log): void {
   processPayload(
     event.transaction.from.toHexString(),
     data,
-    event.transaction.hash.toHexString()
+    event.transaction.hash.toHexString(),
+    event.block.number
   );
 }
 
@@ -42,14 +43,16 @@ export function handleCrossChainEpochOracle(
   processPayload(
     call.transaction.from.toHexString(),
     call.inputs._payload,
-    call.transaction.hash.toHexString()
+    call.transaction.hash.toHexString(),
+    call.block.number
   );
 }
 
 export function processPayload(
   submitter: string,
   payloadBytes: Bytes,
-  txHash: string
+  txHash: string,
+  blockNumber: BigInt
 ): void {
   // Start the StoreCache
   let cache = new StoreCache();
@@ -60,6 +63,7 @@ export function processPayload(
   payload.data = payloadBytes;
   payload.submitter = submitter;
   payload.valid = true;
+  payload.createdAt = blockNumber
 
   let reader = new BytesReader(payloadBytes);
   let blockIdx = 0;

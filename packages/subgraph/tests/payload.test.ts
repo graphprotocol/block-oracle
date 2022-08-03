@@ -8,7 +8,7 @@ import {
 } from "matchstick-as/assembly/index";
 import { processPayload } from "../src/mapping";
 import { parseCalldata } from "../src/helpers";
-import { EPOCH_MANAGER_ADDRESS } from "../src/constants";
+import { EPOCH_MANAGER_ADDRESS, BIGINT_ONE } from "../src/constants";
 import { Bytes, BigInt, Address, ethereum } from "@graphprotocol/graph-ts";
 import { Network } from "../generated/schema";
 
@@ -64,7 +64,7 @@ test("Wrong Submitter", () => {
   let submitter = "0x0000000000000000000000000000000000000001";
   let txHash = "0x00";
 
-  processPayload(submitter, payloadBytes, txHash);
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
 
   assert.entityCount("Epoch", 0);
 
@@ -90,7 +90,7 @@ test("(SetBlockNumbersForNextEpoch) EMPTY but invalid", () => {
   let submitter = "0x0000000000000000000000000000000000000000";
   let txHash = "0x00";
 
-  processPayload(submitter, payloadBytes, txHash);
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
 
   assert.entityCount("Epoch", 0);
 
@@ -122,7 +122,7 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch)", () => {
   let submitter = "0x0000000000000000000000000000000000000000";
   let txHash = "0x00";
 
-  processPayload(submitter, payloadBytes, txHash);
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
 
   assert.entityCount("Epoch", 1);
   assert.entityCount("Network", 1);
@@ -162,7 +162,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
   let txHash1 = "0x00";
   let txHash2 = "0x01";
 
-  processPayload(submitter, payloadBytes1, txHash1); // Network registration
+  processPayload(submitter, payloadBytes1, txHash1, BIGINT_ONE); // Network registration
 
   assert.entityCount("Epoch", 0);
   assert.entityCount("Network", 1);
@@ -178,7 +178,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
 
-  processPayload(submitter, payloadBytes2, txHash2); // Acceleration
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE); // Acceleration
 
   assert.entityCount("Epoch", 1);
   assert.entityCount("Network", 1);
@@ -219,7 +219,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch) -> epochs elapsing -> 
   let txHash2 = "0x01";
   let txHash3 = "0x02";
 
-  processPayload(submitter, payloadBytes1, txHash1); // Network registration
+  processPayload(submitter, payloadBytes1, txHash1, BIGINT_ONE); // Network registration
 
   assert.entityCount("Epoch", 0);
   assert.entityCount("Network", 1);
@@ -235,7 +235,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch) -> epochs elapsing -> 
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
 
-  processPayload(submitter, payloadBytes2, txHash2); // Acceleration
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE); // Acceleration
 
   assert.entityCount("Epoch", 1);
   assert.entityCount("Network", 1);
@@ -260,7 +260,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch) -> epochs elapsing -> 
 
   mockEpochNumber(5)
 
-  processPayload(submitter, payloadBytes3, txHash3); // Acceleration
+  processPayload(submitter, payloadBytes3, txHash3, BIGINT_ONE); // Acceleration
 
   assert.entityCount("Epoch", 5);
   assert.entityCount("Network", 1);
@@ -324,7 +324,7 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   let txHash1 = "0x00";
   let txHash2 = "0x01";
 
-  processPayload(submitter, payloadBytes1, txHash1);
+  processPayload(submitter, payloadBytes1, txHash1, BIGINT_ONE);
 
   // Check counts
   assert.entityCount("Epoch", 1);
@@ -365,7 +365,7 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
 
   mockEpochNumber(2)
 
-  processPayload(submitter, payloadBytes2, txHash2);
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE);
 
   // Check counts
   assert.entityCount("Epoch", 2);

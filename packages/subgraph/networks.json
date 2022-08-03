@@ -11,6 +11,12 @@
       "startBlock": 7105079
     }
   },
+  "mainnet": {
+    "DataEdge": {
+      "address": "0xADE906194C923b28F03F48BC5D9D987AAE21fFab",
+      "startBlock": 15233152
+    }
+  },
   "hardhat": {
     "DataEdge": {
       "address": "0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab",
