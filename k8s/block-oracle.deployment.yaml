@@ -156,11 +156,6 @@ spec:
                 secretKeyRef:
                   name: block-oracle
                   key: poasokol_0
-            - name: PRIVATEKEY
-              valueFrom:
-                secretKeyRef:
-                  name: block-oracle
-                  key: privatekey
             - name: RINKEBY_0
               valueFrom:
                 secretKeyRef:
