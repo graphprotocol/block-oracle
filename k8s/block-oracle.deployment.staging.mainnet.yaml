@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
         - name: block-oracle-mainnet
-          image: gcr.io/the-graph-staging/block-oracle:latest
+          image: gcr.io/the-graph-staging/block-oracle-mainnet:latest
           command:
             - /usr/local/bin/block-oracle
             - config.toml
