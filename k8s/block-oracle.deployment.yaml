@@ -25,7 +25,7 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: block-oracle
-                  key: privatekey
+                  key: private_key_staging_goerli
             - name: ARBITRUM_0
               valueFrom:
                 secretKeyRef:
