@@ -33,6 +33,7 @@ steps:
     - --cluster=epoch-block-oracle
     - "--image=gcr.io/$PROJECT_ID/block-oracle-goerli:$COMMIT_SHA"
     - --timeout=30m
+    - --output='output-goerli'
 
 # mainnet
 - name: "gcr.io/cloud-builders/gke-deploy"
@@ -43,6 +44,7 @@ steps:
     - --cluster=epoch-block-oracle
     - "--image=gcr.io/$PROJECT_ID/block-oracle-mainnet:$COMMIT_SHA"
     - --timeout=30m
+    - --output='output-mainnet'
 
 images:
 - "gcr.io/$PROJECT_ID/block-oracle-goerli:$COMMIT_SHA"
