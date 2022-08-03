@@ -11,7 +11,7 @@ steps:
 - name: "gcr.io/cloud-builders/gke-deploy"
   args:
   - run
-  - --filename=./k8s/block-oracle.deployment.yaml
+  - --filename=./k8s/block-oracle.deployment.staging.goerli.yaml
   - --location=us-central1-a
   - --cluster=epoch-block-oracle
   - "--image=gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"
