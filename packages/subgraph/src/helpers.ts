@@ -158,3 +158,14 @@ export function parseCalldata(calldata: Bytes): Bytes {
   );
   return changetype<Bytes>(calldata.slice(68, 68 + length.toI32()));
 }
+
+export function wipeNetworkList(networks: Array<Network>, messageId: String): void {
+  for (let i = 0; i < networks.length; i++) {
+    networks[i].state = null;
+    networks[i].nextArrayElement = null;
+    networks[i].arrayIndex = null;
+    networks[i].removedAt = messageId;
+    networks[i].lastUpdatedAt = messageId;
+    networks[i].latestValidBlockNumber = null;
+  }
+}

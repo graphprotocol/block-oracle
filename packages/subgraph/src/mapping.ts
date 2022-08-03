@@ -19,6 +19,7 @@ import {
   getActiveNetworks,
   swapAndPop,
   commitNetworkChanges,
+  wipeNetworkList,
   nextEpochId,
   parseCalldata
 } from "./helpers";
@@ -443,7 +444,7 @@ function executeResetStateMessage(
   message.block = messageBlock.id;
   message.data = reader.diff(snapshot);
 
-  commitNetworkChanges(networks, [], globalState, message.id);
+  wipeNetworkList(networks, message.id);
 
   globalState.networkCount = 0;
   globalState.activeNetworkCount = 0;
