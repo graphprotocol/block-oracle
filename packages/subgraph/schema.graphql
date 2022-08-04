@@ -3,6 +3,8 @@ type Payload @entity {
   data: Bytes!
   submitter: String!
   valid: Boolean!
+  "Block number where this payload was created at"
+  createdAt: BigInt!
   "Optional error message in case the payload is invalid. Useful for debugging purposes"
   errorMessage: String
   messageBlocks: [MessageBlock!]! @derivedFrom(field: "payload")

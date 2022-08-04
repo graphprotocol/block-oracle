@@ -8,7 +8,7 @@ import {
 } from "matchstick-as/assembly/index";
 import { processPayload } from "../src/mapping";
 import { parseCalldata } from "../src/helpers";
-import { EPOCH_MANAGER_ADDRESS } from "../src/constants";
+import { EPOCH_MANAGER_ADDRESS, BIGINT_ONE } from "../src/constants";
 import { Bytes, BigInt, Address, ethereum } from "@graphprotocol/graph-ts";
 import { Network } from "../generated/schema";
 
@@ -34,13 +34,18 @@ import { Network } from "../generated/schema";
 // ]
 
 function mockEpochNumber(number: i32): void {
-  createMockedFunction(Address.fromString(EPOCH_MANAGER_ADDRESS), 'currentEpoch', 'currentEpoch():(uint256)').withArgs([]).returns([ethereum.Value.fromSignedBigInt(BigInt.fromI32(number))])
+  createMockedFunction(
+    Address.fromString(EPOCH_MANAGER_ADDRESS),
+    "currentEpoch",
+    "currentEpoch():(uint256)"
+  )
+    .withArgs([])
+    .returns([ethereum.Value.fromSignedBigInt(BigInt.fromI32(number))]);
 }
 
-
 beforeEach(() => {
-  mockEpochNumber(1)
-})
+  mockEpochNumber(1);
+});
 
 afterEach(() => {
   clearStore();
@@ -64,7 +69,7 @@ test("Wrong Submitter", () => {
   let submitter = "0x0000000000000000000000000000000000000001";
   let txHash = "0x00";
 
-  processPayload(submitter, payloadBytes, txHash);
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
 
   assert.entityCount("Epoch", 0);
 
@@ -90,7 +95,7 @@ test("(SetBlockNumbersForNextEpoch) EMPTY but invalid", () => {
   let submitter = "0x0000000000000000000000000000000000000000";
   let txHash = "0x00";
 
-  processPayload(submitter, payloadBytes, txHash);
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
 
   assert.entityCount("Epoch", 0);
 
@@ -122,7 +127,7 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch)", () => {
   let submitter = "0x0000000000000000000000000000000000000000";
   let txHash = "0x00";
 
-  processPayload(submitter, payloadBytes, txHash);
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
 
   assert.entityCount("Epoch", 1);
   assert.entityCount("Network", 1);
@@ -162,7 +167,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
   let txHash1 = "0x00";
   let txHash2 = "0x01";
 
-  processPayload(submitter, payloadBytes1, txHash1); // Network registration
+  processPayload(submitter, payloadBytes1, txHash1, BIGINT_ONE); // Network registration
 
   assert.entityCount("Epoch", 0);
   assert.entityCount("Network", 1);
@@ -178,7 +183,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch)", () => {
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
 
-  processPayload(submitter, payloadBytes2, txHash2); // Acceleration
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE); // Acceleration
 
   assert.entityCount("Epoch", 1);
   assert.entityCount("Network", 1);
@@ -219,7 +224,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch) -> epochs elapsing -> 
   let txHash2 = "0x01";
   let txHash3 = "0x02";
 
-  processPayload(submitter, payloadBytes1, txHash1); // Network registration
+  processPayload(submitter, payloadBytes1, txHash1, BIGINT_ONE); // Network registration
 
   assert.entityCount("Epoch", 0);
   assert.entityCount("Network", 1);
@@ -235,7 +240,7 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch) -> epochs elapsing -> 
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
 
-  processPayload(submitter, payloadBytes2, txHash2); // Acceleration
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE); // Acceleration
 
   assert.entityCount("Epoch", 1);
   assert.entityCount("Network", 1);
@@ -258,9 +263,9 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch) -> epochs elapsing -> 
   assert.fieldEquals("Network", "A", "state", "0");
   assert.fieldEquals("Network", "A", "arrayIndex", "0");
 
-  mockEpochNumber(5)
+  mockEpochNumber(5);
 
-  processPayload(submitter, payloadBytes3, txHash3); // Acceleration
+  processPayload(submitter, payloadBytes3, txHash3, BIGINT_ONE); // Acceleration
 
   assert.entityCount("Epoch", 5);
   assert.entityCount("Network", 1);
@@ -283,9 +288,9 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch) -> epochs elapsing -> 
   assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
   assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "15");
   assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "15");
-  assert.notInStore("NetworkEpochBlockNumber", "2-A")
-  assert.notInStore("NetworkEpochBlockNumber", "3-A")
-  assert.notInStore("NetworkEpochBlockNumber", "4-A")
+  assert.notInStore("NetworkEpochBlockNumber", "2-A");
+  assert.notInStore("NetworkEpochBlockNumber", "3-A");
+  assert.notInStore("NetworkEpochBlockNumber", "4-A");
   assert.fieldEquals("NetworkEpochBlockNumber", "5-A", "id", "5-A");
   assert.fieldEquals("NetworkEpochBlockNumber", "5-A", "acceleration", "15");
   assert.fieldEquals("NetworkEpochBlockNumber", "5-A", "delta", "30");
@@ -295,9 +300,6 @@ test("(RegisterNetworks) -> (SetBlockNumbersForNextEpoch) -> epochs elapsing -> 
   let networkA = Network.load("A")!;
   assert.assertNull(networkA.nextArrayElement);
 });
-
-
-
 
 // crates/oracle-encoder/examples/05-register-multiple-and-unregister.json
 // 1 (RegisterNetworks, SetBlockNumbersForNextEpoch): 0x030109034103420343034466ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4905090d11
@@ -324,7 +326,7 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   let txHash1 = "0x00";
   let txHash2 = "0x01";
 
-  processPayload(submitter, payloadBytes1, txHash1);
+  processPayload(submitter, payloadBytes1, txHash1, BIGINT_ONE);
 
   // Check counts
   assert.entityCount("Epoch", 1);
@@ -363,9 +365,9 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   let networkD = Network.load("D")!;
   assert.assertNull(networkD.nextArrayElement);
 
-  mockEpochNumber(2)
+  mockEpochNumber(2);
 
-  processPayload(submitter, payloadBytes2, txHash2);
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE);
 
   // Check counts
   assert.entityCount("Epoch", 2);
@@ -425,4 +427,53 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   assert.fieldEquals("NetworkEpochBlockNumber", "2-D", "delta", "10");
   assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "acceleration", "7");
   assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "delta", "10");
+});
+
+test("(RegisterNetworks, SetBlockNumbersForNextEpoch), RESET, (RegisterNetworks, SetBlockNumbersForNextEpoch) ", () => {
+  let payloadBytes1 = Bytes.fromHexString(
+    "0x030103034166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc493d"
+  ) as Bytes;
+  let payloadBytes2 = Bytes.fromHexString("0x0500") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000";
+  let txHash1 = "0x00";
+  let txHash2 = "0x01";
+  let txHash3 = "0x02";
+
+  processPayload(submitter, payloadBytes1, txHash1, BIGINT_ONE);
+
+  assert.entityCount("Epoch", 1);
+  assert.entityCount("Network", 1);
+  assert.entityCount("NetworkEpochBlockNumber", 1);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 1);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 1);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+
+  assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
+  assert.fieldEquals("Network", "A", "id", "A");
+  assert.fieldEquals("Epoch", "1", "id", "1");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "blockNumber", "15");
+  assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
+
+  mockEpochNumber(2);
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE);
+
+  mockEpochNumber(3);
+  processPayload(submitter, payloadBytes1, txHash3, BIGINT_ONE);
+
+  assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
+  assert.fieldEquals("Network", "A", "id", "A");
+  assert.fieldEquals("Epoch", "1", "id", "1");
+  assert.fieldEquals("NetworkEpochBlockNumber", "3-A", "id", "3-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "3-A", "acceleration", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "3-A", "delta", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "3-A", "blockNumber", "15");
+  assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
 });
