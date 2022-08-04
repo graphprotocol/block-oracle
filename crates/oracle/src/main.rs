@@ -88,6 +88,7 @@ async fn main() -> Result<(), Error> {
     while !CTRLC_HANDLER.poll_ctrlc() {
         if let Err(err) = oracle.run().await {
             handle_error(err).await?;
+            continue;
         }
 
         // After every polling iteration, we go to sleep for a bit. Wouldn't
