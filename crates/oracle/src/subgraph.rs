@@ -6,7 +6,7 @@ use itertools::Itertools;
 use reqwest::Url;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub struct SubgraphQuery {
     url: Url,
@@ -114,7 +114,7 @@ where
 impl<A> SubgraphStateTracker<A>
 where
     A: SubgraphApi,
-    A::State: Clone,
+    A::State: Clone + PartialEq,
 {
     pub fn new(api: A) -> Self {
         Self {
@@ -135,22 +135,30 @@ where
     pub async fn refresh(&mut self) {
         info!("Fetching latest subgraph state");
 
-        self.last_result = self
+        let result = self
             .subgraph_api
             .get_subgraph_state()
             .await
             .map_err(Arc::new);
+
+        if result.is_err() {
+            error!("The subgraph is failed.");
+        } else if result.as_ref().ok() != self.last_result.as_ref().ok() {
+            warn!("The subgraph's state has changed since the last time we checked. This is expected.");
+        }
+
+        self.last_result = result;
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GlobalState {
     pub networks: Vec<Network>,
     pub encoding_version: i64,
     pub latest_epoch_number: Option<u64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Network {
     pub id: Caip2ChainId,
     pub latest_block_number: u64,
@@ -243,7 +251,7 @@ mod tests {
     use std::sync::Mutex;
     use tokio::net::TcpListener;
 
-    #[derive(Clone)]
+    #[derive(Clone, PartialEq)]
     struct CounterState {
         counter: u8,
     }
