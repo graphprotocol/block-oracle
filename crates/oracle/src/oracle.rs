@@ -247,6 +247,7 @@ impl Oracle {
 
         debug!(
             messages = ?messages,
+            networks = ?available_networks,
             messages_count = messages.len(),
             networks_count = available_networks.len(),
             "Compressing message(s)."
@@ -261,7 +262,11 @@ impl Oracle {
             .unwrap_or_else(|error| {
                 panic!("Encoding failed. Messages {:?}. Error: {}", messages, error)
             });
-        debug!(compressed = ?compressed, "Successfully compressed message(s).");
+        debug!(
+            compressed = ?compressed,
+            networks = ?compression_engine.network_deltas(),
+            "Successfully compressed message(s)."
+        );
         let encoded = compression_engine.encode(&compressed);
         debug!(
             encoded = hex_string(&encoded).as_str(),

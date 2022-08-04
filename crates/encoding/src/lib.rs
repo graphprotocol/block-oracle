@@ -66,6 +66,10 @@ impl Encoder {
         })
     }
 
+    pub fn network_deltas(&self) -> &[(String, Network)] {
+        &self.networks
+    }
+
     /// Gets the network's index from the ID, if the network exists.
     pub fn network_index(&self, network_id: &str) -> Option<NetworkIndex> {
         self.networks
