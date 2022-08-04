@@ -256,11 +256,13 @@ impl Oracle {
             .expect("Can't prepare for encoding because something went wrong.");
         let compression_engine_initially = compression_engine.clone();
 
-        let encoded = compression_engine
-            .encode(&messages[..])
+        let compressed = compression_engine
+            .compress(&messages[..])
             .unwrap_or_else(|error| {
                 panic!("Encoding failed. Messages {:?}. Error: {}", messages, error)
             });
+        debug!(compressed = ?compressed, "Successfully compressed message(s).");
+        let encoded = compression_engine.encode(&compressed);
         debug!(
             encoded = hex_string(&encoded).as_str(),
             "Successfully encoded message(s)."

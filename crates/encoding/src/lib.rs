@@ -80,24 +80,23 @@ impl Encoder {
         self.encoding_version
     }
 
-    /// Encoding is a stateful operation. After this call, the [`Encoder`] is
+    /// Compression is a stateful operation. After this call, the [`Encoder`] is
     /// ready to be used again and some of its internal state might have
     /// changed.
-    pub fn encode(&mut self, messages: &[Message]) -> Result<Vec<u8>, Error> {
+    pub fn compress(&mut self, messages: &[Message]) -> Result<Vec<CompressedMessage>, Error> {
         for m in messages {
-            self.compress(m)?;
+            self.compress_message(m)?;
         }
-        Ok(self.serialize())
+        Ok(std::mem::take(&mut self.compressed))
     }
 
-    fn serialize(&mut self) -> Vec<u8> {
+    pub fn encode(&self, compressed: &[CompressedMessage]) -> Vec<u8> {
         let mut bytes = vec![];
-        serialize_messages(&self.compressed, &mut bytes);
-        self.compressed.clear();
+        serialize_messages(compressed, &mut bytes);
         bytes
     }
 
-    fn compress(&mut self, message: &Message) -> Result<(), Error> {
+    fn compress_message(&mut self, message: &Message) -> Result<(), Error> {
         // After updating the encoding version, no more messages can be encoded
         // in the same batch.
         if let Some(CompressedMessage::UpdateVersion { .. }) = self.compressed.last() {
@@ -267,16 +266,14 @@ mod tests {
             ("B:2".to_string(), Network::new(100, 0)),
         ];
         let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, networks).unwrap();
-
         let block_updates = vec![("A:1".to_string(), BlockPtr::new(1, [0; 32]))];
-        encoder
-            .compress(&Message::SetBlockNumbersForNextEpoch(
+        let compressed = encoder
+            .compress(&[Message::SetBlockNumbersForNextEpoch(
                 block_updates.into_iter().collect(),
-            ))
+            )])
             .unwrap();
 
-        let accelerations = encoder
-            .compressed
+        let accelerations = compressed
             .last()
             .unwrap()
             .as_non_empty_block_numbers()
@@ -297,14 +294,13 @@ mod tests {
             ("A:1".to_string(), BlockPtr::new(1, [0; 32])),
             ("B:2".to_string(), BlockPtr::new(250, [0; 32])),
         ];
-        encoder
-            .compress(&Message::SetBlockNumbersForNextEpoch(
+        let compressed = encoder
+            .compress(&[Message::SetBlockNumbersForNextEpoch(
                 block_updates.into_iter().collect(),
-            ))
+            )])
             .unwrap();
 
-        let accelerations = encoder
-            .compressed
+        let accelerations = compressed
             .last()
             .unwrap()
             .as_non_empty_block_numbers()
@@ -355,7 +351,7 @@ mod tests {
         }
 
         let mut engine = Encoder::new(0, networks).unwrap();
-        engine.encode(&messages[..]).unwrap();
+        engine.compress(&messages[..]).unwrap();
 
         // FIXME
         //assert!(matches!(
@@ -381,7 +377,7 @@ mod tests {
         let networks_before = encoder.networks.clone();
 
         encoder
-            .encode(&[Message::RegisterNetworks {
+            .compress(&[Message::RegisterNetworks {
                 remove: vec![],
                 add: vec!["foo:bar".to_string()],
             }])
@@ -402,7 +398,7 @@ mod tests {
         let networks_before = encoder.networks.clone();
 
         encoder
-            .encode(&[Message::SetBlockNumbersForNextEpoch(
+            .compress(&[Message::SetBlockNumbersForNextEpoch(
                 vec![("foo:bar".to_string(), BlockPtr::new(42, [0; 32]))]
                     .into_iter()
                     .collect(),
@@ -413,7 +409,7 @@ mod tests {
         assert_eq!(networks_before, encoder.networks);
 
         encoder
-            .encode(&[Message::SetBlockNumbersForNextEpoch(
+            .compress(&[Message::SetBlockNumbersForNextEpoch(
                 vec![("foo:bar".to_string(), BlockPtr::new(1337, [0; 32]))]
                     .into_iter()
                     .collect(),
