@@ -1,0 +1,342 @@
+{
+	"data": {
+		"globalState": {
+			"activeNetworkCount": 27,
+			"networks": [
+				{
+					"id": "mbase:netherlands",
+					"arrayIndex": 0,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "fuse:0",
+					"arrayIndex": 1,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "poacore:0",
+					"arrayIndex": 2,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "fuji:0",
+					"arrayIndex": 3,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "rinkeby:0",
+					"arrayIndex": 4,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "optimism:0",
+					"arrayIndex": 5,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "xdai:0",
+					"arrayIndex": 6,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "mainnet:0",
+					"arrayIndex": 7,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "moonrivr:0",
+					"arrayIndex": 8,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "clover:0",
+					"arrayIndex": 9,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "optimism:kovan",
+					"arrayIndex": 10,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "mbase:montreal",
+					"arrayIndex": 11,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "kovan:1",
+					"arrayIndex": 12,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "arbitrum:0",
+					"arrayIndex": 13,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "zksync:0",
+					"arrayIndex": 14,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "ropsten:0",
+					"arrayIndex": 15,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "mumbai:0",
+					"arrayIndex": 16,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "aurora:testnet",
+					"arrayIndex": 17,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "fantom:0",
+					"arrayIndex": 18,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "matic:0",
+					"arrayIndex": 19,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "binance:0",
+					"arrayIndex": 20,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "avalnche:0",
+					"arrayIndex": 21,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "chapel:0",
+					"arrayIndex": 22,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "moonbeam:montreal",
+					"arrayIndex": 23,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "boba:0",
+					"arrayIndex": 24,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "poasokol:0",
+					"arrayIndex": 25,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				},
+				{
+					"id": "arbitrum:one",
+					"arrayIndex": 26,
+					"blockNumbers": [
+						{
+							"blockNumber": "0",
+							"acceleration": "0",
+							"delta": "0",
+							"epochNumber": "150"
+						}
+					]
+				}
+			],
+			"encodingVersion": 0,
+			"latestValidEpoch": {
+				"epochNumber": "150"
+			}
+		},
+		"_meta": {
+			"block": {
+				"number": 7333988
+			}
+		}
+	}
+}

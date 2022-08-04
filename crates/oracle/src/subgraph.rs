@@ -6,7 +6,7 @@ use itertools::Itertools;
 use reqwest::Url;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 pub struct SubgraphQuery {
     url: Url,
@@ -102,76 +102,63 @@ async fn query(url: Url) -> reqwest::Result<Response<graphql::subgraph_state::Re
     response.json().await
 }
 
-/// Coordinates the retrieval of subgraph data and the transition of its own internal [`State`].
+/// Coordinates the retrieval of subgraph data and the transition of its own internal state.
 pub struct SubgraphStateTracker<A>
 where
     A: SubgraphApi,
 {
-    last_state: Option<A::State>,
-    error: Option<Arc<A::Error>>,
+    last_result: Result<Option<A::State>, Arc<A::Error>>,
     subgraph_api: A,
 }
 
 impl<A> SubgraphStateTracker<A>
 where
     A: SubgraphApi,
-    A::State: Clone,
+    A::State: Clone + PartialEq,
 {
     pub fn new(api: A) -> Self {
         Self {
-            last_state: None,
-            error: None,
+            last_result: Ok(None),
             subgraph_api: api,
         }
     }
 
-    pub fn is_valid(&self) -> bool {
-        self.error.is_none() && self.last_state.is_some()
-    }
-
-    pub fn is_uninitialized(&self) -> bool {
-        self.last_state.is_none()
-    }
-
-    pub fn is_failed(&self) -> bool {
-        self.error.is_some() && self.last_state.is_some()
-    }
-
-    pub fn last_state(&self) -> Option<&A::State> {
-        self.last_state.as_ref()
-    }
-
-    pub fn error(&self) -> Option<Arc<A::Error>> {
-        self.error.clone()
+    pub fn result(&self) -> Result<Option<&A::State>, Arc<A::Error>> {
+        match self.last_result {
+            Ok(Some(ref s)) => Ok(Some(s)),
+            Ok(None) => Ok(None),
+            Err(ref e) => Err(e.clone()),
+        }
     }
 
     /// Handles the retrieval of new subgraph state and the transition of its internal [`State`]
     pub async fn refresh(&mut self) {
         info!("Fetching latest subgraph state");
 
-        match self.subgraph_api.get_subgraph_state().await {
-            Ok(s) => {
-                self.last_state = s;
-                self.error = None;
-            }
-            Err(err) => {
-                if self.is_failed() {
-                    error!("Failed to retrieve state from a previously failed subgraph");
-                }
-                self.error = Some(Arc::new(err));
-            }
+        let result = self
+            .subgraph_api
+            .get_subgraph_state()
+            .await
+            .map_err(Arc::new);
+
+        if result.is_err() {
+            error!("The subgraph is failed.");
+        } else if result.as_ref().ok() != self.last_result.as_ref().ok() {
+            warn!("The subgraph's state has changed since the last time we checked. This is expected.");
         }
+
+        self.last_result = result;
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct GlobalState {
     pub networks: Vec<Network>,
     pub encoding_version: i64,
     pub latest_epoch_number: Option<u64>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Network {
     pub id: Caip2ChainId,
     pub latest_block_number: u64,
@@ -259,21 +246,24 @@ mod graphql {
 mod tests {
     use super::*;
     use anyhow::anyhow;
+    use hyper::server::conn::Http;
+    use hyper::{Body, Response};
     use std::sync::Mutex;
+    use tokio::net::TcpListener;
 
-    #[derive(Clone)]
-    struct FakeInnerState {
+    #[derive(Clone, PartialEq)]
+    struct CounterState {
         counter: u8,
     }
 
-    impl FakeInnerState {
+    impl CounterState {
         fn bump(&mut self) {
             self.counter += 1;
         }
     }
 
     struct FakeApi {
-        state: Arc<Mutex<FakeInnerState>>,
+        state: Arc<Mutex<CounterState>>,
         error_switch: bool,
         data_switch: bool,
         error_description: &'static str,
@@ -282,7 +272,7 @@ mod tests {
     impl FakeApi {
         fn new() -> Self {
             Self {
-                state: Arc::new(Mutex::new(FakeInnerState { counter: 0 })),
+                state: Arc::new(Mutex::new(CounterState { counter: 0 })),
                 error_switch: true,
                 data_switch: false,
                 error_description: "oops",
@@ -310,7 +300,7 @@ mod tests {
 
     #[async_trait]
     impl SubgraphApi for FakeApi {
-        type State = FakeInnerState;
+        type State = CounterState;
         type Error = anyhow::Error;
 
         async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>> {
@@ -331,67 +321,80 @@ mod tests {
         let mut state_tracker = SubgraphStateTracker::new(api);
 
         // An initial state should be uninitialized, with no errors
-        assert!(state_tracker.last_state().is_none());
-        assert!(state_tracker.error().is_none());
-        assert!(!state_tracker.is_valid());
-        assert!(state_tracker.is_uninitialized());
+        assert!(matches!(state_tracker.result(), Ok(None)));
 
-        // Initialization can fail, and the state will still be uninitialized.
+        // Failed initialization.
         state_tracker.subgraph_api.toggle_errors(true);
         state_tracker.refresh().await;
-        assert!(state_tracker.last_state().is_none());
-        assert!(state_tracker.error().is_some());
-        assert!(!state_tracker.is_valid());
-        assert!(state_tracker.is_uninitialized());
+        assert!(matches!(state_tracker.result(), Err(_)));
 
-        // Even if the API is responsive, it might still send us no data and we will stay in the
-        // Uninitialized state. All previous errors will be removed.
+        // Remove all errors, state is okay again.
         state_tracker.subgraph_api.toggle_errors(false);
         state_tracker.refresh().await;
-        assert!(state_tracker.last_state().is_none());
-        assert!(state_tracker.error().is_none());
-        assert!(!state_tracker.is_valid());
-        assert!(state_tracker.is_uninitialized());
+        assert!(matches!(state_tracker.result(), Ok(None)));
 
         // Once the subgraph has valid data, the state tracker can yield it.
         state_tracker.subgraph_api.toggle_data(true);
         state_tracker.refresh().await;
-        assert!(state_tracker.last_state().is_some());
-        assert!(state_tracker.error().is_none());
-        assert!(state_tracker.is_valid());
-        assert_eq!(state_tracker.last_state().unwrap().counter, 1);
+        assert!(matches!(state_tracker.result(), Ok(Some(_))));
+        assert_eq!(state_tracker.result().unwrap().unwrap().counter, 1);
 
-        // On failure, we retain the last valid data, but state is considered invalid.
+        // Sudden failure.
         state_tracker.subgraph_api.toggle_errors(true);
         state_tracker.refresh().await;
-        assert!(state_tracker.last_state().is_some());
-        assert!(state_tracker.error().is_some());
-        assert!(!state_tracker.is_valid());
-        assert!(state_tracker.is_failed());
-        assert_eq!(state_tracker.last_state().unwrap().counter, 1);
-        assert_eq!(state_tracker.error().unwrap().to_string(), "oops");
+        assert_eq!(state_tracker.result().err().unwrap().to_string(), "oops");
 
-        // We can fail again, keeping the same data as before.
-        // Errors might be different from previous failed states.
+        // Subsequent failures can have different error messages and that's okay.
         state_tracker.subgraph_api.set_error("oh no");
         state_tracker.refresh().await;
-        assert!(state_tracker.last_state().is_some());
-        assert!(!state_tracker.is_valid());
-        assert!(state_tracker.is_failed());
-        assert_eq!(state_tracker.last_state().unwrap().counter, 1);
-        assert_eq!(state_tracker.error().unwrap().to_string(), "oh no");
+        assert_eq!(state_tracker.result().err().unwrap().to_string(), "oh no");
 
         // We then recover from failure, becoming valid again and presenting new data.
         state_tracker.subgraph_api.toggle_errors(false);
         state_tracker.refresh().await;
-        assert!(state_tracker.last_state().is_some());
-        assert!(state_tracker.is_valid());
-        assert_eq!(state_tracker.last_state().unwrap().counter, 2);
+        assert_eq!(state_tracker.result().unwrap().unwrap().counter, 2);
 
-        // We can successfull valid states.
+        // Valid once again.
         state_tracker.refresh().await;
-        assert!(state_tracker.last_state().is_some());
-        assert!(state_tracker.is_valid());
-        assert_eq!(state_tracker.last_state().unwrap().counter, 3);
+        assert_eq!(state_tracker.result().unwrap().unwrap().counter, 3);
+    }
+
+    async fn http_server_serving_static_file(contents: &'static str) -> Url {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        tokio::spawn(async move {
+            let service = hyper::service::service_fn(move |_req| async move {
+                Ok::<_, hyper::Error>(Response::new(Body::from(contents)))
+            });
+
+            loop {
+                let (stream, _) = listener.accept().await.unwrap();
+                Http::new().serve_connection(stream, service).await.unwrap();
+            }
+        });
+
+        let mut url = Url::parse("http://127.0.0.1").unwrap();
+        url.set_port(Some(port)).unwrap();
+        url
+    }
+
+    #[tokio::test]
+    async fn successfully_decode_subgraph_data() {
+        let url = http_server_serving_static_file(include_str!(
+            "resources/test-response-subgraph-with-data.json",
+        ))
+        .await;
+
+        let mut subgraph_state = SubgraphStateTracker::new(SubgraphQuery::new(url));
+        subgraph_state.refresh().await;
+
+        let data = subgraph_state.result().unwrap().unwrap();
+
+        assert_eq!(data.0, 7333988);
+        assert_eq!(data.1.encoding_version, 0);
+        assert_eq!(data.1.latest_epoch_number, Some(150));
+        assert_eq!(data.1.networks.len(), 27);
+        // ...
     }
 }

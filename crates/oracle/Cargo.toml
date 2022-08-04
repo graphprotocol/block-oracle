@@ -31,4 +31,5 @@ async-trait = "0.1.53"
 itertools = "0.10.3"
 
 [dev-dependencies]
+hyper = { version = "0.14", features = ["full"] }
 rand = "0.8"
