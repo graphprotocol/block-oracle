@@ -92,7 +92,7 @@ impl Encoder {
 
     pub fn encode(&self, compressed: &[CompressedMessage]) -> Vec<u8> {
         let mut bytes = vec![];
-        serialize_messages(&compressed, &mut bytes);
+        serialize_messages(compressed, &mut bytes);
         bytes
     }
 
