@@ -37,8 +37,15 @@ export function nextEpochId(state: GlobalState, reader: BytesReader): BigInt {
     Address.fromString(EPOCH_MANAGER_ADDRESS)
   );
   let response = epochManager.try_currentEpoch(); // maybe add try_ version later
-  if(response.reverted) {
-    reader.fail("currentEpoch transaction reverted. Can't read current epoch from EpochManager contract")
+  if (response.reverted) {
+    reader.fail(
+      "currentEpoch transaction reverted. Can't read current epoch from EpochManager contract"
+    );
+  } else if (
+    state.latestValidEpoch &&
+    response.value.toString() == state.latestValidEpoch
+  ) {
+    reader.fail("currentEpoch is the same as the latestValidEpoch");
   }
   return response.reverted ? BIGINT_ZERO : response.value;
 }
@@ -49,7 +56,7 @@ export function createOrUpdateNetworkEpochBlockNumber(
   acceleration: BigInt,
   cache: StoreCache
 ): NetworkEpochBlockNumber {
-  let networkId = network.id
+  let networkId = network.id;
   let id = epochBlockNumberId(epochId, networkId);
   let previousId = network.latestValidBlockNumber;
 
@@ -59,9 +66,9 @@ export function createOrUpdateNetworkEpochBlockNumber(
   networkEpochBlockNumber.epochNumber = epochId;
   networkEpochBlockNumber.acceleration = acceleration;
 
-  if (previousId && cache.hasNetworkEpochBlockNumber(previousId!)) {
+  if (previousId && cache.hasNetworkEpochBlockNumber(previousId)) {
     let previousNetworkEpochBlockNumber = cache.getNetworkEpochBlockNumber(
-      previousId!
+      previousId
     );
     networkEpochBlockNumber.delta = previousNetworkEpochBlockNumber.delta.plus(
       acceleration
@@ -69,12 +76,13 @@ export function createOrUpdateNetworkEpochBlockNumber(
     networkEpochBlockNumber.blockNumber = previousNetworkEpochBlockNumber.blockNumber.plus(
       networkEpochBlockNumber.delta
     );
+    networkEpochBlockNumber.previousBlockNumber = previousId;
   } else {
     networkEpochBlockNumber.delta = acceleration;
     networkEpochBlockNumber.blockNumber = networkEpochBlockNumber.delta;
   }
 
-  network.latestValidBlockNumber = networkEpochBlockNumber.id
+  network.latestValidBlockNumber = networkEpochBlockNumber.id;
 
   return networkEpochBlockNumber;
 }
@@ -159,7 +167,10 @@ export function parseCalldata(calldata: Bytes): Bytes {
   return changetype<Bytes>(calldata.slice(68, 68 + length.toI32()));
 }
 
-export function wipeNetworkList(networks: Array<Network>, messageId: String): void {
+export function wipeNetworkList(
+  networks: Array<Network>,
+  messageId: String
+): void {
   for (let i = 0; i < networks.length; i++) {
     networks[i].state = null;
     networks[i].nextArrayElement = null;
