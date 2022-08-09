@@ -4,7 +4,7 @@ steps:
 # Build the container image
 # --------------------------------------------------------------------------------
 - name: "gcr.io/cloud-builders/docker"
-  args: ["build", "-t", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA", "-f", "k8s/Dockerfile"]
+  args: ["build", "-t", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA", "-f", "k8s/Dockerfile", "."]
 
 # --------------------------------------------------------------------------------
 # Push the container image
