@@ -1,31 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: block-oracle-goerli
-  labels:
-    app: block-oracle-goerli
+  name: block-oracle
 spec:
-  selector:
-    matchLabels:
-      app: block-oracle-goerli
   replicas: 1
   template:
-    metadata:
-      labels:
-        app: block-oracle-goerli
     spec:
+      volumes:
+        - name: block-oracle-config
+          configMap:
+            name: block-oracle-config
       containers:
-        - name: block-oracle-goerli
-          image: gcr.io/the-graph-staging/block-oracle-goerli:latest
+        - name: block-oracle
+          image: gcr.io/the-graph-staging/block-oracle:latest
           command:
             - /usr/local/bin/block-oracle
-            - config.toml
+            - /etc/block-oracle/config.toml
+          volumeMounts:
+            - name: block-oracle-config
+              mountPath: /etc/block-oracle
           env:
-            - name: PRIVATE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: block-oracle
-                  key: private_key_staging_goerli
             - name: ARBITRUM_0
               valueFrom:
                 secretKeyRef:

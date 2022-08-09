@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: block-oracle
+spec:
+  template:
+    spec:
+      containers:
+        - name: block-oracle
+          env:
+            - name: PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: private_key_staging_mainnet
