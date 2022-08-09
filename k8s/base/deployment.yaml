@@ -20,11 +20,6 @@ spec:
             - name: block-oracle-config
               mountPath: /etc/block-oracle
           env:
-            - name: PRIVATE_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: block-oracle
-                  key: private_key_staging_goerli
             - name: ARBITRUM_0
               valueFrom:
                 secretKeyRef:
