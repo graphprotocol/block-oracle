@@ -1,54 +1,38 @@
 steps:
+
 # --------------------------------------------------------------------------------
 # Build the container image
 # --------------------------------------------------------------------------------
-# goerli
 - name: "gcr.io/cloud-builders/docker"
-  args: ["build", "-t", "gcr.io/$PROJECT_ID/block-oracle-goerli:$COMMIT_SHA", "-f", "k8s/Dockerfile", ".", "--build-arg", "config_file=/app/crates/oracle/config.staging.goerli.toml"]
-
-# mainnet
-- name: "gcr.io/cloud-builders/docker"
-  args: ["build", "-t", "gcr.io/$PROJECT_ID/block-oracle-mainnet:$COMMIT_SHA", "-f", "k8s/Dockerfile", ".", "--build-arg", "config_file=/app/crates/oracle/config.staging.mainnet.toml"]
+  args: ["build", "-t", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA", "-f", "k8s/Dockerfile"]
 
 # --------------------------------------------------------------------------------
 # Push the container image
 # --------------------------------------------------------------------------------
-# goerli
 - name: "gcr.io/cloud-builders/docker"
-  args: ["push", "gcr.io/$PROJECT_ID/block-oracle-goerli:$COMMIT_SHA"]
-
-# mainnet
-- name: "gcr.io/cloud-builders/docker"
-  args: ["push", "gcr.io/$PROJECT_ID/block-oracle-mainnet:$COMMIT_SHA"]
+  args: ["push", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"]
 
 # --------------------------------------------------------------------------------
 # Deploy the container image to GKE
 # --------------------------------------------------------------------------------
 # goerli
-- name: "gcr.io/cloud-builders/gke-deploy"
-  args:
-    - run
-    - --filename=./k8s/block-oracle.deployment.staging.goerli.yaml
-    - --location=us-central1-a
-    - --cluster=epoch-block-oracle
-    - "--image=gcr.io/$PROJECT_ID/block-oracle-goerli:$COMMIT_SHA"
-    - --timeout=30m
-    - --output='output-goerli'
+- name: "gcr.io/cloud-builders/kustomize"
+  args: ["build", "k8s/overlays/staging-goerli"]
+  env:
+    - "APPLY=true"
+    - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
+    - "CLOUDSDK_CONTAINER_CLUSTER=epoch-block-oracle"
 
 # mainnet
-- name: "gcr.io/cloud-builders/gke-deploy"
-  args:
-    - run
-    - --filename=./k8s/block-oracle.deployment.staging.mainnet.yaml
-    - --location=us-central1-a
-    - --cluster=epoch-block-oracle
-    - "--image=gcr.io/$PROJECT_ID/block-oracle-mainnet:$COMMIT_SHA"
-    - --timeout=30m
-    - --output='output-mainnet'
+- name: "gcr.io/cloud-builders/kustomize"
+  args: ["build", "k8s/overlays/staging-mainnet"]
+  env:
+    - "APPLY=true"
+    - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
+    - "CLOUDSDK_CONTAINER_CLUSTER=epoch-block-oracle"
 
 images:
-- "gcr.io/$PROJECT_ID/block-oracle-goerli:$COMMIT_SHA"
-- "gcr.io/$PROJECT_ID/block-oracle-mainnet:$COMMIT_SHA"
+- "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"
 timeout: "3200s"
 options:
   machineType: "E2_HIGHCPU_8"
