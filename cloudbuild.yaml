@@ -13,7 +13,17 @@ steps:
   args: ["push", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"]
 
 # --------------------------------------------------------------------------------
-# Deploy the container image to GKE
+# Tag image to the latest commit
+# --------------------------------------------------------------------------------
+- name: "gcr.io/cloud-builders/kustomize"
+  args: ["edit", "set", "image", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"]
+  dir: 'k8s/base'
+  env:
+    - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
+    - "CLOUDSDK_CONTAINER_CLUSTER=epoch-block-oracle"
+
+# --------------------------------------------------------------------------------
+# Build and Apply Kustomizations
 # --------------------------------------------------------------------------------
 # goerli
 - name: "gcr.io/cloud-builders/kustomize"
