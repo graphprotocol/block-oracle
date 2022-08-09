@@ -1,0 +1,5 @@
+commonLabels:
+  app: block-oracle
+
+resources:
+  - deployment.yaml

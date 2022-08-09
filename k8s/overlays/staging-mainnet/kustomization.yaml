@@ -1,0 +1,11 @@
+nameSuffix: -mainnet
+commonLabels:
+  variant: staging
+
+resources:
+  - ../../base
+
+configMapGenerator:
+- name: block-oracle-config
+  files:
+    - config.toml

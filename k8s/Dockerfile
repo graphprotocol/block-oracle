@@ -32,7 +32,4 @@ RUN apt-get update -y && \
 
 COPY --from=builder /app/target/release/block-oracle /usr/local/bin
 
-ARG config_file
-COPY --from=builder $config_file ./config.toml
-
 CMD /usr/local/bin/block-oracle
