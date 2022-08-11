@@ -22,25 +22,6 @@ steps:
     - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
     - "CLOUDSDK_CONTAINER_CLUSTER=epoch-block-oracle"
 
-# --------------------------------------------------------------------------------
-# Build and Apply Kustomizations
-# --------------------------------------------------------------------------------
-# goerli
-- name: "gcr.io/$PROJECT_ID/kustomize"
-  args: ["build", "k8s/overlays/staging-goerli"]
-  env:
-    - "APPLY=true"
-    - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
-    - "CLOUDSDK_CONTAINER_CLUSTER=epoch-block-oracle"
-
-# mainnet
-- name: "gcr.io/$PROJECT_ID/kustomize"
-  args: ["build", "k8s/overlays/staging-mainnet"]
-  env:
-    - "APPLY=true"
-    - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
-    - "CLOUDSDK_CONTAINER_CLUSTER=epoch-block-oracle"
-
 images:
 - "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"
 timeout: "3200s"

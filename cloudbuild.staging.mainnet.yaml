@@ -1,0 +1,39 @@
+steps:
+
+# --------------------------------------------------------------------------------
+# Build the container image
+# --------------------------------------------------------------------------------
+- name: "gcr.io/cloud-builders/docker"
+  args: ["build", "-t", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA", "-f", "k8s/Dockerfile", "."]
+
+# --------------------------------------------------------------------------------
+# Push the container image
+# --------------------------------------------------------------------------------
+- name: "gcr.io/cloud-builders/docker"
+  args: ["push", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"]
+
+# --------------------------------------------------------------------------------
+# Tag image to the latest commit
+# --------------------------------------------------------------------------------
+- name: "gcr.io/$PROJECT_ID/kustomize"
+  args: ["edit", "set", "image", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"]
+  dir: 'k8s/base'
+  env:
+    - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
+    - "CLOUDSDK_CONTAINER_CLUSTER=epoch-block-oracle"
+
+# --------------------------------------------------------------------------------
+# Build and Apply Kustomizations
+# --------------------------------------------------------------------------------
+- name: "gcr.io/$PROJECT_ID/kustomize"
+  args: ["build", "k8s/overlays/staging-mainnet"]
+  env:
+    - "APPLY=true"
+    - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
+    - "CLOUDSDK_CONTAINER_CLUSTER=epoch-block-oracle"
+
+images:
+- "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"
+timeout: "3200s"
+options:
+  machineType: "E2_HIGHCPU_8"
