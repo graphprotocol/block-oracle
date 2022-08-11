@@ -12,16 +12,6 @@ steps:
 - name: "gcr.io/cloud-builders/docker"
   args: ["push", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"]
 
-# --------------------------------------------------------------------------------
-# Tag image to the latest commit
-# --------------------------------------------------------------------------------
-- name: "gcr.io/$PROJECT_ID/kustomize"
-  args: ["edit", "set", "image", "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"]
-  dir: 'k8s/base'
-  env:
-    - "CLOUDSDK_COMPUTE_ZONE=us-central1-a"
-    - "CLOUDSDK_CONTAINER_CLUSTER=epoch-block-oracle"
-
 images:
 - "gcr.io/$PROJECT_ID/block-oracle:$COMMIT_SHA"
 timeout: "3200s"
