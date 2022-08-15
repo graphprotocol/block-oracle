@@ -1,15 +1,20 @@
 use clap::Parser;
 use epoch_encoding as ee;
+use ethabi::{encode, short_signature, ParamType, Token};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{collections::BTreeMap, io};
+use std::{collections::BTreeMap, io, path::PathBuf};
 
 #[derive(Parser)]
 #[clap(name = "oracle-encoder")]
 #[clap(bin_name = "oracle-encoder")]
 #[clap(author, version, about, long_about = None)]
 struct OracleEncoder {
-    #[clap(long)]
-    json_path: String,
+    /// The path to the JSON file containing the message block.
+    json_path: PathBuf,
+
+    /// Whether to output the full calldata instead of just the payload.
+    #[clap(short, long, action)]
+    calldata: bool,
 }
 
 fn main() -> io::Result<()> {
@@ -78,14 +83,21 @@ fn main() -> io::Result<()> {
         encoded_message_blocks.push((message_types, payload));
     }
 
-    for (i, (message_types, block_payload)) in encoded_message_blocks.iter().enumerate() {
-        println!(
-            "{} ({}): 0x{}",
-            i + 1,
-            message_types.join(", "),
-            hex::encode(block_payload)
-        );
-    }
+    if inputs.calldata {
+        for (_, block_payload) in encoded_message_blocks.into_iter() {
+            let calldata = calldata(block_payload);
+            println!("{}", hex::encode(calldata));
+        }
+    } else {
+        for (i, (message_types, block_payload)) in encoded_message_blocks.iter().enumerate() {
+            println!(
+                "{} ({}): 0x{}",
+                i + 1,
+                message_types.join(", "),
+                hex::encode(block_payload)
+            );
+        }
+    };
 
     Ok(())
 }
@@ -142,4 +154,11 @@ where
 {
     let s = String::deserialize(deserializer)?;
     hex::decode(s.strip_prefix("0x").unwrap_or(s.as_str())).map_err(serde::de::Error::custom)
+}
+
+pub fn calldata(payload: Vec<u8>) -> Vec<u8> {
+    let signature = short_signature("crossChainEpochOracle", &[ParamType::Bytes]);
+    let payload = Token::Bytes(payload);
+    let encoded = encode(&[payload]);
+    signature.into_iter().chain(encoded.into_iter()).collect()
 }
