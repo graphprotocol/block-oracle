@@ -69,21 +69,6 @@ task('accounts', 'Prints the list of accounts', async (taskArgs, bre) => {
 })
 
 // Config
-let auto: 'auto';
-const hardhatNetworkDefaultConfig = {
-  chainId: 1337,
-  loggingEnabled: false,
-  gas: 1200000,
-  gasPrice: auto,
-  blockGasLimit: 12000000,
-  accounts: {
-    mnemonic: 'myth like bonus scare over problem client lizard pioneer submit female collect',
-  },
-  mining: {
-    auto: true,
-    interval: 0
-  }
-};
 const config: HardhatUserConfig = {
   paths: {
     sources: './contracts',
@@ -110,10 +95,19 @@ const config: HardhatUserConfig = {
   },
   defaultNetwork: 'hardhat',
   networks: {
-    hardhat: {...hardhatNetworkDefaultConfig},
-    compose: {
-      ...hardhatNetworkDefaultConfig,
-      url: 'http://hardhat:8545'
+    hardhat: {
+      chainId: 1337,
+      loggingEnabled: false,
+      gas: 1200000,
+      gasPrice: auto,
+      blockGasLimit: 12000000,
+      accounts: {
+        mnemonic: 'myth like bonus scare over problem client lizard pioneer submit female collect',
+      },
+      mining: {
+        auto: true,
+        interval: 0,
+      },
     },
     ganache: {
       chainId: 1337,

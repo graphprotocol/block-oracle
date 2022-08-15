@@ -2,7 +2,7 @@
 set -eux
 
 # deploy the DataEdge contract
-yarn hardhat run --network compose scripts/deploy-local.ts
+yarn hardhat run --config extended.config.ts --network compose scripts/deploy-local.ts
 
 # deploy the network contracts (including the Epoch Manager)
 cd network-contracts

@@ -97,6 +97,7 @@ services:
     command: sh /app/run.sh
     volumes:
       - ./contracts/set-automining-interval.js:/set-automining-interval.js
+      - ./contracts/extended.config.ts:/app/extended.config.ts
       - ./contracts/extended.config.ts:/app/network-contracts/extended.config.ts
       - ./contracts/run.sh:/app/run.sh
     depends_on:
