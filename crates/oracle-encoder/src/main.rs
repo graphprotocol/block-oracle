@@ -1,15 +1,15 @@
 use clap::Parser;
 use epoch_encoding as ee;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{collections::BTreeMap, io};
+use std::{collections::BTreeMap, io, path::PathBuf};
 
 #[derive(Parser)]
 #[clap(name = "oracle-encoder")]
 #[clap(bin_name = "oracle-encoder")]
 #[clap(author, version, about, long_about = None)]
 struct OracleEncoder {
-    #[clap(long)]
-    json_path: String,
+    #[clap()]
+    json_path: PathBuf,
 }
 
 fn main() -> io::Result<()> {
