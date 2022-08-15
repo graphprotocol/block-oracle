@@ -70,7 +70,7 @@ task('accounts', 'Prints the list of accounts', async (taskArgs, bre) => {
 
 // Config
 let auto: 'auto';
-const default_config = {
+const hardhatNetworkDefaultConfig = {
   chainId: 1337,
   loggingEnabled: false,
   gas: 1200000,
@@ -110,9 +110,9 @@ const config: HardhatUserConfig = {
   },
   defaultNetwork: 'hardhat',
   networks: {
-    hardhat: {...default_config},
+    hardhat: {...hardhatNetworkDefaultConfig},
     compose: {
-      ...default_config,
+      ...hardhatNetworkDefaultConfig,
       url: 'http://hardhat:8545'
     },
     ganache: {
