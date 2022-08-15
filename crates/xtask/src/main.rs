@@ -9,7 +9,10 @@ mod message_samples;
 #[derive(clap::Parser)]
 enum Tasks {
     /// Compile and display encoded message samples
-    EncodeMessageSamples,
+    EncodeMessageSamples {
+        #[clap(short, long, action)]
+        calldata: bool,
+    },
     /// Queries the Epoch Manager for the current epoch
     CurrentEpoch {
         #[clap(short, long)]
@@ -28,7 +31,7 @@ enum Tasks {
 async fn main() -> anyhow::Result<()> {
     use Tasks::*;
     match Tasks::parse() {
-        EncodeMessageSamples => message_samples::encode()?,
+        EncodeMessageSamples { calldata } => message_samples::encode(calldata)?,
         CurrentEpoch { config_file } => {
             let config = Config::parse_from(config_file);
             contracts::current_epoch(config).await?
