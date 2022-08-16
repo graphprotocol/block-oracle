@@ -36,9 +36,6 @@ services:
       - 8000
     healthcheck:
       test: nc -z localhost 8020 || exit 1
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
     depends_on:
       hardhat:
         condition: service_healthy
@@ -51,9 +48,6 @@ services:
     image: ipfs/go-ipfs:latest
     healthcheck:
       test: nc -z localhost 5001 || exit 1
-      interval: 5s
-      timeout: 5s
-      start_period: 10s
 
   postgres:
     image: postgres
@@ -67,9 +61,6 @@ services:
       POSTGRES_DB: graph-node
     healthcheck:
       test: psql -U graph-node -c '\q' || exit 1
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
 
   hardhat:
     build:
@@ -77,9 +68,6 @@ services:
       dockerfile: ../../k8s/compose/hardhat/Dockerfile
     healthcheck:
       test: nc -z localhost 8545 || exit 1
-      interval: 10s
-      timeout: 5s
-      start_period: 10s
 
   epoch-subgraph:
     build:
