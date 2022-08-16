@@ -208,11 +208,7 @@ impl Oracle {
         // `RegisterNetworks` messages.
         let networks_diff = {
             // `NetworksDiff::calculate` uses u32's but `registered_networks` has u64's
-            let networks_and_block_numbers = registered_networks
-                .iter()
-                .map(|(chain_id, network)| (chain_id.clone(), network.block_number))
-                .collect();
-            NetworksDiff::calculate(networks_and_block_numbers, self.config)
+            NetworksDiff::calculate(&registered_networks, self.config)
         };
         info!(
             created = networks_diff.insertions.len(),
@@ -235,9 +231,9 @@ impl Oracle {
                 .collect();
             registered_networks
                 .into_iter()
-                .filter_map(|(chain_id, network)| {
-                    if config_chain_ids.contains(&chain_id) {
-                        Some((chain_id.as_str().to_owned(), network))
+                .filter_map(|network| {
+                    if config_chain_ids.contains(&network.id) {
+                        Some((network.id.as_str().to_owned(), network.into()))
                     } else {
                         None
                     }
@@ -285,22 +281,9 @@ impl Oracle {
 
 fn registered_networks(
     subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
-) -> Vec<(Caip2ChainId, ee::Network)> {
+) -> Vec<crate::subgraph::Network> {
     if let Ok(Some(state)) = subgraph_state.result() {
-        state
-            .1
-            .networks
-            .iter()
-            .map(|network| {
-                (
-                    network.id.clone(),
-                    epoch_encoding::Network {
-                        block_number: network.latest_block_number,
-                        block_delta: network.delta,
-                    },
-                )
-            })
-            .collect()
+        state.1.networks.to_vec()
     } else {
         // The subgraph is uninitialized, so there's no registered networks at all.
         vec![]
