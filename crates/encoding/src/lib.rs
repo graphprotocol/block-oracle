@@ -28,13 +28,15 @@ pub enum Error {
 pub struct Network {
     pub block_number: u64,
     pub block_delta: i64,
+    pub array_index: u64,
 }
 
 impl Network {
-    pub fn new(block_number: u64, block_delta: i64) -> Self {
+    pub fn new(block_number: u64, block_delta: i64, array_index: u64) -> Self {
         Self {
             block_number,
             block_delta,
+            array_index,
         }
     }
 }
@@ -161,8 +163,18 @@ impl Encoder {
         self.networks.push((id.to_string(), Network::default()));
     }
 
-    fn remove_network(&mut self, i: NetworkIndex) {
-        self.networks.swap_remove(i as usize);
+    /// Remove a network from [`Encoder.networks`].
+    ///
+    /// Removal occurs by position, based on the `array_index` field of the target element.
+    fn remove_network(&mut self, network_index: NetworkIndex) {
+        let position = self
+            .networks
+            .iter()
+            .position(|(_, network)| network.array_index == network_index)
+            .unwrap_or_else(|| {
+                panic!("Failed to find the a network with array_index equal to {network_index}")
+            });
+        self.networks.swap_remove(position);
     }
 
     /// Takes in some network data by network ID and turns it into a [`Vec`] with the correct
@@ -216,10 +228,9 @@ impl Encoder {
             let delta = ptr.number as i64 - network_data.block_number as i64;
             let acceleration = delta - network_data.block_delta;
 
-            self.networks[i].1 = Network {
-                block_number: ptr.number,
-                block_delta: delta,
-            };
+            let mut current_network = &mut self.networks[i].1;
+            current_network.block_number = ptr.number;
+            current_network.block_delta = delta;
 
             accelerations.push(acceleration);
             merkle_leaves.push(MerkleLeaf {
@@ -266,8 +277,8 @@ mod tests {
     #[test]
     fn include_skipped_blocks() {
         let networks = vec![
-            ("A:1".to_string(), Network::new(0, 0)),
-            ("B:2".to_string(), Network::new(100, 0)),
+            ("A:1".to_string(), Network::new(0, 0, 0)),
+            ("B:2".to_string(), Network::new(100, 0, 1)),
         ];
         let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, networks).unwrap();
         let block_updates = vec![("A:1".to_string(), BlockPtr::new(1, [0; 32]))];
@@ -289,8 +300,8 @@ mod tests {
     #[test]
     fn block_numbers_increase() {
         let networks = vec![
-            ("A:1".to_string(), Network::new(0, 0)),
-            ("B:2".to_string(), Network::new(100, 0)),
+            ("A:1".to_string(), Network::new(0, 0, 0)),
+            ("B:2".to_string(), Network::new(100, 0, 1)),
         ];
         let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, networks).unwrap();
 
@@ -325,12 +336,14 @@ mod tests {
         let networks: Vec<_> = ["A:1991", "B:2kl", "C:190", "D:18818"]
             .iter()
             .map(|i| i.to_string())
-            .map(|s| {
+            .enumerate()
+            .map(|(i, s)| {
                 (
                     s,
                     Network {
                         block_number: 0,
                         block_delta: 0,
+                        array_index: i as u64,
                     },
                 )
             })
@@ -396,7 +409,7 @@ mod tests {
     fn set_block_numbers_changes_state() {
         let mut encoder = Encoder::new(
             CURRENT_ENCODING_VERSION,
-            vec![("foo:bar".to_string(), Network::new(42, 0))],
+            vec![("foo:bar".to_string(), Network::new(42, 0, 0))],
         )
         .unwrap();
         let networks_before = encoder.networks.clone();

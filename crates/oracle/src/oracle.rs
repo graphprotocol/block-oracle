@@ -6,10 +6,7 @@ use crate::{
     SubgraphStateTracker,
 };
 use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, HashSet},
-};
+use std::{cmp::Ordering, collections::BTreeMap};
 use tracing::{debug, error, info, warn};
 
 /// The main application in-memory state.

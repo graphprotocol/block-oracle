@@ -173,6 +173,7 @@ impl From<Network> for epoch_encoding::Network {
         epoch_encoding::Network {
             block_number: val.latest_block_number,
             block_delta: val.delta,
+            array_index: val.array_index,
         }
     }
 }
