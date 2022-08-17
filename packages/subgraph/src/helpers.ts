@@ -108,21 +108,21 @@ export function getActiveNetworks(cache: StoreCache): Array<Network> {
   return networks;
 }
 
-export function swapAndPop(index: u32, networks: Array<Network>): Network {
-  assert(
-    index < (networks.length as u32),
-    `Tried to pop network at index ${index.toString()} but ` +
-      `there are only ${networks.length.toString()} active networks. This is a bug!`
-  );
-
-  let tail = networks[networks.length - 1];
-  let elementToRemove = networks[index];
-
-  networks[index] = tail;
-  networks[networks.length - 1] = elementToRemove;
-
-  return networks.pop();
-}
+// export function swapAndPop(index: u32, networks: Array<Network>): Network {
+//   assert(
+//     index < (networks.length as u32),
+//     `Tried to pop network at index ${index.toString()} but ` +
+//       `there are only ${networks.length.toString()} active networks. This is a bug!`
+//   );
+//
+//   let tail = networks[networks.length - 1];
+//   let elementToRemove = networks[index];
+//
+//   networks[index] = tail;
+//   networks[networks.length - 1] = elementToRemove;
+//
+//   return networks.pop();
+// }
 
 export function commitNetworkChanges(
   removedNetworks: Array<Network>,

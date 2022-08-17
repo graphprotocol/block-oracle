@@ -17,7 +17,6 @@ import {
   createOrUpdateNetworkEpochBlockNumber,
   MessageTag,
   getActiveNetworks,
-  swapAndPop,
   commitNetworkChanges,
   wipeNetworkList,
   nextEpochId,
@@ -352,7 +351,9 @@ function executeRegisterNetworksMessage(
   let globalState = cache.getGlobalState();
   let message = cache.getRegisterNetworksMessage(id);
   let networks = getActiveNetworks(cache);
+  let networksMapped = networks.map<Array<Network>>(element => [element]);
   let removedNetworks: Array<Network> = [];
+  let idsToRemove: Array<i32> = [];
 
   // Get the number of networks to remove.
   let numRemovals = decodeU64(reader) as i32;
@@ -376,8 +377,20 @@ function executeRegisterNetworksMessage(
       return;
     }
 
-    removedNetworks.push(swapAndPop(networkId, networks));
+    idsToRemove.push(networkId);
   }
+  log.warning("ids to remove {}", [idsToRemove.map<String>(element=>element.toString()).toString()])
+
+  for (let i = 0; i < idsToRemove.length; i++) {
+    let network = networksMapped[idsToRemove[i]][0];
+    removedNetworks.push(network);
+    networksMapped[idsToRemove[i]] = [];
+  }
+  log.warning("networks mapped {}", [networksMapped.map<String>(element=> element.length > 0 ? element[0].id : "").toString()])
+  networksMapped = networksMapped.filter(element => element.length > 0);
+  log.warning("networks mapped filtered {}", [networksMapped.map<String>(element=> element.length > 0 ? element[0].id : "").toString()])
+
+  networks = networksMapped.flat();
 
   let numInsertions = decodeU64(reader) as i32;
   if (!reader.ok) {
