@@ -174,7 +174,7 @@ impl Encoder {
             .unwrap_or_else(|| {
                 panic!("Failed to find the a network with array_index equal to {network_index}")
             });
-        self.networks.swap_remove(position);
+        self.networks.remove(position);
     }
 
     /// Takes in some network data by network ID and turns it into a [`Vec`] with the correct
