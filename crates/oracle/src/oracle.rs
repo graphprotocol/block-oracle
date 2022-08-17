@@ -222,22 +222,9 @@ impl Oracle {
         messages.push(latest_blocks_to_message(latest_blocks));
 
         let available_networks: Vec<(String, epoch_encoding::Network)> = {
-            // intersect networks from config and subgraph
-            let config_chain_ids: HashSet<&Caip2ChainId> = self
-                .config
-                .indexed_chains
-                .iter()
-                .map(|chain| &chain.id)
-                .collect();
             registered_networks
                 .into_iter()
-                .filter_map(|network| {
-                    if config_chain_ids.contains(&network.id) {
-                        Some((network.id.as_str().to_owned(), network.into()))
-                    } else {
-                        None
-                    }
-                })
+                .map(|network| (network.id.as_str().to_owned(), network.into()))
                 .collect()
         };
 
