@@ -64,7 +64,7 @@ export function processPayload(
   payload.data = payloadBytes;
   payload.submitter = submitter;
   payload.valid = true;
-  payload.createdAt = blockNumber
+  payload.createdAt = blockNumber;
 
   let reader = new BytesReader(payloadBytes);
   let blockIdx = 0;
@@ -216,7 +216,9 @@ function executeNonEmptySetBlockNumbersForEpochMessage(
 
   let networks = getActiveNetworks(cache);
 
-  let previousEpochNumber = parseInt(globalState.latestValidEpoch != null ? globalState.latestValidEpoch! : "0") as i32;
+  let previousEpochNumber = parseInt(
+    globalState.latestValidEpoch != null ? globalState.latestValidEpoch! : "0"
+  ) as i32;
   let nextEpochID = nextEpochId(globalState, reader);
   let nextEpochNumber = nextEpochID.toI32();
 
@@ -363,8 +365,14 @@ function executeRegisterNetworksMessage(
     let networkId = decodeU64(reader) as i32;
     // Besides checking that the decoding was successful, we must perform a
     // bounds check over the newly provided network ID.
-    if (!reader.ok || networkId >= networks.length) {
-      reader.ok = false; // in case of the second check, to make sure we flag the payload as invalid
+    if (networkId >= networks.length) {
+      reader.fail(
+        "Tried deleting a network ID that is out of bounds. NetworkID decoded: {}. Network list length: {}."
+          .replace("{}", networkId.toString())
+          .replace("{}", networks.length.toString())
+      );
+    }
+    if (!reader.ok) {
       return;
     }
 
