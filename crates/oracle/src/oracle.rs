@@ -289,11 +289,7 @@ fn networks_diff_to_message(diff: &NetworksDiff) -> Option<ee::Message> {
     } else {
         Some(ee::Message::RegisterNetworks {
             remove: diff.deletions.iter().map(|x| *x.1 as u64).collect(),
-            add: diff
-                .insertions
-                .iter()
-                .map(|x| x.0.as_str().to_string())
-                .collect(),
+            add: diff.insertions.iter().map(ToString::to_string).collect(),
         })
     }
 }
