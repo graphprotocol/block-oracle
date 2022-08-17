@@ -151,20 +151,31 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GlobalState {
     pub networks: Vec<Network>,
     pub encoding_version: i64,
     pub latest_epoch_number: Option<u64>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Network {
     pub id: Caip2ChainId,
     pub latest_block_number: u64,
     pub acceleration: i64,
     pub delta: i64,
     pub updated_at_epoch_number: u64,
+    pub array_index: u64,
+}
+
+impl From<Network> for epoch_encoding::Network {
+    fn from(val: Network) -> Self {
+        epoch_encoding::Network {
+            block_number: val.latest_block_number,
+            block_delta: val.delta,
+            array_index: val.array_index,
+        }
+    }
 }
 
 impl TryFrom<graphql::subgraph_state::SubgraphStateGlobalStateNetworks> for Network {
@@ -184,6 +195,12 @@ impl TryFrom<graphql::subgraph_state::SubgraphStateGlobalStateNetworks> for Netw
             .as_str()
             .parse()
             .map_err(|s| anyhow::anyhow!("Invalid network name: {}", s))?;
+
+        let array_index = value
+            .array_index
+            .ok_or_else(|| anyhow::anyhow!("Expected a valid array_index for Network"))?
+            as u64;
+
         let block_number_info = value.block_numbers.pop().unwrap();
 
         Ok(Network {
@@ -192,6 +209,7 @@ impl TryFrom<graphql::subgraph_state::SubgraphStateGlobalStateNetworks> for Netw
             acceleration: block_number_info.acceleration.parse()?,
             delta: block_number_info.delta.parse()?,
             updated_at_epoch_number: block_number_info.epoch_number.parse()?,
+            array_index,
         })
     }
 }

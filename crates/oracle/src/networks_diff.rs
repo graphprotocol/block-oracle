@@ -1,4 +1,4 @@
-use crate::{models::Caip2ChainId, Config};
+use crate::{models::Caip2ChainId, subgraph::Network, Config};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
@@ -8,47 +8,46 @@ pub struct NetworksDiff {
 }
 
 impl NetworksDiff {
-    pub fn calculate(subgraph_networks: HashMap<Caip2ChainId, u64>, config: &Config) -> Self {
+    pub fn calculate(subgraph_networks: &[Network], config: &Config) -> Self {
         let new = config.indexed_chains.iter().map(|c| c.id.clone()).collect();
         Self::diff(subgraph_networks, new)
     }
 
-    fn diff(old: HashMap<Caip2ChainId, u64>, new: Vec<Caip2ChainId>) -> Self {
-        // Turn `new` into a `HashSet` to easily check for the presence of
-        // items.
-        let new: HashSet<Caip2ChainId> = new.into_iter().collect();
-
+    fn diff(old: &[Network], new: HashSet<Caip2ChainId>) -> Self {
         let mut deletions = HashMap::new();
-        let mut deleted_ids = HashSet::new();
-        for (network_name, id) in old.iter() {
-            if !new.contains(network_name) {
-                deletions.insert(network_name.clone(), *id);
-                deleted_ids.insert(*id);
+        let mut deleted_indices = HashSet::new();
+        for network in old.iter() {
+            if !new.contains(&network.id) {
+                deletions.insert(network.id.clone(), network.array_index);
+                deleted_indices.insert(network.array_index);
             }
         }
 
         let mut insertions = HashMap::new();
+        let old_network_names: HashSet<_> = old.iter().map(|network| &network.id).collect();
         for network_name in new.into_iter() {
-            if !old.contains_key(&network_name) {
-                // We use 0 as a temporary ID.
+            if !old_network_names.contains(&network_name) {
+                // We use 0 as a temporary index.
                 insertions.insert(network_name, 0);
             }
         }
 
-        // Now we can assign IDs to the newly-inserted networks. We want to
-        // recycle IDs as much as possible, so the lowest nonnegative number
+        // Now we can assign indices to the newly-inserted networks. We want to
+        // recycle indices as much as possible, so the lowest nonnegative number
         // that's not currently assigned must be used.
-        let mut next_candidate_id = 0;
-        for (_, id) in insertions.iter_mut() {
+        let mut next_candidate_index = 0;
+        for (_, index) in insertions.iter_mut() {
             loop {
-                let id_is_free_to_use = deleted_ids.contains(&next_candidate_id)
-                    || !old.iter().any(|(_, id)| *id == next_candidate_id);
+                let index_is_free_to_use = deleted_indices.contains(&next_candidate_index)
+                    || !old
+                        .iter()
+                        .any(|network| network.array_index == next_candidate_index);
 
-                if id_is_free_to_use {
-                    *id = next_candidate_id;
-                    next_candidate_id += 1;
+                if index_is_free_to_use {
+                    *index = next_candidate_index;
                     break;
                 }
+                next_candidate_index += 1;
             }
         }
 
