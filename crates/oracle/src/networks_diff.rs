@@ -45,9 +45,9 @@ impl NetworksDiff {
 
                 if id_is_free_to_use {
                     *id = next_candidate_id;
-                    next_candidate_id += 1;
                     break;
                 }
+                next_candidate_id += 1;
             }
         }
 
