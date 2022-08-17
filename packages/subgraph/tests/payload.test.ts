@@ -399,17 +399,17 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   assert.fieldEquals("Network", "C", "state", "0");
   assert.fieldEquals("Network", "D", "state", "0");
   assert.fieldEquals("Network", "A", "arrayIndex", "0");
-  assert.fieldEquals("Network", "D", "arrayIndex", "1"); // D takes the places of B, since it's swapAndPop
-  assert.fieldEquals("Network", "C", "arrayIndex", "2");
+  assert.fieldEquals("Network", "C", "arrayIndex", "1");
+  assert.fieldEquals("Network", "D", "arrayIndex", "2");
   let networkB = Network.load("B")!;
   assert.assertNull(networkB.arrayIndex);
   assert.assertNull(networkB.state);
 
   assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
-  assert.fieldEquals("Network", "A", "nextArrayElement", "D");
-  assert.fieldEquals("Network", "D", "nextArrayElement", "C");
-  let networkC = Network.load("C")!;
-  assert.assertNull(networkC.nextArrayElement);
+  assert.fieldEquals("Network", "A", "nextArrayElement", "C");
+  assert.fieldEquals("Network", "C", "nextArrayElement", "D");
+  networkD = Network.load("D")!;
+  assert.assertNull(networkD.nextArrayElement);
 
   // Check accelerations and deltas make sense
   assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "1");
@@ -423,10 +423,10 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
 
   assert.fieldEquals("NetworkEpochBlockNumber", "2-A", "acceleration", "5");
   assert.fieldEquals("NetworkEpochBlockNumber", "2-A", "delta", "6");
-  assert.fieldEquals("NetworkEpochBlockNumber", "2-D", "acceleration", "6"); // D and C look like swapping places, since it's swapAndPop, and D takes the place of B
-  assert.fieldEquals("NetworkEpochBlockNumber", "2-D", "delta", "10");
-  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "acceleration", "7");
-  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "delta", "10");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "acceleration", "6");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "delta", "9");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-D", "acceleration", "7");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-D", "delta", "11");
 });
 
 test("(RegisterNetworks, SetBlockNumbersForNextEpoch), RESET, (RegisterNetworks, SetBlockNumbersForNextEpoch) ", () => {
@@ -476,4 +476,137 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch), RESET, (RegisterNetworks,
   assert.fieldEquals("NetworkEpochBlockNumber", "3-A", "delta", "15");
   assert.fieldEquals("NetworkEpochBlockNumber", "3-A", "blockNumber", "15");
   assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
+});
+
+// // 5. Register(A,B,C,D) then SetBlocks(A,B,C,D) (same payload), then
+// //    Unregister(B,D) and SetBlocks(A,C) (both on a different payload
+// //    than the original)
+//
+// local messages = import 'messages.libsonnet';
+//
+// [
+//   [
+//     messages.add_networks(["A", "B", "C", "D"]),
+//     messages.set_block_numbers([1,  2,  3,  4]),
+//   ],
+//   [
+//     messages.remove_networks([1, 3]),
+//     messages.set_block_numbers([5, 6]),
+//   ]
+// ]
+//
+// [sample: crates/oracle-encoder/examples/07-register-multiple-and-unregister-multiple]
+// 1 (RegisterNetworks, SetBlockNumbersForNextEpoch): 0x030109034103420343034466ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4905090d11
+// 2 (RegisterNetworks, SetBlockNumbersForNextEpoch): 0x030503070166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc491519
+
+test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetBlockNumbersForNextEpoch) MULTIPLE UNREGISTERS", () => {
+  let payloadBytes1 = Bytes.fromHexString(
+    "0x030109034103420343034466ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc4905090d11"
+  ) as Bytes;
+  let payloadBytes2 = Bytes.fromHexString(
+    "0x030503070166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc491519"
+  ) as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000";
+  let txHash1 = "0x00";
+  let txHash2 = "0x01";
+
+  processPayload(submitter, payloadBytes1, txHash1, BIGINT_ONE);
+
+  // Check counts
+  assert.entityCount("Epoch", 1);
+  assert.entityCount("Network", 4);
+  assert.entityCount("NetworkEpochBlockNumber", 4);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 1);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 1);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+
+  assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "4");
+
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-B", "id", "1-B");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-C", "id", "1-C");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-D", "id", "1-D");
+
+  // Check network array
+  assert.fieldEquals("Network", "A", "state", "0");
+  assert.fieldEquals("Network", "B", "state", "0");
+  assert.fieldEquals("Network", "C", "state", "0");
+  assert.fieldEquals("Network", "D", "state", "0");
+  assert.fieldEquals("Network", "A", "arrayIndex", "0");
+  assert.fieldEquals("Network", "B", "arrayIndex", "1");
+  assert.fieldEquals("Network", "C", "arrayIndex", "2");
+  assert.fieldEquals("Network", "D", "arrayIndex", "3");
+
+  assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
+  assert.fieldEquals("Network", "A", "nextArrayElement", "B");
+  assert.fieldEquals("Network", "B", "nextArrayElement", "C");
+  assert.fieldEquals("Network", "C", "nextArrayElement", "D");
+  let networkD = Network.load("D")!;
+  assert.assertNull(networkD.nextArrayElement);
+
+  mockEpochNumber(2);
+
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE);
+
+  // Check counts
+  assert.entityCount("Epoch", 2);
+  assert.entityCount("Network", 4); // entity count won't change, but 1 would be inactive
+  assert.entityCount("NetworkEpochBlockNumber", 6);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 2);
+  assert.entityCount("MessageBlock", 2);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 2);
+  assert.entityCount("RegisterNetworksMessage", 2);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+
+  assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "2");
+
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-B", "id", "1-B");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-C", "id", "1-C");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-D", "id", "1-D");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A", "id", "2-A");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "id", "2-C");
+
+  assert.notInStore("NetworkEpochBlockNumber", "2-B"); // 2-B shouldn't exist since it was removed from the list
+  assert.notInStore("NetworkEpochBlockNumber", "2-D"); // 2-D shouldn't exist since it was removed from the list
+
+  // Check network array
+  assert.fieldEquals("Network", "A", "state", "0");
+  assert.fieldEquals("Network", "C", "state", "0");
+  assert.fieldEquals("Network", "A", "arrayIndex", "0");
+  assert.fieldEquals("Network", "C", "arrayIndex", "1");
+  let networkB = Network.load("B")!;
+  assert.assertNull(networkB.arrayIndex);
+  assert.assertNull(networkB.state);
+  networkD = Network.load("D")!;
+  assert.assertNull(networkB.arrayIndex);
+  assert.assertNull(networkB.state);
+
+  assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
+  assert.fieldEquals("Network", "A", "nextArrayElement", "C");
+  let networkC = Network.load("C")!;
+  assert.assertNull(networkC.nextArrayElement);
+
+  // Check accelerations and deltas make sense
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "1");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "1");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-B", "acceleration", "2");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-B", "delta", "2");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-C", "acceleration", "3");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-C", "delta", "3");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-D", "acceleration", "4");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-D", "delta", "4");
+
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A", "acceleration", "5");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A", "delta", "6");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "acceleration", "6");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "delta", "9");
 });
