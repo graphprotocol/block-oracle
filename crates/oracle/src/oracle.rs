@@ -267,7 +267,7 @@ fn registered_networks(
     subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
 ) -> Vec<crate::subgraph::Network> {
     if let Ok(Some(state)) = subgraph_state.result() {
-        state.1.networks.to_vec()
+        state.1.networks.clone()
     } else {
         // The subgraph is uninitialized, so there's no registered networks at all.
         vec![]
@@ -288,7 +288,7 @@ fn networks_diff_to_message(diff: &NetworksDiff) -> Option<ee::Message> {
         None
     } else {
         Some(ee::Message::RegisterNetworks {
-            remove: diff.deletions.iter().map(|x| *x.1 as u64).collect(),
+            remove: diff.deletions.iter().copied().collect(),
             add: diff.insertions.iter().map(ToString::to_string).collect(),
         })
     }

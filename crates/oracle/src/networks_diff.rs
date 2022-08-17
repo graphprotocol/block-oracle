@@ -1,9 +1,9 @@
 use crate::{models::Caip2ChainId, subgraph::Network, Config};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
 pub struct NetworksDiff {
-    pub deletions: HashMap<Caip2ChainId, u64>,
+    pub deletions: HashSet<u64>,
     pub insertions: HashSet<Caip2ChainId>,
 }
 
@@ -14,12 +14,10 @@ impl NetworksDiff {
     }
 
     fn diff(old: &[Network], new: HashSet<Caip2ChainId>) -> Self {
-        let mut deletions = HashMap::new();
-        let mut deleted_indices = HashSet::new();
+        let mut deletions = HashSet::new();
         for network in old.iter() {
             if !new.contains(&network.id) {
-                deletions.insert(network.id.clone(), network.array_index);
-                deleted_indices.insert(network.array_index);
+                deletions.insert(network.array_index);
             }
         }
 
