@@ -1,4 +1,4 @@
-use prometheus::*;
+use prometheus::{Encoder, HistogramOpts, HistogramVec, Registry, TextEncoder};
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
