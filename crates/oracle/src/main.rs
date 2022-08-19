@@ -92,12 +92,12 @@ async fn main() -> Result<(), ApplicationError> {
     info!(log_level = %CONFIG.log_level, "The block oracle is starting.");
 
     let metrics_server = metrics_server(&METRICS).map_err(ApplicationError::Metrics);
-    let oracle = run_oracle().map_err(ApplicationError::Oracle);
+    let oracle = oracle_task().map_err(ApplicationError::Oracle);
     tokio::try_join!(metrics_server, oracle)?;
     Ok(())
 }
 
-async fn run_oracle() -> Result<(), Error> {
+async fn oracle_task() -> Result<(), Error> {
     let mut oracle = Oracle::new(&*CONFIG);
     info!("Entering the main polling loop. Press CTRL+C to stop.");
 
