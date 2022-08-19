@@ -1,4 +1,7 @@
-use prometheus::{Encoder, HistogramOpts, HistogramVec, IntGaugeVec, Registry, TextEncoder};
+use prometheus::{
+    register_histogram_vec_with_registry, register_int_gauge_vec_with_registry, Encoder,
+    HistogramVec, IntGaugeVec, Registry, TextEncoder,
+};
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -21,23 +24,21 @@ impl Default for Metrics {
     fn default() -> Self {
         let registry = Registry::new();
 
-        let retries_by_jsonrpc_provider = HistogramVec::new(
-            HistogramOpts::new(
-                "retries_by_jsonrpc_provider",
-                "Number of JSON-RPC request retries.",
-            ),
-            &["jsonrpc_provider"],
+        let retries_by_jsonrpc_provider = register_histogram_vec_with_registry!(
+            "retries_by_jsonrpc_provider",
+            "Number of JSON-RPC request retries.",
+            &["provider"],
+            registry
         )
-        .expect("failed to create metric");
-        registry
-            .register(Box::new(retries_by_jsonrpc_provider.clone()))
-            .expect("failed to register Prometheus metric");
+        .unwrap();
 
-        let current_epoch = IntGaugeVec::new("current_epoch", "Epoch Manager Current Epoch")
-            .expect("failed to create metric");
-        registry
-            .register(Box::new(current_epoch.clone()))
-            .expect("failed to register metric");
+        let current_epoch = register_int_gauge_vec_with_registry!(
+            "current_epoch",
+            "Current Epoch",
+            &["manager", "subgraph"],
+            registry
+        )
+        .unwrap();
 
         Self {
             registry,
