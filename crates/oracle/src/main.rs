@@ -12,8 +12,9 @@ mod subgraph;
 pub use crate::ctrlc::CtrlcHandler;
 pub use config::Config;
 pub use error_handling::{MainLoopFlow, OracleControlFlow};
+use futures::TryFutureExt;
 pub use jrpc_utils::JrpcExpBackoff;
-pub use metrics::Metrics;
+pub use metrics::{metrics_server, Metrics};
 pub use models::{Caip2ChainId, JrpcProviderForChain};
 pub use networks_diff::NetworksDiff;
 pub use oracle::Oracle;
@@ -29,6 +30,14 @@ lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
     pub static ref METRICS: Metrics = Metrics::default();
     pub static ref CTRLC_HANDLER: CtrlcHandler = CtrlcHandler::init();
+}
+
+#[derive(Debug, thiserror::Error)]
+enum ApplicationError {
+    #[error(transparent)]
+    Oracle(Error),
+    #[error("The metrics server crashed")]
+    Metrics(#[from] hyper::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -72,7 +81,7 @@ impl MainLoopFlow for Error {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<(), ApplicationError> {
     // Immediately dereference some constants to trigger `lazy_static`
     // initialization.
     let _ = &*CONFIG;
@@ -82,6 +91,13 @@ async fn main() -> Result<(), Error> {
     init_logging(CONFIG.log_level);
     info!(log_level = %CONFIG.log_level, "The block oracle is starting.");
 
+    let metrics_server = metrics_server(&METRICS).map_err(ApplicationError::Metrics);
+    let oracle = run_oracle().map_err(ApplicationError::Oracle);
+    tokio::try_join!(metrics_server, oracle)?;
+    Ok(())
+}
+
+async fn run_oracle() -> Result<(), Error> {
     let mut oracle = Oracle::new(&*CONFIG);
     info!("Entering the main polling loop. Press CTRL+C to stop.");
 
@@ -99,7 +115,6 @@ async fn main() -> Result<(), Error> {
         );
         tokio::time::sleep(CONFIG.protocol_chain.polling_interval).await;
     }
-
     Ok(())
 }
 
