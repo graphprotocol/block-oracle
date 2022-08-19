@@ -1,7 +1,12 @@
+use lazy_static::lazy_static;
 use prometheus::{
     register_histogram_vec_with_registry, register_int_gauge_vec_with_registry, Encoder,
     HistogramVec, IntGaugeVec, Registry, TextEncoder,
 };
+
+lazy_static! {
+    pub static ref METRICS: Metrics = Metrics::new().expect("failed to create Metrics");
+}
 
 #[derive(Debug, Clone)]
 pub struct Metrics {

@@ -14,7 +14,7 @@ pub use config::Config;
 pub use error_handling::{MainLoopFlow, OracleControlFlow};
 use futures::TryFutureExt;
 pub use jrpc_utils::JrpcExpBackoff;
-pub use metrics::{server::metrics_server, Metrics};
+pub use metrics::{server::metrics_server, Metrics, METRICS};
 pub use models::{Caip2ChainId, JrpcProviderForChain};
 pub use networks_diff::NetworksDiff;
 pub use oracle::Oracle;
@@ -28,7 +28,6 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
-    pub static ref METRICS: Metrics = Metrics::new().expect("failed to create Metrics");
     pub static ref CTRLC_HANDLER: CtrlcHandler = CtrlcHandler::init();
 }
 
