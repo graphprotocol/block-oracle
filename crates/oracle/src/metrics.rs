@@ -15,19 +15,18 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn serve(&self) -> Vec<u8> {
+    pub fn encode(&self) -> Vec<u8> {
         let mut buffer = vec![];
         TextEncoder::new()
             .encode(&self.registry.gather(), &mut buffer)
-            .unwrap();
+            .expect("failed to encode gathered Prometheus metrics");
         buffer
     }
 }
 
 impl Default for Metrics {
     fn default() -> Self {
-        let r = Registry::new();
-
+        let registry = Registry::new();
         let retries_by_jsonrpc_provider = HistogramVec::new(
             HistogramOpts::new(
                 "retries_by_jsonrpc_provider",
@@ -36,26 +35,35 @@ impl Default for Metrics {
             &["jsonrpc_provider"],
         )
         .unwrap();
-
-        r.register(Box::new(retries_by_jsonrpc_provider.clone()))
-            .unwrap();
-
+        registry
+            .register(Box::new(retries_by_jsonrpc_provider.clone()))
+            .expect("failed to register Prometheus metric");
         Self {
-            registry: r,
+            registry,
             retries_by_jsonrpc_provider,
         }
     }
 }
 
-async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
-    Ok(Response::new(Body::from("Hello World")))
+async fn handle_metrics_server_request(
+    _req: Request<Body>,
+    metrics: &'static Metrics,
+) -> Result<Response<Body>, Infallible> {
+    let encoded = metrics.encode();
+    let body = Body::from(encoded);
+    let response = Response::builder()
+        .body(body)
+        .expect("failed to build response body with Prometheus encoded metrics");
+    Ok(response)
 }
 
-pub fn metrics_server(
-    _metrics: &'static Metrics,
-) -> impl Future<Output = Result<(), hyper::Error>> {
+pub fn metrics_server(metrics: &'static Metrics) -> impl Future<Output = Result<(), hyper::Error>> {
     // TODO: make this configurable
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    let make_service = make_service_fn(|_conn| async { Ok::<_, Infallible>(service_fn(handle)) });
+    let make_service = make_service_fn(move |_conn| async move {
+        Ok::<_, Infallible>(service_fn(move |req| {
+            handle_metrics_server_request(req, metrics)
+        }))
+    });
     Server::bind(&addr).serve(make_service)
 }
