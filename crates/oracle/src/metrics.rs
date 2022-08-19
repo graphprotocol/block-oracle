@@ -64,6 +64,7 @@ pub mod server {
         Body, Request, Response, Server,
     };
     use std::{convert::Infallible, net::SocketAddr};
+    use tracing::info;
 
     async fn handle_metrics_server_request(
         _req: Request<Body>,
@@ -82,12 +83,13 @@ pub mod server {
         port: u16,
     ) -> impl Future<Output = Result<(), hyper::Error>> {
         // TODO: make this configurable
-        let addr = SocketAddr::from(([127, 0, 0, 1], port));
+        let addr = SocketAddr::from(([0, 0, 0, 0], port));
         let make_service = make_service_fn(move |_conn| async move {
             Ok::<_, Infallible>(service_fn(move |req| {
                 handle_metrics_server_request(req, metrics)
             }))
         });
+        info!("Starting metrics server at port {port}");
         Server::bind(&addr).serve(make_service)
     }
 }
