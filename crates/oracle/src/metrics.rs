@@ -24,7 +24,7 @@ impl Metrics {
         let current_epoch = register_int_gauge_vec_with_registry!(
             "current_epoch",
             "Current Epoch",
-            &["manager", "subgraph"],
+            &["source"],
             registry
         )?;
 
