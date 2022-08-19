@@ -99,7 +99,7 @@ const config: HardhatUserConfig = {
       chainId: 1337,
       loggingEnabled: false,
       gas: 1200000,
-      gasPrice: auto,
+      gasPrice: 'auto',
       blockGasLimit: 12000000,
       accounts: {
         mnemonic: 'myth like bonus scare over problem client lizard pioneer submit female collect',
