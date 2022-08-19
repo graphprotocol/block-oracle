@@ -14,7 +14,7 @@ pub use config::Config;
 pub use error_handling::{MainLoopFlow, OracleControlFlow};
 use futures::TryFutureExt;
 pub use jrpc_utils::JrpcExpBackoff;
-pub use metrics::{metrics_server, Metrics};
+pub use metrics::{server::metrics_server, Metrics};
 pub use models::{Caip2ChainId, JrpcProviderForChain};
 pub use networks_diff::NetworksDiff;
 pub use oracle::Oracle;

@@ -1,10 +1,4 @@
-use futures::Future;
-use hyper::{
-    service::{make_service_fn, service_fn},
-    Body, Request, Response, Server,
-};
 use prometheus::{Encoder, HistogramOpts, HistogramVec, IntGaugeVec, Registry, TextEncoder};
-use std::{convert::Infallible, net::SocketAddr};
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
@@ -53,25 +47,37 @@ impl Default for Metrics {
     }
 }
 
-async fn handle_metrics_server_request(
-    _req: Request<Body>,
-    metrics: &'static Metrics,
-) -> Result<Response<Body>, Infallible> {
-    let encoded = metrics.encode();
-    let body = Body::from(encoded);
-    let response = Response::builder()
-        .body(body)
-        .expect("failed to build response body with Prometheus encoded metrics");
-    Ok(response)
-}
+pub mod server {
+    use super::Metrics;
+    use futures::Future;
+    use hyper::{
+        service::{make_service_fn, service_fn},
+        Body, Request, Response, Server,
+    };
+    use std::{convert::Infallible, net::SocketAddr};
 
-pub fn metrics_server(metrics: &'static Metrics) -> impl Future<Output = Result<(), hyper::Error>> {
-    // TODO: make this configurable
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    let make_service = make_service_fn(move |_conn| async move {
-        Ok::<_, Infallible>(service_fn(move |req| {
-            handle_metrics_server_request(req, metrics)
-        }))
-    });
-    Server::bind(&addr).serve(make_service)
+    async fn handle_metrics_server_request(
+        _req: Request<Body>,
+        metrics: &'static Metrics,
+    ) -> Result<Response<Body>, Infallible> {
+        let encoded = metrics.encode();
+        let body = Body::from(encoded);
+        let response = Response::builder()
+            .body(body)
+            .expect("failed to build response body with Prometheus encoded metrics");
+        Ok(response)
+    }
+
+    pub fn metrics_server(
+        metrics: &'static Metrics,
+    ) -> impl Future<Output = Result<(), hyper::Error>> {
+        // TODO: make this configurable
+        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+        let make_service = make_service_fn(move |_conn| async move {
+            Ok::<_, Infallible>(service_fn(move |req| {
+                handle_metrics_server_request(req, metrics)
+            }))
+        });
+        Server::bind(&addr).serve(make_service)
+    }
 }
