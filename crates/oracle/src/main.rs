@@ -28,7 +28,7 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 lazy_static! {
     pub static ref CONFIG: Config = Config::parse();
-    pub static ref METRICS: Metrics = Metrics::default();
+    pub static ref METRICS: Metrics = Metrics::new().expect("failed to create Metrics");
     pub static ref CTRLC_HANDLER: CtrlcHandler = CtrlcHandler::init();
 }
 

@@ -11,17 +11,7 @@ pub struct Metrics {
 }
 
 impl Metrics {
-    pub fn encode(&self) -> Vec<u8> {
-        let mut buffer = vec![];
-        TextEncoder::new()
-            .encode(&self.registry.gather(), &mut buffer)
-            .expect("failed to encode gathered Prometheus metrics");
-        buffer
-    }
-}
-
-impl Default for Metrics {
-    fn default() -> Self {
+    pub fn new() -> Result<Self, prometheus::Error> {
         let registry = Registry::new();
 
         let retries_by_jsonrpc_provider = register_histogram_vec_with_registry!(
@@ -29,22 +19,28 @@ impl Default for Metrics {
             "Number of JSON-RPC request retries.",
             &["provider"],
             registry
-        )
-        .unwrap();
+        )?;
 
         let current_epoch = register_int_gauge_vec_with_registry!(
             "current_epoch",
             "Current Epoch",
             &["manager", "subgraph"],
             registry
-        )
-        .unwrap();
+        )?;
 
-        Self {
+        Ok(Self {
             registry,
             retries_by_jsonrpc_provider,
             current_epoch,
-        }
+        })
+    }
+
+    pub fn encode(&self) -> Vec<u8> {
+        let mut buffer = vec![];
+        TextEncoder::new()
+            .encode(&self.registry.gather(), &mut buffer)
+            .expect("failed to encode gathered Prometheus metrics");
+        buffer
     }
 }
 
