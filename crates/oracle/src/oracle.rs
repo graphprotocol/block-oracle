@@ -2,6 +2,7 @@ use crate::{
     contracts::Contracts,
     hex_string,
     jrpc_utils::{get_latest_block, get_latest_blocks},
+    metrics::METRICS,
     Caip2ChainId, Config, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff, SubgraphQuery,
     SubgraphStateTracker,
 };
@@ -142,6 +143,7 @@ impl Oracle {
             }
         };
         debug!("Subgraph is at epoch {subgraph_latest_epoch}");
+        METRICS.set_current_epoch("subgraph", subgraph_latest_epoch as i64);
         let manager_current_epoch = self.contracts.query_current_epoch().await?;
         match subgraph_latest_epoch.cmp(&manager_current_epoch) {
             Ordering::Less => Ok(PreviousEpoch {

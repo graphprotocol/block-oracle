@@ -47,6 +47,13 @@ impl Metrics {
             .expect("failed to encode gathered Prometheus metrics");
         buffer
     }
+
+    pub fn set_current_epoch(&self, label: &str, current_epoch: i64) {
+        self.current_epoch
+            .get_metric_with_label_values(&[label])
+            .unwrap()
+            .set(current_epoch as i64);
+    }
 }
 
 pub mod server {
