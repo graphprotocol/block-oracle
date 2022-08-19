@@ -1,17 +1,16 @@
-use std::{convert::Infallible, net::SocketAddr};
-
 use futures::Future;
 use hyper::{
     service::{make_service_fn, service_fn},
     Body, Request, Response, Server,
 };
-use prometheus::{Encoder, HistogramOpts, HistogramVec, Registry, TextEncoder};
+use prometheus::{Encoder, HistogramOpts, HistogramVec, IntGaugeVec, Registry, TextEncoder};
+use std::{convert::Infallible, net::SocketAddr};
 
 #[derive(Debug, Clone)]
 pub struct Metrics {
     registry: Registry,
-
-    pub retries_by_jsonrpc_provider: HistogramVec,
+    retries_by_jsonrpc_provider: HistogramVec,
+    current_epoch: IntGaugeVec,
 }
 
 impl Metrics {
@@ -27,6 +26,7 @@ impl Metrics {
 impl Default for Metrics {
     fn default() -> Self {
         let registry = Registry::new();
+
         let retries_by_jsonrpc_provider = HistogramVec::new(
             HistogramOpts::new(
                 "retries_by_jsonrpc_provider",
@@ -34,13 +34,21 @@ impl Default for Metrics {
             ),
             &["jsonrpc_provider"],
         )
-        .unwrap();
+        .expect("failed to create metric");
         registry
             .register(Box::new(retries_by_jsonrpc_provider.clone()))
             .expect("failed to register Prometheus metric");
+
+        let current_epoch = IntGaugeVec::new("current_epoch", "Epoch Manager Current Epoch")
+            .expect("failed to create metric");
+        registry
+            .register(Box::new(current_epoch.clone()))
+            .expect("failed to register metric");
+
         Self {
             registry,
             retries_by_jsonrpc_provider,
+            current_epoch,
         }
     }
 }
