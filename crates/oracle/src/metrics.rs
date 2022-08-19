@@ -79,9 +79,10 @@ pub mod server {
 
     pub fn metrics_server(
         metrics: &'static Metrics,
+        port: u16,
     ) -> impl Future<Output = Result<(), hyper::Error>> {
         // TODO: make this configurable
-        let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+        let addr = SocketAddr::from(([127, 0, 0, 1], port));
         let make_service = make_service_fn(move |_conn| async move {
             Ok::<_, Infallible>(service_fn(move |req| {
                 handle_metrics_server_request(req, metrics)

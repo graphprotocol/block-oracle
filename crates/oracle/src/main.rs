@@ -90,7 +90,8 @@ async fn main() -> Result<(), ApplicationError> {
     init_logging(CONFIG.log_level);
     info!(log_level = %CONFIG.log_level, "The block oracle is starting.");
 
-    let metrics_server = metrics_server(&METRICS).map_err(ApplicationError::Metrics);
+    let metrics_server =
+        metrics_server(&METRICS, CONFIG.metrics_port).map_err(ApplicationError::Metrics);
     let oracle = oracle_task().map_err(ApplicationError::Oracle);
     tokio::try_join!(metrics_server, oracle)?;
     Ok(())
