@@ -13,7 +13,7 @@ lazy_static! {
 #[derive(Debug, Clone)]
 pub struct Metrics {
     registry: Registry,
-    _retries_by_jsonrpc_provider: HistogramVec,
+    jrpc_request_duration_nanos: HistogramVec,
     current_epoch: IntGaugeVec,
     last_sent_message: Gauge,
 }
@@ -22,7 +22,7 @@ impl Metrics {
     pub fn new() -> Result<Self, prometheus::Error> {
         let registry = Registry::new();
 
-        let retries_by_jsonrpc_provider = register_histogram_vec_with_registry!(
+        let jrpc_request_duration_nanos = register_histogram_vec_with_registry!(
             "retries_by_jsonrpc_provider",
             "Number of JSON-RPC request retries.",
             &["provider"],
@@ -41,7 +41,7 @@ impl Metrics {
 
         Ok(Self {
             registry,
-            _retries_by_jsonrpc_provider: retries_by_jsonrpc_provider,
+            jrpc_request_duration_nanos,
             current_epoch,
             last_sent_message,
         })
@@ -65,6 +65,14 @@ impl Metrics {
     pub fn set_last_sent_message(&self) {
         let now = UNIX_EPOCH.elapsed().unwrap().as_secs_f64();
         self.last_sent_message.set(now);
+    }
+
+    pub fn set_jrpc_request_duration(&self, provider: &str, duration: std::time::Duration) {
+        let nanos = duration.as_secs_f64();
+        self.jrpc_request_duration_nanos
+            .get_metric_with_label_values(&[provider])
+            .unwrap()
+            .observe(nanos)
     }
 }
 

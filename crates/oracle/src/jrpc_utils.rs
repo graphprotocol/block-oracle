@@ -1,4 +1,4 @@
-use crate::{Caip2ChainId, JrpcProviderForChain};
+use crate::{metrics::METRICS, Caip2ChainId, JrpcProviderForChain};
 use backoff::{future::retry, ExponentialBackoff, ExponentialBackoffBuilder};
 use epoch_encoding::BlockPtr;
 use futures::{future::try_join_all, TryFutureExt};
@@ -63,9 +63,13 @@ where
         let network = self.network.clone();
         let op = move || {
             trace!(?id, ?request, %network, "Sending JRPC call");
-            transport
+            let start = std::time::Instant::now();
+            let result = transport
                 .send(id, request.clone())
-                .map_err(backoff::Error::transient)
+                .map_err(backoff::Error::transient);
+            let elapsed = start.elapsed();
+            METRICS.set_jrpc_request_duration(network.as_str(), elapsed);
+            result
         };
         Box::pin(retry(strategy, op))
     }
