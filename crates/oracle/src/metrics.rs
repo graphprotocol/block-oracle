@@ -11,7 +11,7 @@ lazy_static! {
 #[derive(Debug, Clone)]
 pub struct Metrics {
     registry: Registry,
-    retries_by_jsonrpc_provider: HistogramVec,
+    _retries_by_jsonrpc_provider: HistogramVec,
     current_epoch: IntGaugeVec,
 }
 
@@ -35,7 +35,7 @@ impl Metrics {
 
         Ok(Self {
             registry,
-            retries_by_jsonrpc_provider,
+            _retries_by_jsonrpc_provider: retries_by_jsonrpc_provider,
             current_epoch,
         })
     }
