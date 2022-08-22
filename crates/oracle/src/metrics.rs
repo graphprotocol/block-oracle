@@ -1,8 +1,10 @@
 use lazy_static::lazy_static;
 use prometheus::{
-    register_histogram_vec_with_registry, register_int_gauge_vec_with_registry, Encoder,
-    HistogramVec, IntGaugeVec, Registry, TextEncoder,
+    register_gauge_with_registry, register_histogram_vec_with_registry,
+    register_int_gauge_vec_with_registry, Encoder, Gauge, HistogramVec, IntGaugeVec, Registry,
+    TextEncoder,
 };
+use std::time::UNIX_EPOCH;
 
 lazy_static! {
     pub static ref METRICS: Metrics = Metrics::new().expect("failed to create Metrics");
@@ -13,6 +15,7 @@ pub struct Metrics {
     registry: Registry,
     _retries_by_jsonrpc_provider: HistogramVec,
     current_epoch: IntGaugeVec,
+    last_sent_message: Gauge,
 }
 
 impl Metrics {
@@ -33,10 +36,14 @@ impl Metrics {
             registry
         )?;
 
+        let last_sent_message =
+            register_gauge_with_registry!("last_sent_message", "Last Sent Message", registry)?;
+
         Ok(Self {
             registry,
             _retries_by_jsonrpc_provider: retries_by_jsonrpc_provider,
             current_epoch,
+            last_sent_message,
         })
     }
 
@@ -53,6 +60,11 @@ impl Metrics {
             .get_metric_with_label_values(&[label])
             .unwrap()
             .set(current_epoch as i64);
+    }
+
+    pub fn set_last_sent_message(&self) {
+        let now = UNIX_EPOCH.elapsed().unwrap().as_secs_f64();
+        self.last_sent_message.set(now);
     }
 }
 
