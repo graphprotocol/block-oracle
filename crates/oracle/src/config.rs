@@ -50,6 +50,7 @@ pub struct Config {
     pub freshness_threshold: u64,
     pub protocol_chain: ProtocolChain,
     pub retry_strategy_max_wait_time: Duration,
+    pub metrics_port: u16,
 }
 
 impl Config {
@@ -97,6 +98,7 @@ impl Config {
                     config_file.protocol_chain.polling_interval_in_seconds,
                 ),
             },
+            metrics_port: config_file.metrics_port,
         }
     }
 }
@@ -135,6 +137,8 @@ struct ConfigFile {
     log_level: FromStrWrapper<LevelFilter>,
     protocol_chain: SerdeProtocolChain,
     indexed_chains: HashMap<Caip2ChainId, EitherLiteralOrEnvVar<Url>>,
+    #[serde(default = "serde_defaults::metrics_port")]
+    metrics_port: u16,
 }
 
 impl ConfigFile {
@@ -228,6 +232,10 @@ mod serde_defaults {
 
     pub fn transaction_confirmation_count() -> usize {
         0
+    }
+
+    pub fn metrics_port() -> u16 {
+        9090
     }
 }
 

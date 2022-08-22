@@ -12,6 +12,8 @@ services:
       DATA_EDGE_CONTRACT_ADDRESS: 'e78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab'
       EPOCH_MANAGER_CONTRACT_ADDRESS: 'd833215cbcc3f914bd1c9ece3ee7bf8b14f841bb'
       PROTOCOL_CHAIN_JRPC_URL: "http://hardhat:8545"
+    ports:
+      - 9090
     volumes:
       - ./config.toml:/app/config.toml
     depends_on:
@@ -92,3 +94,10 @@ services:
     depends_on:
       hardhat:
         condition: service_healthy
+
+  prometheus:
+    image: bitnami/prometheus
+    volumes:
+      - ./prometheus/config.yaml:/opt/bitnami/prometheus/conf/prometheus.yml
+    ports:
+      - "9092:9090"

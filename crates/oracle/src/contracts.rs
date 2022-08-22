@@ -1,3 +1,4 @@
+use crate::metrics::METRICS;
 use anyhow::Context;
 use secp256k1::SecretKey;
 use tracing::{debug, info, trace};
@@ -50,6 +51,7 @@ where
             .await?;
         let current_epoch = epoch_number.as_u64();
         debug!("Epoch Manager is at epoch {current_epoch}");
+        METRICS.set_current_epoch("manager", current_epoch as i64);
         Ok(current_epoch)
     }
 
