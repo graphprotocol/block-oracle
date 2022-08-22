@@ -56,8 +56,10 @@ pub enum Error {
     EpochManagerCallFailed(#[from] web3::contract::Error),
     #[error("Epoch Manager latest epoch ({manager}) is behind Epoch Subgraph's ({subgraph})")]
     EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
-    #[error("The subgraph hasn't indexed all relevant transactions yet.")]
+    #[error("The subgraph hasn't indexed all relevant transactions yet")]
     SubgraphNotFresh,
+    #[error("There is a difference between the configured and registered indexed chains")]
+    MalconfiguredIndexedChains(NetworksDiff),
 }
 
 impl MainLoopFlow for Error {
@@ -75,6 +77,8 @@ impl MainLoopFlow for Error {
 
             // TODO: Put those variants under the `SubgraphQueryError` enum
             SubgraphNotFresh => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
+
+            MalconfiguredIndexedChains(_) => OracleControlFlow::Break(()),
         }
     }
 }

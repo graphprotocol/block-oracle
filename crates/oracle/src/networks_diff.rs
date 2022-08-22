@@ -30,4 +30,8 @@ impl NetworksDiff {
             insertions,
         }
     }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.deletions.is_empty() && self.insertions.is_empty()
+    }
 }
