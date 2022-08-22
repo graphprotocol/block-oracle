@@ -1,8 +1,8 @@
 use lazy_static::lazy_static;
 use prometheus::{
     register_gauge_with_registry, register_histogram_vec_with_registry,
-    register_int_gauge_vec_with_registry, Encoder, Gauge, HistogramVec, IntGaugeVec, Registry,
-    TextEncoder,
+    register_int_gauge_vec_with_registry, register_int_gauge_with_registry, Encoder, Gauge,
+    HistogramVec, IntGauge, IntGaugeVec, Registry, TextEncoder,
 };
 use std::time::UNIX_EPOCH;
 
@@ -17,6 +17,7 @@ pub struct Metrics {
     current_epoch: IntGaugeVec,
     last_sent_message: Gauge,
     latest_block_number: IntGaugeVec,
+    wallet_balance: IntGauge,
 }
 
 impl Metrics {
@@ -24,8 +25,8 @@ impl Metrics {
         let registry = Registry::new();
 
         let jrpc_request_duration_nanos = register_histogram_vec_with_registry!(
-            "retries_by_jsonrpc_provider",
-            "Number of JSON-RPC request retries.",
+            "jrpc_request_duration_nanos",
+            "JSON RPC Request Duration",
             &["network"],
             registry
         )?;
@@ -46,12 +47,17 @@ impl Metrics {
             &["network", "source"],
             registry
         )?;
+
+        let wallet_balance =
+            register_int_gauge_with_registry!("eth_balance", "Owner's ETH Balance", registry)?;
+
         Ok(Self {
             registry,
             jrpc_request_duration_nanos,
             current_epoch,
             last_sent_message,
             latest_block_number,
+            wallet_balance,
         })
     }
 
@@ -88,6 +94,10 @@ impl Metrics {
             .get_metric_with_label_values(&[network, source])
             .unwrap()
             .set(block_number)
+    }
+
+    pub fn set_wallet_balance(&self, balance: i64) {
+        self.wallet_balance.set(balance)
     }
 }
 

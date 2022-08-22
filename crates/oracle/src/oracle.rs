@@ -161,6 +161,9 @@ impl Oracle {
         info!("Entering a new epoch.");
 
         info!("Collecting latest block information from all indexed chains.");
+
+        self.query_owner_eth_balance().await?;
+
         let latest_blocks_res = get_latest_blocks(&self.indexed_chains).await;
         let latest_blocks = latest_blocks_res
             .iter()
@@ -272,6 +275,23 @@ impl Oracle {
         );
 
         Ok(encoded)
+    }
+
+    /// Queries the Protocol Chain for the current balance of the Owner's account.
+    ///
+    /// Used for monitoring and logging.
+    async fn query_owner_eth_balance(&self) -> Result<usize, Error> {
+        let balance = self
+            .protocol_chain
+            .web3
+            .eth()
+            .balance(self.config.owner_address, None)
+            .await
+            .map_err(Error::BadJrpcProtocolChain)?
+            .as_usize();
+        info!("Owner ETH Balance is {} gwei", balance);
+        METRICS.set_wallet_balance(balance as i64);
+        Ok(balance)
     }
 }
 
