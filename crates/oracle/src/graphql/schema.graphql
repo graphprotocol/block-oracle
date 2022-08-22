@@ -1,6 +1,6 @@
 type Query {
   globalState(id: String!): GlobalState
-  _meta: Meta,
+  _meta: Meta!,
 }
 
 type Meta {

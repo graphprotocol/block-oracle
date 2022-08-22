@@ -1,15 +1,14 @@
 pub mod ctrlc;
 pub mod error_handling;
 pub mod jrpc_utils;
-pub mod metrics;
 pub mod oracle;
 
 use self::ctrlc::CtrlcHandler;
+use crate::metrics::{server::metrics_server, METRICS};
 use crate::{Caip2ChainId, Config, SubgraphQueryError};
 use error_handling::{MainLoopFlow, OracleControlFlow};
 use futures::TryFutureExt;
 use lazy_static::lazy_static;
-use metrics::{server::metrics_server, METRICS};
 use oracle::Oracle;
 use std::{env::set_var, path::Path, sync::Arc, time::Duration};
 use tracing::{error, info, metadata::LevelFilter};

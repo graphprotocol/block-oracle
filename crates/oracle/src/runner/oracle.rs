@@ -1,9 +1,8 @@
+use crate::runner::jrpc_utils::{get_latest_block, get_latest_blocks, JrpcExpBackoff};
+use crate::runner::{hex_string, Error};
 use crate::{
-    contracts::Contracts,
-    hex_string,
-    jrpc_utils::{get_latest_block, get_latest_blocks, JrpcExpBackoff},
-    metrics::METRICS,
-    Caip2ChainId, Config, Error, JrpcProviderForChain, SubgraphQuery, SubgraphStateTracker,
+    contracts::Contracts, metrics::METRICS, Caip2ChainId, Config, JrpcProviderForChain,
+    SubgraphStateTracker,
 };
 use epoch_encoding::{BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::{cmp::Ordering, collections::BTreeMap};
@@ -14,14 +13,13 @@ pub struct Oracle {
     config: Config,
     protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
     indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
-    subgraph_state: SubgraphStateTracker<SubgraphQuery>,
+    subgraph_state: SubgraphStateTracker,
     contracts: Contracts<JrpcExpBackoff>,
 }
 
 impl Oracle {
     pub fn new(config: Config) -> Self {
-        let subgraph_api = SubgraphQuery::new(config.subgraph_url.clone());
-        let subgraph_state = SubgraphStateTracker::new(subgraph_api);
+        let subgraph_state = SubgraphStateTracker::new(config.subgraph_url.clone());
         let backoff_max = config.retry_strategy_max_wait_time;
         let protocol_chain = {
             let transport = JrpcExpBackoff::http(
@@ -129,12 +127,13 @@ impl Oracle {
     async fn is_new_epoch(&self) -> Result<NewEpochCheck, Error> {
         use NewEpochCheck::*;
         let (subgraph_latest_indexed_block, subgraph_latest_epoch) = {
-            match self
-                .subgraph_state
-                .result()?
-                .and_then(|(block, state)| state.latest_epoch_number.map(|en| (*block, en)))
+            let subgraph_state = self.subgraph_state.result()?;
+            match subgraph_state
+                .global_state
+                .as_ref()
+                .and_then(|gs| gs.latest_epoch_number)
             {
-                Some(state) => state,
+                Some(epoch_num) => (subgraph_state.last_indexed_block_number, epoch_num),
                 None => {
                     warn!("The subgraph state is uninitialized");
                     return Ok(SubgraphIsUninitialized);
@@ -224,19 +223,8 @@ impl Oracle {
     }
 }
 
-fn registered_networks(
-    subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
-) -> Vec<crate::subgraph::Network> {
-    if let Ok(Some(state)) = subgraph_state.result() {
-        state.1.networks.clone()
-    } else {
-        // The subgraph is uninitialized, so there's no registered networks at all.
-        vec![]
-    }
-}
-
 fn set_block_numbers_for_next_epoch(
-    subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
+    subgraph_state: &SubgraphStateTracker,
     mut latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>,
 ) -> Vec<u8> {
     let registered_networks = registered_networks(subgraph_state);
@@ -309,8 +297,22 @@ fn set_block_numbers_for_next_epoch(
     encoded
 }
 
+fn registered_networks(subgraph_state: &SubgraphStateTracker) -> Vec<crate::subgraph::Network> {
+    if let Some(gs) = subgraph_state
+        .result()
+        .ok()
+        .and_then(|state| state.global_state.as_ref())
+    {
+        gs.networks.clone()
+    } else {
+        // The subgraph is uninitialized, so there's no registered networks at all.
+        vec![]
+    }
+}
+
 mod freshness {
-    use crate::{jrpc_utils::calls_in_block_range, models::JrpcProviderForChain};
+    use crate::models::JrpcProviderForChain;
+    use crate::runner::jrpc_utils::calls_in_block_range;
     use tracing::{debug, trace};
     use web3::types::{H160, U64};
 

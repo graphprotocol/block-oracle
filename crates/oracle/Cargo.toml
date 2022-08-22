@@ -35,3 +35,4 @@ hyper = { version = "0.14", features = ["server"] }
 [dev-dependencies]
 hyper = { version = "0.14", features = ["full"] }
 rand = "0.8"
+serde_json = "1"
