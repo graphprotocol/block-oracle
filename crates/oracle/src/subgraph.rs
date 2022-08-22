@@ -1,4 +1,4 @@
-use crate::{models::Caip2ChainId, MainLoopFlow, OracleControlFlow};
+use crate::{metrics::METRICS, models::Caip2ChainId, MainLoopFlow, OracleControlFlow};
 use anyhow::ensure;
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
@@ -190,25 +190,30 @@ impl TryFrom<graphql::subgraph_state::SubgraphStateGlobalStateNetworks> for Netw
             value.id
         );
 
-        let id = value
+        let id: Caip2ChainId = value
             .id
             .as_str()
             .parse()
             .map_err(|s| anyhow::anyhow!("Invalid network name: {}", s))?;
 
+        let block_number_info = value.block_numbers.pop().unwrap();
+        let latest_block_number: u64 = block_number_info.block_number.parse()?;
+        let acceleration: i64 = block_number_info.acceleration.parse()?;
+        let delta: i64 = block_number_info.delta.parse()?;
+        let updated_at_epoch_number: u64 = block_number_info.epoch_number.parse()?;
         let array_index = value
             .array_index
             .ok_or_else(|| anyhow::anyhow!("Expected a valid array_index for Network"))?
             as u64;
 
-        let block_number_info = value.block_numbers.pop().unwrap();
+        METRICS.set_latest_block_number(id.as_str(), "subgraph", latest_block_number as i64);
 
         Ok(Network {
             id,
-            latest_block_number: block_number_info.block_number.parse()?,
-            acceleration: block_number_info.acceleration.parse()?,
-            delta: block_number_info.delta.parse()?,
-            updated_at_epoch_number: block_number_info.epoch_number.parse()?,
+            latest_block_number,
+            acceleration,
+            delta,
+            updated_at_epoch_number,
             array_index,
         })
     }

@@ -16,6 +16,7 @@ pub struct Metrics {
     jrpc_request_duration_nanos: HistogramVec,
     current_epoch: IntGaugeVec,
     last_sent_message: Gauge,
+    latest_block_number: IntGaugeVec,
 }
 
 impl Metrics {
@@ -25,7 +26,7 @@ impl Metrics {
         let jrpc_request_duration_nanos = register_histogram_vec_with_registry!(
             "retries_by_jsonrpc_provider",
             "Number of JSON-RPC request retries.",
-            &["provider"],
+            &["network"],
             registry
         )?;
 
@@ -39,11 +40,18 @@ impl Metrics {
         let last_sent_message =
             register_gauge_with_registry!("last_sent_message", "Last Sent Message", registry)?;
 
+        let latest_block_number = register_int_gauge_vec_with_registry!(
+            "latest_block_number",
+            "Latest Block Number",
+            &["network", "source"],
+            registry
+        )?;
         Ok(Self {
             registry,
             jrpc_request_duration_nanos,
             current_epoch,
             last_sent_message,
+            latest_block_number,
         })
     }
 
@@ -67,12 +75,19 @@ impl Metrics {
         self.last_sent_message.set(now);
     }
 
-    pub fn set_jrpc_request_duration(&self, provider: &str, duration: std::time::Duration) {
+    pub fn set_jrpc_request_duration(&self, network: &str, duration: std::time::Duration) {
         let nanos = duration.as_secs_f64();
         self.jrpc_request_duration_nanos
-            .get_metric_with_label_values(&[provider])
+            .get_metric_with_label_values(&[network])
             .unwrap()
             .observe(nanos)
+    }
+
+    pub fn set_latest_block_number(&self, network: &str, source: &str, block_number: i64) {
+        self.latest_block_number
+            .get_metric_with_label_values(&[network, source])
+            .unwrap()
+            .set(block_number)
     }
 }
 

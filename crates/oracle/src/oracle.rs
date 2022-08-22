@@ -164,15 +164,24 @@ impl Oracle {
         let latest_blocks_res = get_latest_blocks(&self.indexed_chains).await;
         let latest_blocks = latest_blocks_res
             .iter()
-            .filter_map(|(chain_id, res)| match res {
-                Ok(block) => Some((chain_id.clone(), *block)),
-                Err(e) => {
-                    warn!(
-                        chain_id = chain_id.as_str(),
-                        error = e.to_string().as_str(),
-                        "Failed to get latest block from chain. Skipping."
-                    );
-                    None
+            .filter_map(|(chain_id, res)| -> Option<(Caip2ChainId, BlockPtr)> {
+                match res {
+                    Ok(block) => {
+                        METRICS.set_latest_block_number(
+                            chain_id.as_str(),
+                            "jrpc",
+                            block.number as i64,
+                        );
+                        Some((chain_id.clone(), *block))
+                    }
+                    Err(e) => {
+                        warn!(
+                            chain_id = chain_id.as_str(),
+                            error = e.to_string().as_str(),
+                            "Failed to get latest block from chain. Skipping."
+                        );
+                        None
+                    }
                 }
             })
             .collect();
