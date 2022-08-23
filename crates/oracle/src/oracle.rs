@@ -218,17 +218,15 @@ impl Oracle {
 
         // First, we need to make sure that there are no pending
         // `RegisterNetworks` messages.
-        let networks_diff = {
-            // `NetworksDiff::calculate` uses u32's but `registered_networks` has u64's
-            NetworksDiff::calculate(&registered_networks, self.config)
-        };
+        let networks_diff = { NetworksDiff::calculate(&registered_networks, self.config) };
         info!(
             created = networks_diff.insertions.len(),
             deleted = networks_diff.deletions.len(),
             "Performed indexed chain diffing."
         );
-        if let Some(msg) = networks_diff_to_message(&networks_diff) {
-            messages.push(msg);
+
+        if !networks_diff.is_empty() {
+            return Err(Error::MalconfiguredIndexedChains(networks_diff));
         }
 
         messages.push(latest_blocks_to_message(latest_blocks));
@@ -313,17 +311,6 @@ fn latest_blocks_to_message(latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>) -> 
             .map(|(chain_id, block_ptr)| (chain_id.as_str().to_owned(), block_ptr))
             .collect(),
     )
-}
-
-fn networks_diff_to_message(diff: &NetworksDiff) -> Option<ee::Message> {
-    if diff.deletions.is_empty() && diff.insertions.is_empty() {
-        None
-    } else {
-        Some(ee::Message::RegisterNetworks {
-            remove: diff.deletions.iter().copied().collect(),
-            add: diff.insertions.iter().map(ToString::to_string).collect(),
-        })
-    }
 }
 
 mod freshness {
