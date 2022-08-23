@@ -3,11 +3,14 @@ use crate::{
     hex_string,
     jrpc_utils::{get_latest_block, get_latest_blocks},
     metrics::METRICS,
-    Caip2ChainId, Config, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff, SubgraphQuery,
+    Caip2ChainId, Config, Error, JrpcExpBackoff, JrpcProviderForChain, SubgraphQuery,
     SubgraphStateTracker,
 };
-use epoch_encoding::{self as ee, BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::{cmp::Ordering, collections::BTreeMap};
+use epoch_encoding::{BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+};
 use tracing::{debug, error, info, warn};
 
 /// The main application in-memory state.
@@ -159,7 +162,6 @@ impl Oracle {
 
     async fn handle_new_epoch(&mut self) -> Result<(), Error> {
         info!("Entering a new epoch.");
-
         info!("Collecting latest block information from all indexed chains.");
 
         self.query_owner_eth_balance().await?;
@@ -189,7 +191,7 @@ impl Oracle {
             })
             .collect();
 
-        let payload = self.produce_next_payload(latest_blocks)?;
+        let payload = set_block_numbers_for_next_epoch(&self.subgraph_state, latest_blocks);
         let tx_hash = self
             .contracts
             .submit_call(payload, &self.config.owner_private_key)
@@ -206,73 +208,6 @@ impl Oracle {
         // component should do this task.
 
         Ok(())
-    }
-
-    fn produce_next_payload(
-        &self,
-        latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>,
-    ) -> Result<Vec<u8>, Error> {
-        let registered_networks = registered_networks(&self.subgraph_state);
-
-        let mut messages = vec![];
-
-        // First, we need to make sure that there are no pending
-        // `RegisterNetworks` messages.
-        let networks_diff = { NetworksDiff::calculate(&registered_networks, self.config) };
-        info!(
-            created = networks_diff.insertions.len(),
-            deleted = networks_diff.deletions.len(),
-            "Performed indexed chain diffing."
-        );
-
-        if !networks_diff.is_empty() {
-            return Err(Error::MalconfiguredIndexedChains(networks_diff));
-        }
-
-        messages.push(latest_blocks_to_message(latest_blocks));
-
-        let available_networks: Vec<(String, epoch_encoding::Network)> = {
-            registered_networks
-                .into_iter()
-                .map(|network| (network.id.as_str().to_owned(), network.into()))
-                .collect()
-        };
-
-        debug!(
-            messages = ?messages,
-            networks = ?available_networks,
-            messages_count = messages.len(),
-            networks_count = available_networks.len(),
-            "Compressing message(s)."
-        );
-
-        let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks)
-            .expect("Can't prepare for encoding because something went wrong.");
-        let compression_engine_initially = compression_engine.clone();
-
-        let compressed = compression_engine
-            .compress(&messages[..])
-            .unwrap_or_else(|error| {
-                panic!("Encoding failed. Messages {:?}. Error: {}", messages, error)
-            });
-        debug!(
-            compressed = ?compressed,
-            networks = ?compression_engine.network_deltas(),
-            "Successfully compressed message(s)."
-        );
-        let encoded = compression_engine.encode(&compressed);
-        debug!(
-            encoded = hex_string(&encoded).as_str(),
-            "Successfully encoded message(s)."
-        );
-
-        assert_ne!(
-            compression_engine, compression_engine_initially,
-            "The encoder has identical internal state compared to what \
-            it had before these new messages. This is a bug!"
-        );
-
-        Ok(encoded)
     }
 
     /// Queries the Protocol Chain for the current balance of the Owner's account.
@@ -304,13 +239,70 @@ fn registered_networks(
     }
 }
 
-fn latest_blocks_to_message(latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>) -> ee::Message {
-    Message::SetBlockNumbersForNextEpoch(
+fn set_block_numbers_for_next_epoch(
+    subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
+    latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>,
+) -> Vec<u8> {
+    let registered_networks = registered_networks(&subgraph_state);
+
+    let mut block_nums_for_next_epoch = BTreeMap::new();
+    let mut ignored_networks = BTreeSet::new();
+    for (chain_id, block_num) in &latest_blocks {
+        if registered_networks
+            .iter()
+            .any(|network| &network.id == chain_id)
+        {
+            block_nums_for_next_epoch.insert(chain_id, block_num);
+        } else {
+            ignored_networks.insert(chain_id);
+        }
+    }
+
+    let message = Message::SetBlockNumbersForNextEpoch(
         latest_blocks
             .into_iter()
             .map(|(chain_id, block_ptr)| (chain_id.as_str().to_owned(), block_ptr))
             .collect(),
-    )
+    );
+    let available_networks: Vec<(String, epoch_encoding::Network)> = {
+        registered_networks
+            .into_iter()
+            .map(|network| (network.id.as_str().to_owned(), network.into()))
+            .collect()
+    };
+
+    debug!(
+        message = ?message,
+        networks = ?available_networks,
+        networks_count = available_networks.len(),
+        "Compressing 'SetBlockNumbersForNextEpoch'"
+    );
+
+    let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks)
+        .expect("Can't prepare for encoding because something went wrong.");
+    let compression_engine_initially = compression_engine.clone();
+
+    let compressed = compression_engine
+        .compress(&[message])
+        .unwrap_or_else(|error| panic!("Encoding failed. Error: {}", error));
+    debug!(
+        compressed = ?compressed,
+        networks = ?compression_engine.network_deltas(),
+        "Successfully compressed 'SetBlockNumbersForNextEpoch'"
+    );
+    let encoded = compression_engine.encode(&compressed);
+    debug!(
+        encoded = hex_string(&encoded).as_str(),
+        "Successfully encoded 'SetBlockNumbersForNextEpoch'"
+    );
+
+    assert_ne!(
+        compression_engine, compression_engine_initially,
+        "The encoder has identical internal state compared to what \
+            it had before these new messages. This is a bug!"
+    );
+
+    encoded
 }
 
 mod freshness {
