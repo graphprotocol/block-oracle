@@ -1,11 +1,10 @@
 use crate::runner::jrpc_utils::{get_latest_block, get_latest_blocks, JrpcExpBackoff};
 use crate::runner::{hex_string, Error};
 use crate::{
-    contracts::Contracts, metrics::METRICS, Caip2ChainId, Config, JrpcProviderForChain,
+    Caip2ChainId, Config, Error, JrpcExpBackoff, JrpcProviderForChain, NetworksDiff,
     SubgraphStateTracker,
 };
 use epoch_encoding::{BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::{cmp::Ordering, collections::BTreeMap};
 use tracing::{debug, error, info, warn};
 
 /// The main application in-memory state.
@@ -13,22 +12,16 @@ pub struct Oracle {
     config: Config,
     protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
     indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
-    subgraph_state: SubgraphStateTracker,
     contracts: Contracts<JrpcExpBackoff>,
 }
 
 impl Oracle {
     pub fn new(config: Config) -> Self {
         let subgraph_state = SubgraphStateTracker::new(config.subgraph_url.clone());
-        let backoff_max = config.retry_strategy_max_wait_time;
-        let protocol_chain = {
-            let transport = JrpcExpBackoff::http(
-                config.protocol_chain.jrpc_url.clone(),
-                config.protocol_chain.id.clone(),
-                backoff_max,
-            );
-            JrpcProviderForChain::new(config.protocol_chain.id.clone(), transport)
-        };
+}
+
+impl Oracle {
+    pub fn new(config: &'static Config) -> Self {
         let indexed_chains = config
             .indexed_chains
             .iter()
@@ -49,7 +42,6 @@ impl Oracle {
             config,
             protocol_chain,
             indexed_chains,
-            subgraph_state,
             contracts,
         }
     }
@@ -58,8 +50,14 @@ impl Oracle {
     /// if necessary.
     pub async fn run(&mut self) -> Result<(), Error> {
         info!("New polling iteration.");
-        if self.detect_new_epoch().await? {
-            self.handle_new_epoch().await?;
+
+        // Before anything else, we must get the latest subgraph state
+        debug!("Querying the subgraph state...");
+        let subgraph_state =
+            query_subgraph(&self.config.subgraph_url, &self.config.bearer_token).await?;
+
+        if self.detect_new_epoch(&subgraph_state).await? {
+            self.handle_new_epoch(&subgraph_state).await?;
         } else {
             debug!("No epoch change detected.");
         }
@@ -68,14 +66,9 @@ impl Oracle {
 
     /// Checks if the Subgraph should consider that the Subgraph is at a previous epoch compared to
     /// the Epoch Manager.
-    async fn detect_new_epoch(&mut self) -> Result<bool, Error> {
-        // Before anything else, we must get the latest subgraph state
-        debug!("Querying the subgraph state...");
-        self.subgraph_state.refresh().await;
-        self.subgraph_state.result()?;
-
+    async fn detect_new_epoch(&self, subgraph_state: &SubgraphState) -> Result<bool, Error> {
         // Then we check if there is a new epoch by looking at the current Subgraph state.
-        let last_block_number_indexed_by_subgraph = match self.is_new_epoch().await? {
+        let last_block_number_indexed_by_subgraph = match self.is_new_epoch(subgraph_state).await? {
             // If the Subgraph is uninitialized, we should skip the freshness and epoch check
             // and return `true`, indicating that the Oracle should send a message.
             //
@@ -124,10 +117,9 @@ impl Oracle {
     ///
     /// Returns a pair of values indicating: 1) if there is a new epoch; and 2) the latest block
     /// number indexed by the subgraph. Returns `None` if the Subgraph is not initialized.
-    async fn is_new_epoch(&self) -> Result<NewEpochCheck, Error> {
+    async fn is_new_epoch(&self, subgraph_state: &SubgraphState) -> Result<NewEpochCheck, Error> {
         use NewEpochCheck::*;
         let (subgraph_latest_indexed_block, subgraph_latest_epoch) = {
-            let subgraph_state = self.subgraph_state.result()?;
             match subgraph_state
                 .global_state
                 .as_ref()
@@ -155,7 +147,7 @@ impl Oracle {
         }
     }
 
-    async fn handle_new_epoch(&mut self) -> Result<(), Error> {
+    async fn handle_new_epoch(&mut self, subgraph_state: &SubgraphState) -> Result<(), Error> {
         info!("Entering a new epoch.");
         info!("Collecting latest block information from all indexed chains.");
 
@@ -186,7 +178,7 @@ impl Oracle {
             })
             .collect();
 
-        let payload = set_block_numbers_for_next_epoch(&self.subgraph_state, latest_blocks);
+        let payload = self.produce_next_payload(&subgraph_state, latest_blocks)?;
         let tx_hash = self
             .contracts
             .submit_call(payload, &self.config.owner_private_key)
@@ -195,11 +187,7 @@ impl Oracle {
         METRICS.set_last_sent_message();
         info!(
             tx_hash = tx_hash.to_string().as_str(),
-            "Contract call submitted successfully."
-        );
-
-        // TODO: After broadcasting a transaction to the protocol chain and getting a transaction
-        // receipt, we should monitor it until it get enough confirmations. It's unclear which
+        let payload = self.produce_next_payload(latest_blocks)?;
         // component should do this task.
 
         Ok(())
@@ -223,11 +211,7 @@ impl Oracle {
     }
 }
 
-fn set_block_numbers_for_next_epoch(
-    subgraph_state: &SubgraphStateTracker,
-    mut latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>,
-) -> Vec<u8> {
-    let registered_networks = registered_networks(subgraph_state);
+        let mut messages = vec![];
 
     // We're not interested in unregistered networks. So we isolate them into a separate
     // collection, log them, and finally discard them.
@@ -244,63 +228,81 @@ fn set_block_numbers_for_next_epoch(
         warn!(
             ignored_networks = ?ignored_networks,
             "Multiple networks present in the configuration file are not registered"
+        {
+            ignored_networks.push(chain_id);
+        }
+    }
+    if !ignored_networks.is_empty() {
+        warn!(
+            ignored_networks = ?ignored_networks,
+            "Multiple networks present in the configuration file are not registered"
         );
-    }
-    for chain_id in ignored_networks {
-        latest_blocks.remove(&chain_id);
-    }
 
-    let message = Message::SetBlockNumbersForNextEpoch(
-        latest_blocks
-            .into_iter()
-            .map(|(chain_id, block_ptr)| (chain_id.as_str().to_owned(), block_ptr))
-            .collect(),
-    );
-    let available_networks: Vec<(String, epoch_encoding::Network)> = {
-        registered_networks
-            .into_iter()
-            .map(|network| (network.id.as_str().to_owned(), network.into()))
-            .collect()
-    };
+            return Err(Error::MalconfiguredIndexedChains(networks_diff));
+        }
+        let registered_networks = registered_networks(&self.subgraph_state);
+                .map(|network| (network.id.as_str().to_owned(), network.into()))
+                .collect()
+        };
 
-    debug!(
-        message = ?message,
-        networks = ?available_networks,
-        networks_count = available_networks.len(),
-        "Compressing 'SetBlockNumbersForNextEpoch'"
-    );
+        debug!(
+            messages = ?messages,
+            networks = ?available_networks,
+            messages_count = messages.len(),
+            networks_count = available_networks.len(),
+            "Compressing message(s)."
+        );
 
-    let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks)
-        .expect("Can't prepare for encoding because something went wrong.");
-    let compression_engine_initially = compression_engine.clone();
+        let mut compression_engine = Encoder::new(CURRENT_ENCODING_VERSION, available_networks)
+            .expect("Can't prepare for encoding because something went wrong.");
+        let compression_engine_initially = compression_engine.clone();
 
-    let compressed = compression_engine
-        .compress(&[message])
-        .unwrap_or_else(|error| panic!("Encoding failed. Error: {}", error));
-    debug!(
-        compressed = ?compressed,
-        networks = ?compression_engine.network_deltas(),
-        "Successfully compressed 'SetBlockNumbersForNextEpoch'"
-    );
-    let encoded = compression_engine.encode(&compressed);
-    debug!(
-        encoded = hex_string(&encoded).as_str(),
-        "Successfully encoded 'SetBlockNumbersForNextEpoch'"
-    );
+        let compressed = compression_engine
+            .compress(&messages[..])
+            .unwrap_or_else(|error| {
+                panic!("Encoding failed. Messages {:?}. Error: {}", messages, error)
+            });
+        debug!(
+            compressed = ?compressed,
+            networks = ?compression_engine.network_deltas(),
+            "Successfully compressed message(s)."
+        );
+        let encoded = compression_engine.encode(&compressed);
+        debug!(
+            encoded = hex_string(&encoded).as_str(),
+            "Successfully encoded message(s)."
+        );
 
-    assert_ne!(
-        compression_engine, compression_engine_initially,
-        "The encoder has identical internal state compared to what \
+        assert_ne!(
+            compression_engine, compression_engine_initially,
+            "The encoder has identical internal state compared to what \
             it had before these new messages. This is a bug!"
-    );
+        );
 
-    encoded
+        Ok(encoded)
+    }
+
+    /// Queries the Protocol Chain for the current balance of the Owner's account.
+    ///
+    /// Used for monitoring and logging.
+    async fn query_owner_eth_balance(&self) -> Result<usize, Error> {
+        let balance = self
+            .protocol_chain
+            .web3
+            .eth()
+            .balance(self.config.owner_address, None)
+            .await
+            .map_err(Error::BadJrpcProtocolChain)?
+            .as_usize();
+        info!("Owner ETH Balance is {} gwei", balance);
+        METRICS.set_wallet_balance(balance as i64);
+        Ok(balance)
+    }
 }
 
 fn registered_networks(subgraph_state: &SubgraphStateTracker) -> Vec<crate::subgraph::Network> {
     if let Some(gs) = subgraph_state
         .result()
-        .ok()
         .and_then(|state| state.global_state.as_ref())
     {
         gs.networks.clone()
@@ -310,88 +312,27 @@ fn registered_networks(subgraph_state: &SubgraphStateTracker) -> Vec<crate::subg
     }
 }
 
-mod freshness {
-    use crate::models::JrpcProviderForChain;
-    use crate::runner::jrpc_utils::calls_in_block_range;
-    use tracing::{debug, trace};
-    use web3::types::{H160, U64};
-
-    /// The Epoch Subgraph is considered fresh if it has processed all relevant transactions
-    /// targeting the DataEdge contract.
-    ///
-    /// To assert that, the Block Oracle will need to get the latest block from a JSON RPC provider
-    /// and compare its number with the subgraph’s current block.
-    ///
-    /// If they are way too different, then the subgraph is not fresh, and we should gracefully
-    /// handle that error.
-    ///
-    /// Otherwise, if block numbers are under a certain threshold apart, we could scan the blocks
-    /// in between and ensure they’re not relevant to the DataEdge contract.
-    pub async fn subgraph_is_fresh<T>(
-        subgraph_latest_block: U64,
-        current_block: U64,
-        protocol_chain: JrpcProviderForChain<T>,
-        owner_address: H160,
-        contract_address: H160,
-        freshness_threshold: u64,
-    ) -> web3::Result<bool>
-    where
-        T: web3::Transport,
-    {
-        // If this ever happens, then there must be a serious bug in the code
-        if subgraph_latest_block > current_block {
-            return Ok(true);
-        }
-        let block_distance = (current_block - subgraph_latest_block).as_u64();
-        if block_distance == 0 {
-            return Ok(true);
-        } else if block_distance > freshness_threshold {
-            debug!(
-                %subgraph_latest_block,
-                %current_block,
-                "Epoch Subgraph is not considered fresh because it is {} blocks behind \
-                 protocol chain's head",
-                block_distance
-            );
-            return Ok(false);
-        }
-        // Scan the blocks in betwenn for transactions from the Owner to the Data Edge contract
-        let calls = calls_in_block_range(
-            protocol_chain.web3,
-            subgraph_latest_block.as_u64()..=current_block.as_u64(),
-            owner_address,
-            contract_address,
-        )
-        .await?;
-
-        if calls.is_empty() {
-            trace!(
-                %subgraph_latest_block,
-                %current_block,
-                "Epoch Subgraph is fresh. \
-                 Found no calls between last synced block and the protocol chain's head",
-            );
-            Ok(true)
-        } else {
-            debug!(
-                %subgraph_latest_block,
-                %current_block,
-                "Epoch Subgraph is not fresh. \
-                 Found {} calls between the last synced block and the protocol chain's head",
-                calls.len()
-            );
-            Ok(false)
-        }
-    }
+fn latest_blocks_to_message(latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>) -> ee::Message {
+    Message::SetBlockNumbersForNextEpoch(
+        latest_blocks
+            .into_iter()
+            .map(|(chain_id, block_ptr)| (chain_id.as_str().to_owned(), block_ptr))
+            .collect(),
+    )
 }
 
-/// Used inside the 'Oracle::is_new_epoch' method to return information about the Epoch Subgraph
-/// current state.
-enum NewEpochCheck {
-    /// The Epoch Subgraph has no initial state.
-    SubgraphIsUninitialized,
     /// The Epoch Subgraph is at a previous epoch than the Epoch Manager.
     PreviousEpoch { subgraph_latest_indexed_block: u64 },
     /// The Epoch Subgraph is at the same epoch as the Epoch Manager.
     SameEpoch,
 }
+
+
+}
+
+fn latest_blocks_to_message(latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>) -> ee::Message {
+    Message::SetBlockNumbersForNextEpoch(
+        latest_blocks
+            .into_iter()
+            .map(|(chain_id, block_ptr)| (chain_id.as_str().to_owned(), block_ptr))
+            .collect(),

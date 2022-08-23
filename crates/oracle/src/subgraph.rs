@@ -5,8 +5,8 @@ use anyhow::ensure;
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Url;
-use std::{sync::Arc, time::Duration};
-use tracing::{error, info, warn};
+use std::time::Duration;
+use tracing::{error, info};
 
 #[derive(Debug, thiserror::Error)]
 pub enum SubgraphQueryError {
@@ -35,7 +35,7 @@ impl MainLoopFlow for SubgraphQueryError {
     }
 }
 
-async fn query_subgraph(
+pub async fn query_subgraph(
     url: &Url,
     bearer_token: &str,
 ) -> Result<SubgraphState, SubgraphQueryError> {
@@ -85,47 +85,6 @@ async fn query_subgraph(
         last_indexed_block_number,
         global_state,
     })
-}
-
-/// Coordinates the retrieval of subgraph data and the transition of its own internal state.
-pub struct SubgraphStateTracker {
-    last_result: Result<Option<SubgraphState>, Arc<SubgraphQueryError>>,
-    url: Url,
-}
-
-impl SubgraphStateTracker {
-    pub fn new(url: Url) -> Self {
-        Self {
-            last_result: Ok(None),
-            url,
-        }
-    }
-
-    pub fn result(&self) -> Result<&SubgraphState, Arc<SubgraphQueryError>> {
-        match self.last_result {
-            Ok(Some(ref s)) => Ok(s),
-            Ok(None) => panic!("Must refresh before getting the latest state"),
-            Err(ref e) => Err(e.clone()),
-        }
-    }
-
-    /// Handles the retrieval of new subgraph state and the transition of its internal [`State`]
-    pub async fn refresh(&mut self) {
-        info!("Fetching latest subgraph state");
-
-        let result = query_subgraph(&self.url, "TODO AUTH")
-            .await
-            .map(Some)
-            .map_err(Arc::new);
-
-        if result.is_err() {
-            error!("The subgraph is failed.");
-        } else if result.as_ref().ok() != self.last_result.as_ref().ok() {
-            warn!("The subgraph's state has changed since the last time we checked. This is expected.");
-        }
-
-        self.last_result = result;
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
