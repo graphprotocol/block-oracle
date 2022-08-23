@@ -161,18 +161,30 @@ impl Oracle {
         info!("Entering a new epoch.");
 
         info!("Collecting latest block information from all indexed chains.");
+
+        self.query_owner_eth_balance().await?;
+
         let latest_blocks_res = get_latest_blocks(&self.indexed_chains).await;
         let latest_blocks = latest_blocks_res
             .iter()
-            .filter_map(|(chain_id, res)| match res {
-                Ok(block) => Some((chain_id.clone(), *block)),
-                Err(e) => {
-                    warn!(
-                        chain_id = chain_id.as_str(),
-                        error = e.to_string().as_str(),
-                        "Failed to get latest block from chain. Skipping."
-                    );
-                    None
+            .filter_map(|(chain_id, res)| -> Option<(Caip2ChainId, BlockPtr)> {
+                match res {
+                    Ok(block) => {
+                        METRICS.set_latest_block_number(
+                            chain_id.as_str(),
+                            "jrpc",
+                            block.number as i64,
+                        );
+                        Some((chain_id.clone(), *block))
+                    }
+                    Err(e) => {
+                        warn!(
+                            chain_id = chain_id.as_str(),
+                            error = e.to_string().as_str(),
+                            "Failed to get latest block from chain. Skipping."
+                        );
+                        None
+                    }
                 }
             })
             .collect();
@@ -183,6 +195,7 @@ impl Oracle {
             .submit_call(payload, &self.config.owner_private_key)
             .await
             .map_err(Error::CantSubmitTx)?;
+        METRICS.set_last_sent_message();
         info!(
             tx_hash = tx_hash.to_string().as_str(),
             "Contract call submitted successfully."
@@ -262,6 +275,23 @@ impl Oracle {
         );
 
         Ok(encoded)
+    }
+
+    /// Queries the Protocol Chain for the current balance of the Owner's account.
+    ///
+    /// Used for monitoring and logging.
+    async fn query_owner_eth_balance(&self) -> Result<usize, Error> {
+        let balance = self
+            .protocol_chain
+            .web3
+            .eth()
+            .balance(self.config.owner_address, None)
+            .await
+            .map_err(Error::BadJrpcProtocolChain)?
+            .as_usize();
+        info!("Owner ETH Balance is {} gwei", balance);
+        METRICS.set_wallet_balance(balance as i64);
+        Ok(balance)
     }
 }
 

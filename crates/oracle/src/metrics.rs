@@ -1,8 +1,10 @@
 use lazy_static::lazy_static;
 use prometheus::{
-    register_histogram_vec_with_registry, register_int_gauge_vec_with_registry, Encoder,
-    HistogramVec, IntGaugeVec, Registry, TextEncoder,
+    register_gauge_with_registry, register_histogram_vec_with_registry,
+    register_int_gauge_vec_with_registry, register_int_gauge_with_registry, Encoder, Gauge,
+    HistogramVec, IntGauge, IntGaugeVec, Registry, TextEncoder,
 };
+use std::time::UNIX_EPOCH;
 
 lazy_static! {
     pub static ref METRICS: Metrics = Metrics::new().expect("failed to create Metrics");
@@ -11,18 +13,21 @@ lazy_static! {
 #[derive(Debug, Clone)]
 pub struct Metrics {
     registry: Registry,
-    _retries_by_jsonrpc_provider: HistogramVec,
+    jrpc_request_duration_nanos: HistogramVec,
     current_epoch: IntGaugeVec,
+    last_sent_message: Gauge,
+    latest_block_number: IntGaugeVec,
+    wallet_balance: IntGauge,
 }
 
 impl Metrics {
     pub fn new() -> Result<Self, prometheus::Error> {
         let registry = Registry::new();
 
-        let retries_by_jsonrpc_provider = register_histogram_vec_with_registry!(
-            "retries_by_jsonrpc_provider",
-            "Number of JSON-RPC request retries.",
-            &["provider"],
+        let jrpc_request_duration_nanos = register_histogram_vec_with_registry!(
+            "jrpc_request_duration_nanos",
+            "JSON RPC Request Duration",
+            &["network"],
             registry
         )?;
 
@@ -33,10 +38,26 @@ impl Metrics {
             registry
         )?;
 
+        let last_sent_message =
+            register_gauge_with_registry!("last_sent_message", "Last Sent Message", registry)?;
+
+        let latest_block_number = register_int_gauge_vec_with_registry!(
+            "latest_block_number",
+            "Latest Block Number",
+            &["network", "source"],
+            registry
+        )?;
+
+        let wallet_balance =
+            register_int_gauge_with_registry!("eth_balance", "Owner's ETH Balance", registry)?;
+
         Ok(Self {
             registry,
-            _retries_by_jsonrpc_provider: retries_by_jsonrpc_provider,
+            jrpc_request_duration_nanos,
             current_epoch,
+            last_sent_message,
+            latest_block_number,
+            wallet_balance,
         })
     }
 
@@ -53,6 +74,30 @@ impl Metrics {
             .get_metric_with_label_values(&[label])
             .unwrap()
             .set(current_epoch as i64);
+    }
+
+    pub fn set_last_sent_message(&self) {
+        let now = UNIX_EPOCH.elapsed().unwrap().as_secs_f64();
+        self.last_sent_message.set(now);
+    }
+
+    pub fn set_jrpc_request_duration(&self, network: &str, duration: std::time::Duration) {
+        let nanos = duration.as_secs_f64();
+        self.jrpc_request_duration_nanos
+            .get_metric_with_label_values(&[network])
+            .unwrap()
+            .observe(nanos)
+    }
+
+    pub fn set_latest_block_number(&self, network: &str, source: &str, block_number: i64) {
+        self.latest_block_number
+            .get_metric_with_label_values(&[network, source])
+            .unwrap()
+            .set(block_number)
+    }
+
+    pub fn set_wallet_balance(&self, balance: i64) {
+        self.wallet_balance.set(balance)
     }
 }
 
