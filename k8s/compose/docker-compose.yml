@@ -5,7 +5,7 @@ services:
     build:
       context: ../..
       dockerfile: k8s/Dockerfile
-    command: [ "/usr/local/bin/block-oracle", "/app/config.toml" ]
+    command: [ "/usr/local/bin/block-oracle", "run",  "/app/config.toml" ]
     environment:
       RUST_BACKTRACE: '1'
       SUBGRAPH_URL: 'http://graph-node:8000/subgraphs/name/edgeandnode/block-oracle'
