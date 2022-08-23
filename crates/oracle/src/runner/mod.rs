@@ -10,7 +10,7 @@ use error_handling::{MainLoopFlow, OracleControlFlow};
 use futures::TryFutureExt;
 use lazy_static::lazy_static;
 use oracle::Oracle;
-use std::{env::set_var, path::Path, sync::Arc, time::Duration};
+use std::{env::set_var, path::Path, time::Duration};
 use tracing::{error, info, metadata::LevelFilter};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -36,7 +36,7 @@ pub enum Error {
         error: web3::Error,
     },
     #[error(transparent)]
-    Subgraph(#[from] Arc<SubgraphQueryError>),
+    Subgraph(#[from] SubgraphQueryError),
     #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
     CantSubmitTx(web3::contract::Error),
     #[error("Failed to call Epoch Manager")]

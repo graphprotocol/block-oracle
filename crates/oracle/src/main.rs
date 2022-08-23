@@ -13,9 +13,9 @@ use std::path::PathBuf;
 use web3::transports::Http;
 
 pub use config::Config;
-pub use metrics::METRICS;
 pub use models::{Caip2ChainId, JrpcProviderForChain};
-pub use subgraph::{SubgraphQueryError, SubgraphStateTracker};
+pub use runner::*;
+pub use subgraph::{query_subgraph, SubgraphQueryError};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -37,27 +37,6 @@ async fn main() -> anyhow::Result<()> {
         Clap::CurrentEpoch { config_file } => {
             let config = Config::parse(config_file);
             print_current_epoch(config).await?;
-        payload: String,
-    },
-}
-
-impl MainLoopFlow for Error {
-    fn instruction(&self) -> OracleControlFlow {
-        use Error::*;
-        match self {
-            Subgraph(err) => err.instruction(),
-            BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
-            BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
-
-            // TODO: Put those variants under a new `contracts::Error` enum
-            CantSubmitTx(_) => OracleControlFlow::Continue(None),
-            EpochManagerCallFailed(_) => OracleControlFlow::Continue(None),
-            EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(None),
-
-            // TODO: Put those variants under the `SubgraphQueryError` enum
-            SubgraphNotFresh => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
-
-            MalconfiguredIndexedChains(_) => OracleControlFlow::Break(()),
         }
         Clap::SendMessage {
             config_file,
@@ -111,6 +90,9 @@ async fn send_message(config: Config, payload: Vec<u8>) -> anyhow::Result<()> {
     let contracts = init_contracts(config)?;
     let tx = contracts.submit_call(payload, &private_key).await?;
     println!("Sent message.\nTransaction hash: {tx:?}");
+    Ok(())
+}
+
 async fn print_current_epoch(config: Config) -> anyhow::Result<()> {
     let contracts = init_contracts(config)?;
     let current_epoch = contracts.query_current_epoch().await?;
