@@ -1,0 +1,44 @@
+[
+   [
+      {
+         "add": [
+            "A",
+            "B",
+            "C",
+            "D"
+         ],
+         "message": "RegisterNetworks",
+         "remove": [ ]
+      },
+      {
+         "accelerations": [
+            1,
+            2,
+            3,
+            4
+         ],
+         "merkleRoot": "0x66ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc49",
+         "message": "SetBlockNumbersForNextEpoch"
+      },
+      {
+         "accelerations": [
+            5,
+            6,
+            7,
+            8
+         ],
+         "merkleRoot": "0x66ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc49",
+         "message": "SetBlockNumbersForNextEpoch"
+      },
+      {
+         "accelerations": [
+            9,
+            10,
+            11,
+            12
+         ],
+         "merkleRoot": "0x66ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc49",
+         "message": "SetBlockNumbersForNextEpoch"
+      }
+   ]
+]

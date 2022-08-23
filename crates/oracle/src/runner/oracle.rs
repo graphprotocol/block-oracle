@@ -1,10 +1,9 @@
 use crate::{
     contracts::Contracts,
     hex_string,
-    jrpc_utils::{get_latest_block, get_latest_blocks},
+    jrpc_utils::{get_latest_block, get_latest_blocks, JrpcExpBackoff},
     metrics::METRICS,
-    Caip2ChainId, Config, Error, JrpcExpBackoff, JrpcProviderForChain, SubgraphQuery,
-    SubgraphStateTracker,
+    Caip2ChainId, Config, Error, JrpcProviderForChain, SubgraphQuery, SubgraphStateTracker,
 };
 use epoch_encoding::{BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::{cmp::Ordering, collections::BTreeMap};
@@ -12,7 +11,7 @@ use tracing::{debug, error, info, warn};
 
 /// The main application in-memory state.
 pub struct Oracle {
-    config: &'static Config,
+    config: Config,
     protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
     indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
     subgraph_state: SubgraphStateTracker<SubgraphQuery>,
@@ -20,7 +19,7 @@ pub struct Oracle {
 }
 
 impl Oracle {
-    pub fn new(config: &'static Config) -> Self {
+    pub fn new(config: Config) -> Self {
         let subgraph_api = SubgraphQuery::new(config.subgraph_url.clone());
         let subgraph_state = SubgraphStateTracker::new(subgraph_api);
         let backoff_max = config.retry_strategy_max_wait_time;
