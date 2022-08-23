@@ -24,9 +24,15 @@ jobs:
           command: check
           args: --workspace --tests
 
-  compile-release:
+  upload-binaies:
     name: Compile with --release
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@v1
@@ -38,7 +44,7 @@ jobs:
           args: --release
       - uses: actions/upload-artifact@v3
         with:
-          name: block-oracle-x86
+          name: block-oracle-${{ matrix.os }}
           path: target/release/block-oracle
   test:
     name: Tests
