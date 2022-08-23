@@ -243,7 +243,7 @@ fn set_block_numbers_for_next_epoch(
     subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
     latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>,
 ) -> Vec<u8> {
-    let registered_networks = registered_networks(&subgraph_state);
+    let registered_networks = registered_networks(subgraph_state);
 
     let mut block_nums_for_next_epoch = BTreeMap::new();
     let mut ignored_networks = BTreeSet::new();
