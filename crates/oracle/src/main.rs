@@ -55,13 +55,13 @@ async fn main() -> anyhow::Result<()> {
 #[clap(bin_name = "block-oracle")]
 #[clap(author, version, about, long_about = None)]
 enum Clap {
-    /// Runs the block oracle and regularly sends block number updates.
+    /// Run the block oracle and regularly sends block number updates.
     Run {
         /// The path of the TOML configuration file.
         #[clap(parse(from_os_str))]
         config_file: PathBuf,
     },
-    /// Compiles block oracle messages from JSON to calldata.
+    /// Compile block oracle messages from JSON to calldata.
     Encode {
         /// The path to the JSON file containing the message(s).
         json_path: PathBuf,
@@ -69,13 +69,13 @@ enum Clap {
         #[clap(short, long, action)]
         calldata: bool,
     },
-    /// Queries the Epoch Manager for the current epoch.
+    /// Query the Epoch Manager for the current epoch.
     CurrentEpoch {
         /// The path of the TOML configuration file.
         #[clap(short, long)]
         config_file: PathBuf,
     },
-    /// Sends a message to the DataEdge contract.
+    /// Send a message to the DataEdge contract.
     SendMessage {
         /// The path of the TOML configuration file.
         #[clap(short, long)]

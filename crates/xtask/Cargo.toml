@@ -9,8 +9,6 @@ xshell = "0.2.2"
 glob = "0.3.0"
 web3 = "0.18.0"
 toml = "0.5.9"
-epoch-encoding = { path = "../encoding" }
-block-oracle = { path = "../oracle" }
 
 [dependencies.clap]
 version = "3"
