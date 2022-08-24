@@ -5,7 +5,6 @@ mod error_handling;
 mod jrpc_utils;
 mod metrics;
 mod models;
-mod networks_diff;
 mod oracle;
 mod subgraph;
 
@@ -16,7 +15,6 @@ use futures::TryFutureExt;
 pub use jrpc_utils::JrpcExpBackoff;
 pub use metrics::{server::metrics_server, Metrics, METRICS};
 pub use models::{Caip2ChainId, JrpcProviderForChain};
-pub use networks_diff::NetworksDiff;
 pub use oracle::Oracle;
 pub use subgraph::{SubgraphApi, SubgraphQuery, SubgraphQueryError, SubgraphStateTracker};
 
@@ -58,8 +56,6 @@ pub enum Error {
     EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
     #[error("The subgraph hasn't indexed all relevant transactions yet")]
     SubgraphNotFresh,
-    #[error("There is a difference between the configured and registered indexed chains")]
-    MalconfiguredIndexedChains(NetworksDiff),
 }
 
 impl MainLoopFlow for Error {
@@ -77,8 +73,6 @@ impl MainLoopFlow for Error {
 
             // TODO: Put those variants under the `SubgraphQueryError` enum
             SubgraphNotFresh => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
-
-            MalconfiguredIndexedChains(_) => OracleControlFlow::Break(()),
         }
     }
 }
