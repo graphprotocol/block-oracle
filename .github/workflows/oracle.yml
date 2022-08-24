@@ -26,13 +26,27 @@ jobs:
 
   upload-binaies:
     name: Upload binaries
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-pc-windows-msvc
+          - x86_64-apple-darwin
+          - aarch64-apple-darwin
+        include:
+          - target: x86_64-unknown-linux-gnu
+            artifact: linux-x86
+            binary: block-oracle
+          - target: x86_64-pc-windows-msvc
+            artifact: windows-x86.exe
+            binary: block-oracle.exe
+          - target: x86_64-apple-darwin
+            artifact: macos-x86
+            binary: block-oracle
+          - target: aarch64-apple-darwin
+            artifact: macos-arm
+            binary: block-oracle
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@v1
@@ -40,12 +54,13 @@ jobs:
         env:
           RUSTFLAGS: "-D warnings"
         with:
+          use-cross: true
           command: build
-          args: --release
+          args: --release --target=${{ matrix.target }}
       - uses: actions/upload-artifact@v3
         with:
-          name: block-oracle-${{ matrix.os }}
-          path: target/release/block-oracle
+          name: block-oracle-${{ matrix.artifact }}
+          path: target/release/${{ matrix.binary }}
   test:
     name: Tests
     runs-on: ubuntu-latest
