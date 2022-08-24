@@ -24,53 +24,6 @@ jobs:
           command: check
           args: --workspace --tests
 
-  upload-binaies:
-    name: Upload binaries
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-pc-windows-msvc
-          - x86_64-apple-darwin
-          - aarch64-apple-darwin
-        # https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs#expanding-or-adding-matrix-configurations
-        include:
-          - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            artifact: linux-x86
-            binary: block-oracle
-          - target: x86_64-pc-windows-msvc
-            os: windows-latest
-            artifact: windows-x86.exe
-            binary: block-oracle.exe
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            artifact: macos-x86
-            binary: block-oracle
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            artifact: macos-arm
-            binary: block-oracle
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          override: true
-      - uses: Swatinem/rust-cache@v2
-      - uses: actions-rs/cargo@v1
-        env:
-          RUSTFLAGS: "-D warnings"
-        with:
-          command: build
-          args: --release --target=${{ matrix.target }}
-      - uses: actions/upload-artifact@v3
-        with:
-          name: block-oracle-${{ matrix.artifact }}
-          path: target/${{ matrix.target }}/release/${{ matrix.binary }}
   test:
     name: Tests
     runs-on: ubuntu-latest
