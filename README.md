@@ -1,6 +1,9 @@
-# Epoch block oracle
+# Epoch Block Oracle
 
-This is the home to the Epoch block oracle project. Read more about it here: https://forum.thegraph.com/t/gip-epoch-block-oracle/3323.
+![GitHub](https://img.shields.io/github/license/graphprotocol/block-oracle)
+![GitHub branch checks state](https://img.shields.io/github/checks-status/graphprotocol/block-oracle/main)
+
+This is the home to the Epoch Block Oracle (EBO) project. Read more about it [here](https://forum.thegraph.com/t/gip-epoch-block-oracle/3323).
 
 ## Legal
 
