@@ -26,12 +26,11 @@ jobs:
 
   upload-binaies:
     name: Upload binaries
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         os:
-          - windows-latest
           - ubuntu-latest
+          - windows-latest
           - macos-latest
         include:
           - os: ubuntu-latest
@@ -50,6 +49,7 @@ jobs:
             target: aarch64-apple-darwin
             artifact: macos-arm
             binary: block-oracle
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: Swatinem/rust-cache@v1
