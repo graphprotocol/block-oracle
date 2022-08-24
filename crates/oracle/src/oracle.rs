@@ -238,24 +238,29 @@ fn registered_networks(
 
 fn set_block_numbers_for_next_epoch(
     subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
-    latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>,
+    mut latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>,
 ) -> Vec<u8> {
     let registered_networks = registered_networks(subgraph_state);
 
-    let ignored_networks: Vec<Caip2ChainId> = latest_blocks
-        .keys()
-        .cloned()
-        .filter(|chain_id| {
-            !registered_networks
-                .iter()
-                .any(|network| &network.id == chain_id)
-        })
-        .collect();
+    // We're not interested in unregistered networks. So we isolate them into a separate
+    // collection, log them, and finally discard them.
+    let mut ignored_networks = Vec::new();
+    for chain_id in latest_blocks.keys().cloned() {
+        if !registered_networks
+            .iter()
+            .any(|network| network.id == chain_id)
+        {
+            ignored_networks.push(chain_id);
+        }
+    }
     if !ignored_networks.is_empty() {
         warn!(
             ignored_networks = ?ignored_networks,
             "Multiple networks present in the configuration file are not registered"
         );
+    }
+    for chain_id in ignored_networks {
+        latest_blocks.remove(&chain_id);
     }
 
     let message = Message::SetBlockNumbersForNextEpoch(
