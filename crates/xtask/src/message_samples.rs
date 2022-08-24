@@ -3,8 +3,8 @@ use glob::glob;
 use std::{fs::write, path::PathBuf};
 use xshell::{cmd, Shell};
 
-const JSONNET_SAMPLES_DIRECTORY: &str = "crates/oracle-encoder/examples/jsonnet-examples";
-const JSON_SAMPLES_DIRECTORY: &str = "crates/oracle-encoder/examples/";
+const JSONNET_SAMPLES_DIRECTORY: &str = "crates/oracle/message-examples/jsonnet-examples";
+const JSON_SAMPLES_DIRECTORY: &str = "crates/oracle/message-examples/";
 
 fn compile() -> anyhow::Result<()> {
     let sh = Shell::new()?;

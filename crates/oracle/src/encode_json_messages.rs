@@ -1,27 +1,14 @@
-use clap::Parser;
+use anyhow::anyhow;
 use epoch_encoding as ee;
 use ethabi::{encode, short_signature, ParamType, Token};
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{collections::BTreeMap, io, path::PathBuf};
+use std::collections::BTreeMap;
 
-#[derive(Parser)]
-#[clap(name = "oracle-encoder")]
-#[clap(bin_name = "oracle-encoder")]
-#[clap(author, version, about, long_about = None)]
-struct OracleEncoder {
-    /// The path to the JSON file containing the message block.
-    json_path: PathBuf,
-
-    /// Whether to output the full calldata instead of just the payload.
-    #[clap(short, long, action)]
-    calldata: bool,
-}
-
-fn main() -> io::Result<()> {
-    let inputs = OracleEncoder::parse();
-
-    let file_contents = std::fs::read_to_string(inputs.json_path)?;
-    let message_blocks: Vec<MessageBlock> = serde_json::from_str(&file_contents).unwrap();
+pub fn print_encoded_json_messages(
+    output_kind: OutputKind,
+    json: serde_json::Value,
+) -> anyhow::Result<()> {
+    let message_blocks: Vec<MessageBlock> = serde_json::from_value(json)?;
 
     let mut encoded_message_blocks = vec![];
     for block in message_blocks {
@@ -32,47 +19,40 @@ fn main() -> io::Result<()> {
         let mut message_types = vec![];
         let mut compressed_contents = vec![];
         for message in contents {
-            let (message_type, ready_to_encode) = match message {
-                Message::Reset => ("Reset", ee::CompressedMessage::Reset),
-                Message::CorrectEpochs {} => (
-                    "CorrectEpochs",
-                    ee::CompressedMessage::CorrectEpochs {
-                        data_by_network_id: BTreeMap::new(),
-                    },
-                ),
-                Message::UpdateVersion { version_number } => ("UpdateVersion", {
+            let message_type = message.message_type();
+            let ready_to_encode = match message {
+                Message::Reset => ee::CompressedMessage::Reset,
+                Message::CorrectEpochs {} => ee::CompressedMessage::CorrectEpochs {
+                    data_by_network_id: BTreeMap::new(),
+                },
+                Message::UpdateVersion { version_number } => {
                     ee::CompressedMessage::UpdateVersion { version_number }
-                }),
-                Message::RegisterNetworks { remove, add } => ("RegisterNetworks", {
+                }
+                Message::RegisterNetworks { remove, add } => {
                     ee::CompressedMessage::RegisterNetworks { remove, add }
-                }),
-                Message::ChangeOwnership { new_owner_address } => ("ChangeOwnership", {
+                }
+                Message::ChangeOwnership { new_owner_address } => {
                     ee::CompressedMessage::ChangeOwnership {
                         new_owner_address: new_owner_address
                             .try_into()
-                            .expect("Bad owner address length; must be 20 bytes"),
+                            .map_err(|_| anyhow!("Bad owner address length; must be 20 bytes"))?,
                     }
-                }),
+                }
                 Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::Empty {
                     count,
-                }) => ("SetBlockNumbersForNextEpoch", {
-                    ee::CompressedMessage::SetBlockNumbersForNextEpoch(
-                        ee::CompressedSetBlockNumbersForNextEpoch::Empty { count },
-                    )
-                }),
+                }) => ee::CompressedMessage::SetBlockNumbersForNextEpoch(
+                    ee::CompressedSetBlockNumbersForNextEpoch::Empty { count },
+                ),
                 Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::NonEmpty {
                     merkle_root,
                     accelerations,
-                }) => (
-                    "SetBlockNumbersForNextEpoch",
-                    ee::CompressedMessage::SetBlockNumbersForNextEpoch(
-                        ee::CompressedSetBlockNumbersForNextEpoch::NonEmpty {
-                            root: merkle_root
-                                .try_into()
-                                .expect("Bad JSON: The Merkle root must have exactly 32 bytes."),
-                            accelerations,
-                        },
-                    ),
+                }) => ee::CompressedMessage::SetBlockNumbersForNextEpoch(
+                    ee::CompressedSetBlockNumbersForNextEpoch::NonEmpty {
+                        root: merkle_root.try_into().map_err(|_| {
+                            anyhow!("Bad JSON: The Merkle root must have exactly 32 bytes.")
+                        })?,
+                        accelerations,
+                    },
                 ),
             };
             message_types.push(message_type);
@@ -83,23 +63,34 @@ fn main() -> io::Result<()> {
         encoded_message_blocks.push((message_types, payload));
     }
 
-    if inputs.calldata {
-        for (_, block_payload) in encoded_message_blocks.into_iter() {
-            let calldata = calldata(block_payload);
-            println!("{}", hex::encode(calldata));
+    match output_kind {
+        OutputKind::Calldata => {
+            for (_, block_payload) in encoded_message_blocks.into_iter() {
+                let calldata = calldata(block_payload);
+                println!("{}", hex::encode(calldata));
+            }
         }
-    } else {
-        for (i, (message_types, block_payload)) in encoded_message_blocks.iter().enumerate() {
-            println!(
-                "{} ({}): 0x{}",
-                i + 1,
-                message_types.join(", "),
-                hex::encode(block_payload)
-            );
+        OutputKind::Payload => {
+            for (i, (message_types, block_payload)) in encoded_message_blocks.iter().enumerate() {
+                println!(
+                    "{} ({}): 0x{}",
+                    i + 1,
+                    message_types.join(", "),
+                    hex::encode(block_payload)
+                );
+            }
         }
-    };
+    }
 
     Ok(())
+}
+
+/// Whether the JSON encoder should output the payload of the compressed messages, or the full
+/// calldata.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutputKind {
+    Calldata,
+    Payload,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -132,6 +123,19 @@ pub enum Message {
         #[serde(deserialize_with = "deserialize_hex")]
         new_owner_address: Vec<u8>,
     },
+}
+
+impl Message {
+    pub const fn message_type(&self) -> &'static str {
+        match self {
+            Message::SetBlockNumbersForNextEpoch(_) => "SetBlockNumbersForNextEpoch",
+            Message::CorrectEpochs { .. } => "CorrectEpochs",
+            Message::RegisterNetworks { .. } => "RegisterNetworks",
+            Message::UpdateVersion { .. } => "UpdateVersion",
+            Message::Reset => "Reset",
+            Message::ChangeOwnership { .. } => "ChangeOwnership",
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]

@@ -1,15 +1,10 @@
 use crate::models::Caip2ChainId;
 use anyhow::Context;
-use clap::Parser;
 use secp256k1::SecretKey;
 use serde::Deserialize;
 use serde_utils::{EitherLiteralOrEnvVar, FromStrWrapper};
 use std::{
-    collections::HashMap,
-    fmt::Display,
-    fs::read_to_string,
-    path::{Path, PathBuf},
-    str::FromStr,
+    collections::HashMap, fmt::Display, fs::read_to_string, path::Path, str::FromStr,
     time::Duration,
 };
 use thiserror::Error;
@@ -54,19 +49,12 @@ pub struct Config {
 }
 
 impl Config {
-    /// Loads all configuration options from CLI arguments, the TOML
-    /// configuration file, and environment variables.
-    pub fn parse() -> Self {
-        let clap = Clap::parse();
-        let config_file = ConfigFile::from_file(&clap.config_file)
+    /// Loads all configuration options the provided TOML configuration file and environment
+    /// variables.
+    pub fn parse(config_file: impl AsRef<Path>) -> Self {
+        let config_file = ConfigFile::from_file(config_file.as_ref())
             .context("Failed to read config file as valid TOML")
             .unwrap();
-
-        Self::from_config_file(config_file)
-    }
-
-    pub fn parse_from(config_file: impl AsRef<Path>) -> Self {
-        let config_file = ConfigFile::from_file(config_file.as_ref()).unwrap();
 
         Self::from_config_file(config_file)
     }
@@ -103,16 +91,6 @@ impl Config {
     }
 }
 
-#[derive(Parser, Debug, Clone)]
-#[clap(name = "block-oracle")]
-#[clap(bin_name = "block-oracle")]
-#[clap(author, version, about, long_about = None)]
-struct Clap {
-    /// The filepath of the TOML configuration file.
-    #[clap(parse(from_os_str))]
-    config_file: PathBuf,
-}
-
 /// Represents the TOML config file
 #[derive(Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -143,7 +121,7 @@ struct ConfigFile {
 
 impl ConfigFile {
     /// Tries to Create a [`ConfigFile`] from a TOML file.
-    pub fn from_file(file_path: &Path) -> Result<Self, ConfigError> {
+    fn from_file(file_path: &Path) -> Result<Self, ConfigError> {
         let string = read_to_string(file_path)?;
         toml::from_str(&string).map_err(ConfigError::Toml)
     }
@@ -259,12 +237,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn invalid_jrpc_provider_url() {
-        Config::parse_from(config_file_path("invalid_jrpc_provider_url.toml"));
+        Config::parse(config_file_path("invalid_jrpc_provider_url.toml"));
     }
 
     #[test]
     fn example_config() {
-        Config::parse_from(config_file_path("config.sample.toml"));
+        Config::parse(config_file_path("config.sample.toml"));
     }
 
     #[test]
@@ -272,8 +250,7 @@ mod tests {
         let jrpc_url = "https://sokol-archive.blockscout.com/";
         std::env::set_var("FOOBAR_EIP155:77", jrpc_url);
 
-        let config =
-            Config::parse_from(config_file_path("indexed_chain_provider_via_env_var.toml"));
+        let config = Config::parse(config_file_path("indexed_chain_provider_via_env_var.toml"));
 
         assert_eq!(
             indexed_chain(&config, "eip155:77").jrpc_url.as_str(),

@@ -1,4 +1,4 @@
-use crate::metrics::METRICS;
+use crate::runner::metrics::METRICS;
 use anyhow::Context;
 use secp256k1::SecretKey;
 use tracing::{debug, info, trace};

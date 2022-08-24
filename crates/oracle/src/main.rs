@@ -1,161 +1,110 @@
-mod config;
-mod contracts;
-mod ctrlc;
-mod error_handling;
-mod jrpc_utils;
-mod metrics;
-mod models;
-mod oracle;
-mod subgraph;
+pub mod config;
+pub mod contracts;
+pub mod encode_json_messages;
+pub mod models;
+pub mod runner;
+pub mod subgraph;
 
-pub use crate::ctrlc::CtrlcHandler;
+use clap::Parser;
+use contracts::Contracts;
+use encode_json_messages::{print_encoded_json_messages, OutputKind};
+use std::path::PathBuf;
+use web3::transports::Http;
+
 pub use config::Config;
-pub use error_handling::{MainLoopFlow, OracleControlFlow};
-use futures::TryFutureExt;
-pub use jrpc_utils::JrpcExpBackoff;
-pub use metrics::{server::metrics_server, Metrics, METRICS};
 pub use models::{Caip2ChainId, JrpcProviderForChain};
-pub use oracle::Oracle;
+pub use runner::*;
 pub use subgraph::{SubgraphApi, SubgraphQuery, SubgraphQueryError, SubgraphStateTracker};
 
-use lazy_static::lazy_static;
-use std::time::Duration;
-use std::{env::set_var, sync::Arc};
-use tracing::{error, info, metadata::LevelFilter};
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-
-lazy_static! {
-    pub static ref CONFIG: Config = Config::parse();
-    pub static ref CTRLC_HANDLER: CtrlcHandler = CtrlcHandler::init();
-}
-
-#[derive(Debug, thiserror::Error)]
-enum ApplicationError {
-    #[error(transparent)]
-    Oracle(Error),
-    #[error("The metrics server crashed")]
-    Metrics(#[from] hyper::Error),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("JSON-RPC issues for the protocol chain: {0}")]
-    BadJrpcProtocolChain(web3::Error),
-    #[error("Failed to get latest block information for the indexed chain with ID '{chain_id}': {error}")]
-    BadJrpcIndexedChain {
-        chain_id: Caip2ChainId,
-        error: web3::Error,
-    },
-    #[error(transparent)]
-    Subgraph(#[from] Arc<SubgraphQueryError>),
-    #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
-    CantSubmitTx(web3::contract::Error),
-    #[error("Failed to call Epoch Manager")]
-    EpochManagerCallFailed(#[from] web3::contract::Error),
-    #[error("Epoch Manager latest epoch ({manager}) is behind Epoch Subgraph's ({subgraph})")]
-    EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
-    #[error("The subgraph hasn't indexed all relevant transactions yet")]
-    SubgraphNotFresh,
-}
-
-impl MainLoopFlow for Error {
-    fn instruction(&self) -> OracleControlFlow {
-        use Error::*;
-        match self {
-            Subgraph(err) => err.instruction(),
-            BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
-            BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
-
-            // TODO: Put those variants under a new `contracts::Error` enum
-            CantSubmitTx(_) => OracleControlFlow::Continue(None),
-            EpochManagerCallFailed(_) => OracleControlFlow::Continue(None),
-            EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(None),
-
-            // TODO: Put those variants under the `SubgraphQueryError` enum
-            SubgraphNotFresh => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
-        }
-    }
-}
-
 #[tokio::main]
-async fn main() -> Result<(), ApplicationError> {
-    // Immediately dereference some constants to trigger `lazy_static`
-    // initialization.
-    let _ = &*CONFIG;
-    let _ = &*METRICS;
-    let _ = &*CTRLC_HANDLER;
+async fn main() -> anyhow::Result<()> {
+    match Clap::parse() {
+        Clap::Run { config_file } => runner::run(config_file).await?,
+        Clap::Encode {
+            json_path,
+            calldata,
+        } => {
+            let file_contents = std::fs::read_to_string(json_path)?;
+            let json = serde_json::from_str(&file_contents)?;
+            let output_kind = if calldata {
+                OutputKind::Calldata
+            } else {
+                OutputKind::Payload
+            };
+            print_encoded_json_messages(output_kind, json)?;
+        }
+        Clap::CurrentEpoch { config_file } => {
+            let config = Config::parse(config_file);
+            print_current_epoch(config).await?;
+        }
+        Clap::SendMessage {
+            config_file,
+            payload,
+        } => {
+            let config = Config::parse(config_file);
+            let payload = hex::decode(payload)?;
+            send_message(config, payload).await?;
+        }
+    }
 
-    init_logging(CONFIG.log_level);
-    info!(log_level = %CONFIG.log_level, "The block oracle is starting.");
-
-    let metrics_server =
-        metrics_server(&METRICS, CONFIG.metrics_port).map_err(ApplicationError::Metrics);
-    let oracle = oracle_task().map_err(ApplicationError::Oracle);
-    tokio::try_join!(metrics_server, oracle)?;
     Ok(())
 }
 
-async fn oracle_task() -> Result<(), Error> {
-    let mut oracle = Oracle::new(&*CONFIG);
-    info!("Entering the main polling loop. Press CTRL+C to stop.");
+#[derive(Parser, Debug, Clone)]
+#[clap(name = "block-oracle")]
+#[clap(bin_name = "block-oracle")]
+#[clap(author, version, about, long_about = None)]
+enum Clap {
+    /// Run the block oracle and regularly sends block number updates.
+    Run {
+        /// The path of the TOML configuration file.
+        #[clap(parse(from_os_str))]
+        config_file: PathBuf,
+    },
+    /// Compile block oracle messages from JSON to calldata.
+    Encode {
+        /// The path to the JSON file containing the message(s).
+        json_path: PathBuf,
+        /// Whether to output the full calldata instead of just the payload.
+        #[clap(short, long, action)]
+        calldata: bool,
+    },
+    /// Query the Epoch Manager for the current epoch.
+    CurrentEpoch {
+        /// The path of the TOML configuration file.
+        #[clap(short, long)]
+        config_file: PathBuf,
+    },
+    /// Send a message to the DataEdge contract.
+    SendMessage {
+        /// The path of the TOML configuration file.
+        #[clap(short, long)]
+        config_file: PathBuf,
+        payload: String,
+    },
+}
 
-    while !CTRLC_HANDLER.poll_ctrlc() {
-        if let Err(err) = oracle.run().await {
-            handle_error(err).await?;
-            continue;
-        }
-
-        // After every polling iteration, we go to sleep for a bit. Wouldn't
-        // want to DDoS our data providers, wouldn't we?
-        info!(
-            seconds = CONFIG.protocol_chain.polling_interval.as_secs(),
-            "Going to sleep before next polling iteration."
-        );
-        tokio::time::sleep(CONFIG.protocol_chain.polling_interval).await;
-    }
+async fn send_message(config: Config, payload: Vec<u8>) -> anyhow::Result<()> {
+    let private_key = config.owner_private_key;
+    let contracts = init_contracts(config)?;
+    let tx = contracts.submit_call(payload, &private_key).await?;
+    println!("Sent message.\nTransaction hash: {tx:?}");
     Ok(())
 }
 
-async fn handle_error(err: Error) -> Result<(), Error> {
-    error!(
-        error = err.to_string().as_str(),
-        "An error occurred and interrupted the last polling iteration."
-    );
-    match err.instruction() {
-        OracleControlFlow::Break(()) => {
-            error!("This error is non-recoverable. Exiting now.");
-            Err(err)
-        }
-        OracleControlFlow::Continue(wait) => {
-            error!(
-                cooling_off_seconds = wait.unwrap_or_default().as_secs(),
-                "This error is recoverable.",
-            );
-            tokio::time::sleep(wait.unwrap_or_default()).await;
-            Ok(())
-        }
-    }
+async fn print_current_epoch(config: Config) -> anyhow::Result<()> {
+    let contracts = init_contracts(config)?;
+    let current_epoch = contracts.query_current_epoch().await?;
+    println!("{}", current_epoch);
+    Ok(())
 }
 
-fn init_logging(log_level: LevelFilter) {
-    set_var("RUST_LOG", "block_oracle=trace");
-
-    let filter = EnvFilter::builder()
-        .with_default_directive(log_level.into())
-        .from_env_lossy();
-
-    let stdout = fmt::layer()
-        .with_ansi(false)
-        .without_time()
-        .with_target(false)
-        .with_writer(std::io::stdout);
-
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(stdout)
-        .init();
-}
-
-pub fn hex_string(bytes: &[u8]) -> String {
-    format!("0x{}", hex::encode(bytes))
+fn init_contracts(config: Config) -> anyhow::Result<Contracts<Http>> {
+    let transport = Http::new(config.protocol_chain.jrpc_url.as_str())?;
+    let protocol_chain = JrpcProviderForChain::new(config.protocol_chain.id, transport);
+    Contracts::new(
+        &protocol_chain.web3.eth(),
+        config.data_edge_address,
+        config.epoch_manager_address,
+    )
 }

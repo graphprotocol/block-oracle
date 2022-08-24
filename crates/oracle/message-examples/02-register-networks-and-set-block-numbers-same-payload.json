@@ -1,0 +1,18 @@
+[
+   [
+      {
+         "add": [
+            "A"
+         ],
+         "message": "RegisterNetworks",
+         "remove": [ ]
+      },
+      {
+         "accelerations": [
+            15
+         ],
+         "merkleRoot": "0x66ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc49",
+         "message": "SetBlockNumbersForNextEpoch"
+      }
+   ]
+]

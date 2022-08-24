@@ -175,6 +175,7 @@ dependencies = [
  "clap",
  "ctrlc",
  "epoch-encoding",
+ "ethabi 17.2.0",
  "futures",
  "graphql_client",
  "hex",
@@ -187,6 +188,7 @@ dependencies = [
  "reqwest",
  "secp256k1",
  "serde",
+ "serde_json",
  "serde_with",
  "thiserror",
  "tokio",
@@ -1272,18 +1274,6 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
-]
-
-[[package]]
-name = "oracle-encoder"
-version = "0.1.0"
-dependencies = [
- "clap",
- "epoch-encoding",
- "ethabi 17.2.0",
- "hex",
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -2551,9 +2541,7 @@ name = "xtask"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "block-oracle",
  "clap",
- "epoch-encoding",
  "glob",
  "serde",
  "tokio",

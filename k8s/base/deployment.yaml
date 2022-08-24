@@ -15,6 +15,7 @@ spec:
           image: gcr.io/the-graph-staging/block-oracle:latest
           command:
             - /usr/local/bin/block-oracle
+            - run
             - /etc/block-oracle/config.toml
           volumeMounts:
             - name: block-oracle-config

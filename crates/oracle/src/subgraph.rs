@@ -1,4 +1,6 @@
-use crate::{metrics::METRICS, models::Caip2ChainId, MainLoopFlow, OracleControlFlow};
+use super::error_handling::{MainLoopFlow, OracleControlFlow};
+use super::metrics::METRICS;
+use crate::models::Caip2ChainId;
 use anyhow::ensure;
 use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
