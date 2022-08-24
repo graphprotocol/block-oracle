@@ -7,10 +7,7 @@ use crate::{
     SubgraphStateTracker,
 };
 use epoch_encoding::{BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, BTreeSet},
-};
+use std::{cmp::Ordering, collections::BTreeMap};
 use tracing::{debug, error, info, warn};
 
 /// The main application in-memory state.
@@ -245,17 +242,20 @@ fn set_block_numbers_for_next_epoch(
 ) -> Vec<u8> {
     let registered_networks = registered_networks(subgraph_state);
 
-    let mut block_nums_for_next_epoch = BTreeMap::new();
-    let mut ignored_networks = BTreeSet::new();
-    for (chain_id, block_num) in &latest_blocks {
-        if registered_networks
-            .iter()
-            .any(|network| &network.id == chain_id)
-        {
-            block_nums_for_next_epoch.insert(chain_id, block_num);
-        } else {
-            ignored_networks.insert(chain_id);
-        }
+    let ignored_networks: Vec<Caip2ChainId> = latest_blocks
+        .keys()
+        .cloned()
+        .filter(|chain_id| {
+            !registered_networks
+                .iter()
+                .any(|network| &network.id == chain_id)
+        })
+        .collect();
+    if !ignored_networks.is_empty() {
+        warn!(
+            ignored_networks = ?ignored_networks,
+            "Multiple networks present in the configuration file are not registered"
+        );
     }
 
     let message = Message::SetBlockNumbersForNextEpoch(
