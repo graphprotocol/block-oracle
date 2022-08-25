@@ -10,7 +10,7 @@ import { processPayload } from "../src/mapping";
 import { parseCalldata } from "../src/helpers";
 import { EPOCH_MANAGER_ADDRESS, BIGINT_ONE } from "../src/constants";
 import { Bytes, BigInt, Address, ethereum } from "@graphprotocol/graph-ts";
-import { Network } from "../generated/schema";
+import { Network, GlobalState, PermissionListEntry } from "../generated/schema";
 
 // Previously valid 2 tag bit length transaction
 // test("Payload processing latest example", () => {
@@ -82,12 +82,32 @@ test("Wrong Submitter", () => {
   assert.entityCount("UpdateVersionsMessage", 0);
   assert.entityCount("ChangePermissionsMessage", 0);
 
-  assert.fieldEquals(
-    "GlobalState",
-    "0",
-    "permissionList",
-    "[0x0000000000000000000000000000000000000000]"
-  );
+  let globalState = GlobalState.load("0")!
+  assert.assertTrue(!globalState.permissionList.includes(submitter));
+});
+
+test("Wrong Permissions (No register network permission)", () => {
+  let payloadBytes = Bytes.fromHexString("0x0301030341") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000010";
+  let txHash = "0x00";
+
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
+
+  assert.entityCount("Epoch", 0);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 0);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 0);
+
+  let globalState = GlobalState.load("0")!
+  assert.assertTrue(globalState.permissionList.includes(submitter));
+  let permissionEntry = PermissionListEntry.load(submitter)!
+  assert.assertTrue(!permissionEntry.permissions.includes("RegisterNetworksMessage"));
 });
 
 test("(SetBlockNumbersForNextEpoch) EMPTY but invalid", () => {

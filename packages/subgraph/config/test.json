@@ -11,6 +11,13 @@
         { "entry": "ChangePermissionsMessage" },
         { "entry": "ResetStateMessage", "lastEntry": true }
       ]
+    },
+    {
+      "address": "0x0000000000000000000000000000000000000010",
+      "permissions": [
+        { "entry": "SetBlockNumbersForEpochMessage" },
+        { "entry": "ResetStateMessage", "lastEntry": true }
+      ]
     }
   ],
   "epochManager": "0x0000000000000000000000000000000000000000"
