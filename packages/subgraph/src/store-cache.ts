@@ -1,5 +1,5 @@
 import { BigInt } from "@graphprotocol/graph-ts";
-import { OWNER_ADDRESS_STRING } from "./constants";
+import { INITIAL_PERMISSION_SET } from "./constants";
 import {
   GlobalState,
   Epoch,
@@ -9,9 +9,10 @@ import {
   RegisterNetworksMessage,
   CorrectEpochsMessage,
   UpdateVersionsMessage,
-  ChangeOwnershipMessage,
+  ChangePermissionsMessage,
   ResetStateMessage,
-  MessageBlock
+  MessageBlock,
+  PermissionListEntry
 } from "../generated/schema";
 
 export class SafeMap<K, V> extends Map<K, V> {
@@ -32,6 +33,7 @@ export class StoreCache {
   // as well as maintaining the proper fields
   // For now we can just use more bloated code, without needing to get into generics
   state: GlobalState;
+  permissionListEntries: SafeMap<String, PermissionListEntry>;
   networks: SafeMap<String, Network>;
   epochs: SafeMap<String, Epoch>;
   blockNumbers: SafeMap<String, NetworkEpochBlockNumber>;
@@ -42,19 +44,25 @@ export class StoreCache {
   registerNetworksMessages: SafeMap<String, RegisterNetworksMessage>;
   correctEpochsMessages: SafeMap<String, CorrectEpochsMessage>;
   updateVersionsMessages: SafeMap<String, UpdateVersionsMessage>;
-  changeOwnershipMessages: SafeMap<String, ChangeOwnershipMessage>;
+  changePermissionsMessages: SafeMap<String, ChangePermissionsMessage>;
   resetStateMessages: SafeMap<String, ResetStateMessage>;
   messageBlocks: SafeMap<String, MessageBlock>;
 
   constructor() {
     let state = GlobalState.load("0");
     if (state == null) {
+      for(let i = 0; i < INITIAL_PERMISSION_SET.keys().length; i++) {
+        let key = INITIAL_PERMISSION_SET.keys()[i]
+        let permissionEntry = new PermissionListEntry(key);
+        permissionEntry.permissions = INITIAL_PERMISSION_SET.get(key);
+        permissionEntry.save();
+      }
       state = new GlobalState("0");
       state.networkCount = 0;
       state.activeNetworkCount = 0;
       state.encodingVersion = 0;
-      state.owner = OWNER_ADDRESS_STRING;
-      state.save()
+      state.permissionList = INITIAL_PERMISSION_SET.keys();
+      state.save();
     }
     this.state = state;
     this.networks = new SafeMap<String, Network>();
@@ -70,13 +78,44 @@ export class StoreCache {
     >();
     this.correctEpochsMessages = new SafeMap<String, CorrectEpochsMessage>();
     this.updateVersionsMessages = new SafeMap<String, UpdateVersionsMessage>();
-    this.changeOwnershipMessages = new SafeMap<String, ChangeOwnershipMessage>();
+    this.changePermissionsMessages = new SafeMap<
+      String,
+      ChangePermissionsMessage
+    >();
     this.resetStateMessages = new SafeMap<String, ResetStateMessage>();
     this.messageBlocks = new SafeMap<String, MessageBlock>();
+    this.permissionListEntries = new SafeMap<String, PermissionListEntry>();
   }
 
   getGlobalState(): GlobalState {
     return this.state;
+  }
+
+  getPermissionListEntry(id: String): PermissionListEntry {
+    if (this.permissionListEntries.safeGet(id) == null) {
+      let permissionListyEntry = PermissionListEntry.load(id);
+      if (permissionListyEntry == null) {
+        permissionListyEntry = new PermissionListEntry(id);
+      }
+      this.permissionListEntries.set(id, permissionListyEntry);
+    }
+    return this.permissionListEntries.safeGet(id)!;
+  }
+
+  resetGlobalState(): void {
+    let state = this.state
+    for(let i = 0; i < INITIAL_PERMISSION_SET.keys().length; i++) {
+      let key = INITIAL_PERMISSION_SET.keys()[i]
+      let permissionEntry = this.getPermissionListEntry(key);
+      permissionEntry.permissions = INITIAL_PERMISSION_SET.get(key);
+    }
+    state = this.state;
+    state.networkCount = 0;
+    state.activeNetworkCount = 0;
+    state.encodingVersion = 0;
+    state.networkArrayHead = null;
+    state.latestValidEpoch = null;
+    state.permissionList = INITIAL_PERMISSION_SET.keys();
   }
 
   getNetwork(id: String): Network {
@@ -91,7 +130,10 @@ export class StoreCache {
   }
 
   isNetworkAlreadyRegistered(id: String): bool {
-    return (this.networks.has(id) || Network.load(id) != null) && this.getNetwork(id).removedAt == null
+    return (
+      (this.networks.has(id) || Network.load(id) != null) &&
+      this.getNetwork(id).removedAt == null
+    );
   }
 
   getNetworkEpochBlockNumber(id: String): NetworkEpochBlockNumber {
@@ -106,7 +148,9 @@ export class StoreCache {
   }
 
   hasNetworkEpochBlockNumber(id: String): bool {
-    return this.blockNumbers.has(id) || NetworkEpochBlockNumber.load(id) != null
+    return (
+      this.blockNumbers.has(id) || NetworkEpochBlockNumber.load(id) != null
+    );
   }
 
   getEpoch(bigIntID: BigInt): Epoch {
@@ -168,15 +212,15 @@ export class StoreCache {
     return this.updateVersionsMessages.safeGet(id)!;
   }
 
-  getChangeOwnershipMessage(id: String): ChangeOwnershipMessage {
-    if (this.changeOwnershipMessages.safeGet(id) == null) {
-      let message = ChangeOwnershipMessage.load(id);
+  getChangePermissionsMessage(id: String): ChangePermissionsMessage {
+    if (this.changePermissionsMessages.safeGet(id) == null) {
+      let message = ChangePermissionsMessage.load(id);
       if (message == null) {
-        message = new ChangeOwnershipMessage(id);
+        message = new ChangePermissionsMessage(id);
       }
-      this.changeOwnershipMessages.set(id, message);
+      this.changePermissionsMessages.set(id, message);
     }
-    return this.changeOwnershipMessages.safeGet(id)!;
+    return this.changePermissionsMessages.safeGet(id)!;
   }
 
   getResetStateMessage(id: String): ResetStateMessage {
@@ -240,9 +284,9 @@ export class StoreCache {
       updateVersionMessages[i].save();
     }
 
-    let changeOwnershipMessages = this.changeOwnershipMessages.values();
-    for (let i = 0; i < changeOwnershipMessages.length; i++) {
-      changeOwnershipMessages[i].save();
+    let changePermissionsMessages = this.changePermissionsMessages.values();
+    for (let i = 0; i < changePermissionsMessages.length; i++) {
+      changePermissionsMessages[i].save();
     }
 
     let resetStateMessages = this.resetStateMessages.values();
@@ -253,6 +297,11 @@ export class StoreCache {
     let messageBlocks = this.messageBlocks.values();
     for (let i = 0; i < messageBlocks.length; i++) {
       messageBlocks[i].save();
+    }
+
+    let permissionListEntries = this.permissionListEntries.values();
+    for (let i = 0; i < permissionListEntries.length; i++) {
+      permissionListEntries[i].save();
     }
 
     //this.networks.values().forEach(elem => elem.save());

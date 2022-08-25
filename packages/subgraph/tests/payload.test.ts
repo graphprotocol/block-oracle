@@ -80,13 +80,13 @@ test("Wrong Submitter", () => {
   assert.entityCount("RegisterNetworksMessage", 0);
   assert.entityCount("CorrectEpochsMessage", 0);
   assert.entityCount("UpdateVersionsMessage", 0);
-  assert.entityCount("ChangeOwnershipMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 0);
 
   assert.fieldEquals(
     "GlobalState",
     "0",
-    "owner",
-    "0x0000000000000000000000000000000000000000"
+    "permissionList",
+    "[0x0000000000000000000000000000000000000000]"
   );
 });
 
@@ -106,7 +106,7 @@ test("(SetBlockNumbersForNextEpoch) EMPTY but invalid", () => {
   assert.entityCount("RegisterNetworksMessage", 0);
   assert.entityCount("CorrectEpochsMessage", 0);
   assert.entityCount("UpdateVersionsMessage", 0);
-  assert.entityCount("ChangeOwnershipMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 0);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "0");
   assert.fieldEquals("Payload", "0x00", "valid", "false");
