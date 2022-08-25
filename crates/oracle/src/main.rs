@@ -1,6 +1,5 @@
 pub mod config;
 pub mod contracts;
-pub mod encode_json_messages;
 pub mod metrics;
 pub mod models;
 pub mod runner;
@@ -8,7 +7,7 @@ pub mod subgraph;
 
 use clap::Parser;
 use contracts::Contracts;
-use encode_json_messages::{print_encoded_json_messages, OutputKind};
+use json_oracle_encoder::{print_encoded_json_messages, OutputKind};
 use std::path::PathBuf;
 use web3::transports::Http;
 

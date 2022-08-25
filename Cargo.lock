@@ -181,6 +181,7 @@ dependencies = [
  "hex",
  "hyper",
  "itertools",
+ "json-oracle-encoder",
  "jsonrpc-core",
  "lazy_static",
  "prometheus",
