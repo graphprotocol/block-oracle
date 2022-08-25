@@ -181,6 +181,7 @@ dependencies = [
  "hex",
  "hyper",
  "itertools",
+ "json-oracle-encoder",
  "jsonrpc-core",
  "lazy_static",
  "prometheus",
@@ -1063,6 +1064,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3fac17f7123a73ca62df411b1bf727ccc805daa070338fda671c86dac1bdc27"
 dependencies = [
  "wasm-bindgen",
+]
+
+[[package]]
+name = "json-oracle-encoder"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "epoch-encoding",
+ "ethabi 17.2.0",
+ "hex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
