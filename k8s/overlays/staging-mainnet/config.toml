@@ -4,6 +4,7 @@ epoch_manager_address = "0x64f990bf16552a693dcb043bb7bf3866c5e05ddb"
 data_edge_address = "0xADE906194C923b28F03F48BC5D9D987AAE21fFab"
 log_level = "trace"
 subgraph_url = "https://api.thegraph.com/subgraphs/name/juanmardefago/epoch-block-oracle-mainnet"
+bearer_token = "TODO"
 protocol_chain_polling_interval_in_seconds = 30
 
 [protocol_chain]

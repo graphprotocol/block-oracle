@@ -1,6 +1,7 @@
 pub mod config;
 pub mod contracts;
 pub mod encode_json_messages;
+pub mod metrics;
 pub mod models;
 pub mod runner;
 pub mod subgraph;
@@ -14,7 +15,7 @@ use web3::transports::Http;
 pub use config::Config;
 pub use models::{Caip2ChainId, JrpcProviderForChain};
 pub use runner::*;
-pub use subgraph::{SubgraphApi, SubgraphQuery, SubgraphQueryError, SubgraphStateTracker};
+pub use subgraph::{query_subgraph, SubgraphQueryError};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

@@ -4,6 +4,7 @@ owner_private_key = "4f3edf983ac636a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b
 data_edge_address = "$DATA_EDGE_CONTRACT_ADDRESS"
 epoch_manager_address = "$EPOCH_MANAGER_CONTRACT_ADDRESS"
 subgraph_url = "$SUBGRAPH_URL"
+bearer_token = "TODO"
 
 [protocol_chain]
 name = "eip155:1337"

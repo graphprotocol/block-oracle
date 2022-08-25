@@ -1,69 +1,12 @@
-use super::error_handling::{MainLoopFlow, OracleControlFlow};
 use super::metrics::METRICS;
 use crate::models::Caip2ChainId;
+use crate::runner::error_handling::{MainLoopFlow, OracleControlFlow};
 use anyhow::ensure;
-use async_trait::async_trait;
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Url;
-use std::sync::Arc;
 use std::time::Duration;
-use tracing::{error, info, warn};
-
-pub struct SubgraphQuery {
-    url: Url,
-}
-
-impl SubgraphQuery {
-    pub fn new(url: Url) -> Self {
-        Self { url }
-    }
-}
-
-/// Retrieves the latest state from a subgraph.
-#[async_trait]
-pub trait SubgraphApi {
-    type State;
-    type Error;
-
-    async fn get_subgraph_state(&self) -> Result<Option<Self::State>, Self::Error>;
-}
-
-#[async_trait]
-impl SubgraphApi for SubgraphQuery {
-    type State = (u64, GlobalState);
-    type Error = SubgraphQueryError;
-
-    async fn get_subgraph_state(&self) -> Result<Option<Self::State>, Self::Error> {
-        let response_body = query(self.url.clone()).await?;
-        match response_body.errors.as_deref() {
-            Some([]) | None => {}
-            Some(errors) => {
-                // We only deal with the first error and ignore the rest.
-                let e = &errors[0];
-                if e.message == "indexing_error" {
-                    return Err(SubgraphQueryError::IndexingError);
-                } else {
-                    return Err(SubgraphQueryError::Other(anyhow::anyhow!("{}", e.message)));
-                }
-            }
-        }
-        if let Some(data) = response_body.data {
-            let (gs, meta) = match (data.global_state, data.meta) {
-                (Some(gs), Some(meta)) => (gs, meta),
-                _ => return Ok(None),
-            };
-            Ok(Some((
-                meta.block.number as u64,
-                gs.try_into().map_err(SubgraphQueryError::BadData)?,
-            )))
-        } else {
-            Err(SubgraphQueryError::Other(anyhow::anyhow!(
-                "No response data"
-            )))
-        }
-    }
-}
+use tracing::{error, info};
 
 #[derive(Debug, thiserror::Error)]
 pub enum SubgraphQueryError {
@@ -92,65 +35,62 @@ impl MainLoopFlow for SubgraphQueryError {
     }
 }
 
-async fn query(url: Url) -> reqwest::Result<Response<graphql::subgraph_state::ResponseData>> {
-    // TODO: authentication token.
+pub async fn query_subgraph(
+    url: &Url,
+    bearer_token: &str,
+) -> Result<SubgraphState, SubgraphQueryError> {
+    info!("Fetching latest subgraph state");
+
     let client = reqwest::Client::builder()
         .user_agent("block-oracle")
         .build()
         .unwrap();
     let request_body = graphql::SubgraphState::build_query(graphql::subgraph_state::Variables);
-    let request = client.post(url).json(&request_body);
+    let request = client
+        .post(url.clone())
+        .json(&request_body)
+        .bearer_auth(bearer_token);
     let response = request.send().await?.error_for_status()?;
-    response.json().await
+    let response_body: Response<graphql::subgraph_state::ResponseData> = response.json().await?;
+
+    match response_body.errors.as_deref() {
+        Some([]) | None => {}
+        Some(errors) => {
+            // We only deal with the first error and ignore the rest.
+            let e = &errors[0];
+            if e.message == "indexing_error" {
+                return Err(SubgraphQueryError::IndexingError);
+            } else {
+                return Err(SubgraphQueryError::Other(anyhow::anyhow!("{}", e.message)));
+            }
+        }
+    }
+
+    let data = if let Some(data) = response_body.data {
+        data
+    } else {
+        return Err(SubgraphQueryError::Other(anyhow::anyhow!(
+            "No response data"
+        )));
+    };
+
+    let last_indexed_block_number = data.meta.block.number as u64;
+    let global_state = if let Some(gs) = data.global_state {
+        Some(gs.try_into().map_err(SubgraphQueryError::BadData)?)
+    } else {
+        None
+    };
+
+    Ok(SubgraphState {
+        last_indexed_block_number,
+        global_state,
+    })
 }
 
-/// Coordinates the retrieval of subgraph data and the transition of its own internal state.
-pub struct SubgraphStateTracker<A>
-where
-    A: SubgraphApi,
-{
-    last_result: Result<Option<A::State>, Arc<A::Error>>,
-    subgraph_api: A,
-}
-
-impl<A> SubgraphStateTracker<A>
-where
-    A: SubgraphApi,
-    A::State: Clone + PartialEq,
-{
-    pub fn new(api: A) -> Self {
-        Self {
-            last_result: Ok(None),
-            subgraph_api: api,
-        }
-    }
-
-    pub fn result(&self) -> Result<Option<&A::State>, Arc<A::Error>> {
-        match self.last_result {
-            Ok(Some(ref s)) => Ok(Some(s)),
-            Ok(None) => Ok(None),
-            Err(ref e) => Err(e.clone()),
-        }
-    }
-
-    /// Handles the retrieval of new subgraph state and the transition of its internal [`State`]
-    pub async fn refresh(&mut self) {
-        info!("Fetching latest subgraph state");
-
-        let result = self
-            .subgraph_api
-            .get_subgraph_state()
-            .await
-            .map_err(Arc::new);
-
-        if result.is_err() {
-            error!("The subgraph is failed.");
-        } else if result.as_ref().ok() != self.last_result.as_ref().ok() {
-            warn!("The subgraph's state has changed since the last time we checked. This is expected.");
-        }
-
-        self.last_result = result;
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SubgraphState {
+    pub last_indexed_block_number: u64,
+    pub global_state: Option<GlobalState>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -270,156 +210,161 @@ mod graphql {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use anyhow::anyhow;
     use hyper::server::conn::Http;
     use hyper::{Body, Response};
-    use std::sync::Mutex;
+    use serde_json::json;
+    use serde_json::Value as Json;
     use tokio::net::TcpListener;
 
-    #[derive(Clone, PartialEq)]
-    struct CounterState {
-        counter: u8,
+    struct FakeServer {
+        value: serde_json::Value,
     }
 
-    impl CounterState {
-        fn bump(&mut self) {
-            self.counter += 1;
-        }
-    }
-
-    struct FakeApi {
-        state: Arc<Mutex<CounterState>>,
-        error_switch: bool,
-        data_switch: bool,
-        error_description: &'static str,
-    }
-
-    impl FakeApi {
-        fn new() -> Self {
-            Self {
-                state: Arc::new(Mutex::new(CounterState { counter: 0 })),
-                error_switch: true,
-                data_switch: false,
-                error_description: "oops",
-            }
+    impl FakeServer {
+        fn new(value: serde_json::Value) -> Self {
+            Self { value }
         }
 
-        fn bump_state_counter(&self) {
-            self.state.lock().unwrap().bump();
-        }
+        async fn serve(self) -> Url {
+            let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let port = listener.local_addr().unwrap().port();
 
-        /// Passing 'true` will cause the fake api to send data in the next operation
-        fn toggle_data(&mut self, switch: bool) {
-            self.data_switch = switch;
-        }
+            tokio::spawn(async move {
+                let service = hyper::service::service_fn({
+                    |_req| {
+                        let response = self.value.clone();
+                        async move {
+                            Ok::<_, hyper::Error>(Response::new(Body::from(response.to_string())))
+                        }
+                    }
+                });
 
-        /// Passing 'true` will cause the fake api to fail on the next operation
-        fn toggle_errors(&mut self, switch: bool) {
-            self.error_switch = switch;
-        }
+                loop {
+                    let (stream, _) = listener.accept().await.unwrap();
 
-        fn set_error(&mut self, text: &'static str) {
-            self.error_description = text
-        }
-    }
-
-    #[async_trait]
-    impl SubgraphApi for FakeApi {
-        type State = CounterState;
-        type Error = anyhow::Error;
-
-        async fn get_subgraph_state(&self) -> anyhow::Result<Option<Self::State>> {
-            match (self.error_switch, self.data_switch) {
-                (false, true) => {
-                    self.bump_state_counter();
-                    Ok(Some(self.state.lock().unwrap().clone()))
+                    Http::new().serve_connection(stream, service).await.unwrap();
                 }
-                (false, false) => Ok(None),
-                (true, _) => Err(anyhow!(self.error_description)),
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn valid_state_transitions() {
-        let api = FakeApi::new();
-        let mut state_tracker = SubgraphStateTracker::new(api);
-
-        // An initial state should be uninitialized, with no errors
-        assert!(matches!(state_tracker.result(), Ok(None)));
-
-        // Failed initialization.
-        state_tracker.subgraph_api.toggle_errors(true);
-        state_tracker.refresh().await;
-        assert!(matches!(state_tracker.result(), Err(_)));
-
-        // Remove all errors, state is okay again.
-        state_tracker.subgraph_api.toggle_errors(false);
-        state_tracker.refresh().await;
-        assert!(matches!(state_tracker.result(), Ok(None)));
-
-        // Once the subgraph has valid data, the state tracker can yield it.
-        state_tracker.subgraph_api.toggle_data(true);
-        state_tracker.refresh().await;
-        assert!(matches!(state_tracker.result(), Ok(Some(_))));
-        assert_eq!(state_tracker.result().unwrap().unwrap().counter, 1);
-
-        // Sudden failure.
-        state_tracker.subgraph_api.toggle_errors(true);
-        state_tracker.refresh().await;
-        assert_eq!(state_tracker.result().err().unwrap().to_string(), "oops");
-
-        // Subsequent failures can have different error messages and that's okay.
-        state_tracker.subgraph_api.set_error("oh no");
-        state_tracker.refresh().await;
-        assert_eq!(state_tracker.result().err().unwrap().to_string(), "oh no");
-
-        // We then recover from failure, becoming valid again and presenting new data.
-        state_tracker.subgraph_api.toggle_errors(false);
-        state_tracker.refresh().await;
-        assert_eq!(state_tracker.result().unwrap().unwrap().counter, 2);
-
-        // Valid once again.
-        state_tracker.refresh().await;
-        assert_eq!(state_tracker.result().unwrap().unwrap().counter, 3);
-    }
-
-    async fn http_server_serving_static_file(contents: &'static str) -> Url {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let port = listener.local_addr().unwrap().port();
-
-        tokio::spawn(async move {
-            let service = hyper::service::service_fn(move |_req| async move {
-                Ok::<_, hyper::Error>(Response::new(Body::from(contents)))
             });
 
-            loop {
-                let (stream, _) = listener.accept().await.unwrap();
-                Http::new().serve_connection(stream, service).await.unwrap();
-            }
-        });
+            let mut url = Url::parse("http://127.0.0.1").unwrap();
+            url.set_port(Some(port)).unwrap();
+            url
+        }
+    }
 
-        let mut url = Url::parse("http://127.0.0.1").unwrap();
-        url.set_port(Some(port)).unwrap();
-        url
+    async fn parse_response(json: Json) -> Result<SubgraphState, SubgraphQueryError> {
+        let server = FakeServer::new(json);
+        let url = &server.serve().await;
+        let bearer_token = "foobar";
+        query_subgraph(url, bearer_token).await
     }
 
     #[tokio::test]
-    async fn successfully_decode_subgraph_data() {
-        let url = http_server_serving_static_file(include_str!(
-            "resources/test-response-subgraph-with-data.json",
-        ))
-        .await;
+    async fn no_latest_valid_epoch() {
+        let state = parse_response(json!({
+            "data": {
+                "globalState": {
+                    "activeNetworkCount": 0,
+                    "networks": [],
+                    "encodingVersion": 0,
+                },
+                "_meta": {
+                    "block": {
+                        "number": 7333988
+                    }
+                }
+            }
+        }))
+        .await
+        .unwrap();
+        assert!(state.global_state.as_ref().unwrap().networks.is_empty());
+        assert_eq!(
+            state.global_state.as_ref().unwrap().latest_epoch_number,
+            None
+        );
+    }
 
-        let mut subgraph_state = SubgraphStateTracker::new(SubgraphQuery::new(url));
-        subgraph_state.refresh().await;
+    #[tokio::test]
+    async fn no_networks() {
+        let state = parse_response(json!({
+            "data": {
+                "globalState": {
+                    "activeNetworkCount": 0,
+                    "networks": [],
+                    "encodingVersion": 0,
+                    "latestValidEpoch": {
+                        "epochNumber": "150"
+                    }
+                },
+                "_meta": {
+                    "block": {
+                        "number": 7333988
+                    }
+                }
+            }
+        }))
+        .await
+        .unwrap();
+        assert!(state.global_state.as_ref().unwrap().networks.is_empty());
+        assert_eq!(
+            state.global_state.as_ref().unwrap().latest_epoch_number,
+            Some(150)
+        );
+    }
 
-        let data = subgraph_state.result().unwrap().unwrap();
+    #[tokio::test]
+    async fn many_networks() {
+        let state = parse_response(
+            serde_json::from_str(include_str!(
+                "resources/test-response-subgraph-with-data.json",
+            ))
+            .unwrap(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(state.last_indexed_block_number, 7333988);
+        let gs = state.global_state.unwrap();
+        assert_eq!(gs.encoding_version, 0);
+        assert_eq!(gs.latest_epoch_number, Some(150));
+        assert_eq!(gs.networks.len(), 27);
+    }
 
-        assert_eq!(data.0, 7333988);
-        assert_eq!(data.1.encoding_version, 0);
-        assert_eq!(data.1.latest_epoch_number, Some(150));
-        assert_eq!(data.1.networks.len(), 27);
-        // ...
+    #[tokio::test]
+    async fn uninitialized() {
+        let state = parse_response(json!({
+            "data": {
+                "_meta": {
+                    "block": {
+                        "number": 2
+                    }
+                }
+            }
+        }))
+        .await
+        .unwrap();
+        assert_eq!(state.last_indexed_block_number, 2);
+        assert!(state.global_state.is_none());
+    }
+
+    #[tokio::test]
+    async fn indexing_error() {
+        let error = parse_response(json!({
+            "data": {
+                "_meta": {
+                    "block": {
+                        "number": 2
+                    }
+                }
+            },
+            "errors": [
+                {
+                    "message": "indexing_error"
+                }
+            ]
+        }))
+        .await
+        .err()
+        .unwrap();
+        assert!(matches!(error, SubgraphQueryError::IndexingError));
     }
 }

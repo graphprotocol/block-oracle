@@ -1,4 +1,5 @@
-use crate::{metrics::METRICS, Caip2ChainId, JrpcProviderForChain};
+use super::METRICS;
+use crate::{Caip2ChainId, JrpcProviderForChain};
 use backoff::{future::retry, ExponentialBackoff, ExponentialBackoffBuilder};
 use epoch_encoding::BlockPtr;
 use futures::{future::try_join_all, TryFutureExt};

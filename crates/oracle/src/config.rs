@@ -40,6 +40,7 @@ pub struct Config {
     pub data_edge_address: H160,
     pub epoch_manager_address: H160,
     pub subgraph_url: Url,
+    pub bearer_token: String,
     pub owner_address: H160,
     pub indexed_chains: Vec<IndexedChain>,
     pub freshness_threshold: u64,
@@ -66,6 +67,7 @@ impl Config {
             data_edge_address: config_file.data_edge_address.0,
             epoch_manager_address: config_file.epoch_manager_address.0,
             subgraph_url: config_file.subgraph_url.0,
+            bearer_token: config_file.bearer_token.0,
             freshness_threshold: config_file.freshness_threshold,
             owner_address: config_file.owner_address.0,
             retry_strategy_max_wait_time: Duration::from_secs(
@@ -100,6 +102,7 @@ struct ConfigFile {
     data_edge_address: EitherLiteralOrEnvVar<H160>,
     epoch_manager_address: EitherLiteralOrEnvVar<H160>,
     subgraph_url: EitherLiteralOrEnvVar<Url>,
+    bearer_token: EitherLiteralOrEnvVar<String>,
     /// Number of blocks that the Epoch Subgraph may be away from the protocol chain's head. If the
     /// block distance is lower than this, a `trace_filter` JSON RPC call will be used to infer if
     /// any relevant transaction happened within that treshold.

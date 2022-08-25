@@ -3,7 +3,8 @@ use crate::{
     hex_string,
     jrpc_utils::{get_latest_block, get_latest_blocks, JrpcExpBackoff},
     metrics::METRICS,
-    Caip2ChainId, Config, Error, JrpcProviderForChain, SubgraphQuery, SubgraphStateTracker,
+    subgraph::{query_subgraph, SubgraphState},
+    Caip2ChainId, Config, Error, JrpcProviderForChain,
 };
 use epoch_encoding::{BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::{cmp::Ordering, collections::BTreeMap};
@@ -14,14 +15,11 @@ pub struct Oracle {
     config: Config,
     protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
     indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
-    subgraph_state: SubgraphStateTracker<SubgraphQuery>,
     contracts: Contracts<JrpcExpBackoff>,
 }
 
 impl Oracle {
     pub fn new(config: Config) -> Self {
-        let subgraph_api = SubgraphQuery::new(config.subgraph_url.clone());
-        let subgraph_state = SubgraphStateTracker::new(subgraph_api);
         let backoff_max = config.retry_strategy_max_wait_time;
         let protocol_chain = {
             let transport = JrpcExpBackoff::http(
@@ -51,7 +49,6 @@ impl Oracle {
             config,
             protocol_chain,
             indexed_chains,
-            subgraph_state,
             contracts,
         }
     }
@@ -60,8 +57,14 @@ impl Oracle {
     /// if necessary.
     pub async fn run(&mut self) -> Result<(), Error> {
         info!("New polling iteration.");
-        if self.detect_new_epoch().await? {
-            self.handle_new_epoch().await?;
+
+        // Before anything else, we must get the latest subgraph state
+        debug!("Querying the subgraph state...");
+        let subgraph_state =
+            query_subgraph(&self.config.subgraph_url, &self.config.bearer_token).await?;
+
+        if self.detect_new_epoch(&subgraph_state).await? {
+            self.handle_new_epoch(&subgraph_state).await?;
         } else {
             debug!("No epoch change detected.");
         }
@@ -70,21 +73,9 @@ impl Oracle {
 
     /// Checks if the Subgraph should consider that the Subgraph is at a previous epoch compared to
     /// the Epoch Manager.
-    async fn detect_new_epoch(&mut self) -> Result<bool, Error> {
-        // Before anything else, we must get the latest subgraph state
-        debug!("Querying the subgraph state...");
-        self.subgraph_state.refresh().await;
-        self.subgraph_state.result()?;
-
+    async fn detect_new_epoch(&self, subgraph_state: &SubgraphState) -> Result<bool, Error> {
         // Then we check if there is a new epoch by looking at the current Subgraph state.
-        let last_block_number_indexed_by_subgraph = match self.is_new_epoch().await? {
-            // If the Subgraph is uninitialized, we should skip the freshness and epoch check
-            // and return `true`, indicating that the Oracle should send a message.
-            //
-            // Otherwise this could lead to a deadlock in which the Oracle never sends any
-            // message to the Subgraph while waiting for it to be initialized.
-            NewEpochCheck::SubgraphIsUninitialized => return Ok(true),
-
+        let last_block_number_indexed_by_subgraph = match self.is_new_epoch(subgraph_state).await? {
             // The Subgraph is at the same epoch as the Epoch Manager.
             NewEpochCheck::SameEpoch => return Ok(false),
 
@@ -126,21 +117,19 @@ impl Oracle {
     ///
     /// Returns a pair of values indicating: 1) if there is a new epoch; and 2) the latest block
     /// number indexed by the subgraph. Returns `None` if the Subgraph is not initialized.
-    async fn is_new_epoch(&self) -> Result<NewEpochCheck, Error> {
+    async fn is_new_epoch(&self, subgraph_state: &SubgraphState) -> Result<NewEpochCheck, Error> {
         use NewEpochCheck::*;
         let (subgraph_latest_indexed_block, subgraph_latest_epoch) = {
-            match self
-                .subgraph_state
-                .result()?
-                .and_then(|(block, state)| state.latest_epoch_number.map(|en| (*block, en)))
+            match subgraph_state
+                .global_state
+                .as_ref()
+                .and_then(|gs| gs.latest_epoch_number)
             {
-                Some(state) => state,
-                None => {
-                    warn!("The subgraph state is uninitialized");
-                    return Ok(SubgraphIsUninitialized);
-                }
+                Some(epoch_num) => (subgraph_state.last_indexed_block_number, epoch_num),
+                None => return Err(Error::SubgraphNotInitialized),
             }
         };
+
         debug!("Subgraph is at epoch {subgraph_latest_epoch}");
         METRICS.set_current_epoch("subgraph", subgraph_latest_epoch as i64);
         let manager_current_epoch = self.contracts.query_current_epoch().await?;
@@ -156,7 +145,7 @@ impl Oracle {
         }
     }
 
-    async fn handle_new_epoch(&mut self) -> Result<(), Error> {
+    async fn handle_new_epoch(&mut self, subgraph_state: &SubgraphState) -> Result<(), Error> {
         info!("Entering a new epoch.");
         info!("Collecting latest block information from all indexed chains.");
 
@@ -187,7 +176,7 @@ impl Oracle {
             })
             .collect();
 
-        let payload = set_block_numbers_for_next_epoch(&self.subgraph_state, latest_blocks);
+        let payload = set_block_numbers_for_next_epoch(subgraph_state, latest_blocks);
         let tx_hash = self
             .contracts
             .submit_call(payload, &self.config.owner_private_key)
@@ -224,22 +213,16 @@ impl Oracle {
     }
 }
 
-fn registered_networks(
-    subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
-) -> Vec<crate::subgraph::Network> {
-    if let Ok(Some(state)) = subgraph_state.result() {
-        state.1.networks.clone()
-    } else {
-        // The subgraph is uninitialized, so there's no registered networks at all.
-        vec![]
-    }
-}
-
 fn set_block_numbers_for_next_epoch(
-    subgraph_state: &SubgraphStateTracker<SubgraphQuery>,
+    subgraph_state: &SubgraphState,
     mut latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>,
 ) -> Vec<u8> {
-    let registered_networks = registered_networks(subgraph_state);
+    let registered_networks = subgraph_state
+        .global_state
+        .as_ref()
+        .map(|gs| gs.networks.clone())
+        // In case the subgraph is uninitialized, there's effectively no registered networks at all.
+        .unwrap_or_default();
 
     // We're not interested in unregistered networks. So we isolate them into a separate
     // collection, log them, and finally discard them.
@@ -310,7 +293,8 @@ fn set_block_numbers_for_next_epoch(
 }
 
 mod freshness {
-    use crate::{jrpc_utils::calls_in_block_range, models::JrpcProviderForChain};
+    use crate::models::JrpcProviderForChain;
+    use crate::runner::jrpc_utils::calls_in_block_range;
     use tracing::{debug, trace};
     use web3::types::{H160, U64};
 
@@ -386,8 +370,6 @@ mod freshness {
 /// Used inside the 'Oracle::is_new_epoch' method to return information about the Epoch Subgraph
 /// current state.
 enum NewEpochCheck {
-    /// The Epoch Subgraph has no initial state.
-    SubgraphIsUninitialized,
     /// The Epoch Subgraph is at a previous epoch than the Epoch Manager.
     PreviousEpoch { subgraph_latest_indexed_block: u64 },
     /// The Epoch Subgraph is at the same epoch as the Epoch Manager.
