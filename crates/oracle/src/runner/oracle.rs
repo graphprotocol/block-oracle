@@ -76,10 +76,6 @@ impl Oracle {
     async fn detect_new_epoch(&self, subgraph_state: &SubgraphState) -> Result<bool, Error> {
         // Then we check if there is a new epoch by looking at the current Subgraph state.
         let last_block_number_indexed_by_subgraph = match self.is_new_epoch(subgraph_state).await? {
-            NewEpochCheck::SubgraphIsUninitialized {
-                subgraph_latest_indexed_block,
-            } => subgraph_latest_indexed_block,
-
             // The Subgraph is at the same epoch as the Epoch Manager.
             NewEpochCheck::SameEpoch => return Ok(false),
 
@@ -130,12 +126,7 @@ impl Oracle {
                 .and_then(|gs| gs.latest_epoch_number)
             {
                 Some(epoch_num) => (subgraph_state.last_indexed_block_number, epoch_num),
-                None => {
-                    warn!("The subgraph state is uninitialized");
-                    return Ok(SubgraphIsUninitialized {
-                        subgraph_latest_indexed_block: subgraph_state.last_indexed_block_number,
-                    });
-                }
+                None => return Err(Error::SubgraphNotInitialized),
             }
         };
 
@@ -379,8 +370,6 @@ mod freshness {
 /// Used inside the 'Oracle::is_new_epoch' method to return information about the Epoch Subgraph
 /// current state.
 enum NewEpochCheck {
-    /// The Epoch Subgraph has no initial state.
-    SubgraphIsUninitialized { subgraph_latest_indexed_block: u64 },
     /// The Epoch Subgraph is at a previous epoch than the Epoch Manager.
     PreviousEpoch { subgraph_latest_indexed_block: u64 },
     /// The Epoch Subgraph is at the same epoch as the Epoch Manager.

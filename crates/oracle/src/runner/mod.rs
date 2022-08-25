@@ -45,6 +45,8 @@ pub enum Error {
     EpochManagerBehindSubgraph { manager: u64, subgraph: u64 },
     #[error("The subgraph hasn't indexed all relevant transactions yet")]
     SubgraphNotFresh,
+    #[error("The subgraph has not been initialized yet")]
+    SubgraphNotInitialized,
 }
 
 impl MainLoopFlow for Error {
@@ -62,6 +64,7 @@ impl MainLoopFlow for Error {
 
             // TODO: Put those variants under the `SubgraphQueryError` enum
             SubgraphNotFresh => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
+            SubgraphNotInitialized => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
         }
     }
 }
