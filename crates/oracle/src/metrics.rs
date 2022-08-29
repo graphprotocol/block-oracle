@@ -13,7 +13,7 @@ lazy_static! {
 #[derive(Debug, Clone)]
 pub struct Metrics {
     registry: Registry,
-    jrpc_request_duration_nanos: HistogramVec,
+    jrpc_request_duration_seconds: HistogramVec,
     current_epoch: IntGaugeVec,
     last_sent_message: Gauge,
     latest_block_number: IntGaugeVec,
@@ -24,8 +24,8 @@ impl Metrics {
     pub fn new() -> Result<Self, prometheus::Error> {
         let registry = Registry::new();
 
-        let jrpc_request_duration_nanos = register_histogram_vec_with_registry!(
-            "jrpc_request_duration_nanos",
+        let jrpc_request_duration_seconds = register_histogram_vec_with_registry!(
+            "jrpc_request_duration_seconds",
             "JSON RPC Request Duration",
             &["network"],
             registry
@@ -53,7 +53,7 @@ impl Metrics {
 
         Ok(Self {
             registry,
-            jrpc_request_duration_nanos,
+            jrpc_request_duration_seconds,
             current_epoch,
             last_sent_message,
             latest_block_number,
@@ -82,11 +82,11 @@ impl Metrics {
     }
 
     pub fn set_jrpc_request_duration(&self, network: &str, duration: std::time::Duration) {
-        let nanos = duration.as_secs_f64();
-        self.jrpc_request_duration_nanos
+        let seconds = duration.as_secs_f64();
+        self.jrpc_request_duration_seconds
             .get_metric_with_label_values(&[network])
             .unwrap()
-            .observe(nanos)
+            .observe(seconds)
     }
 
     pub fn set_latest_block_number(&self, network: &str, source: &str, block_number: i64) {
