@@ -132,11 +132,10 @@ impl Metrics {
     pub fn set_subgraph_last_payload_health(&self, healthy: bool, block_number: i64) {
         if healthy {
             debug!("Latest Epoch Subgraph payload at block #{block_number} is valid");
-            self.subgraph_last_payload_health.set(0)
         } else {
             error!("Latest Epoch Subgraph payload at block #{block_number} is invalid");
-            self.subgraph_last_payload_health.set(-1)
         }
+        self.subgraph_last_payload_health.set(healthy as i64);
         self.subgraph_last_payload_block_number.set(block_number)
     }
 }
