@@ -18,6 +18,7 @@ pub struct Metrics {
     last_sent_message: Gauge,
     latest_block_number: IntGaugeVec,
     wallet_balance: IntGauge,
+    subgraph_indexing_errors: IntGauge,
 }
 
 impl Metrics {
@@ -51,6 +52,12 @@ impl Metrics {
         let wallet_balance =
             register_int_gauge_with_registry!("eth_balance", "Owner's ETH Balance", registry)?;
 
+        let subgraph_indexing_errors = register_int_gauge_with_registry!(
+            "subgraph_health",
+            "Epoch Subgraph Indexing Errors",
+            registry
+        )?;
+
         Ok(Self {
             registry,
             jrpc_request_duration_seconds,
@@ -58,6 +65,7 @@ impl Metrics {
             last_sent_message,
             latest_block_number,
             wallet_balance,
+            subgraph_indexing_errors,
         })
     }
 
@@ -98,6 +106,10 @@ impl Metrics {
 
     pub fn set_wallet_balance(&self, balance: i64) {
         self.wallet_balance.set(balance)
+    }
+
+    pub fn set_subgraph_indexing_errors(&self, error: bool) {
+        self.subgraph_indexing_errors.set(error as i64)
     }
 }
 
