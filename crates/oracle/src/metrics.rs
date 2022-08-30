@@ -5,6 +5,7 @@ use prometheus::{
     HistogramVec, IntGauge, IntGaugeVec, Registry, TextEncoder,
 };
 use std::time::UNIX_EPOCH;
+use tracing::{debug, error};
 
 lazy_static! {
     pub static ref METRICS: Metrics = Metrics::new().expect("failed to create Metrics");
@@ -19,6 +20,8 @@ pub struct Metrics {
     latest_block_number: IntGaugeVec,
     wallet_balance: IntGauge,
     subgraph_indexing_errors: IntGauge,
+    subgraph_last_payload_health: IntGauge,
+    subgraph_last_payload_block_number: IntGauge,
 }
 
 impl Metrics {
@@ -58,6 +61,18 @@ impl Metrics {
             registry
         )?;
 
+        let subgraph_last_payload_health = register_int_gauge_with_registry!(
+            "subgraph_last_payload_health",
+            "Epoch Subgraph Last Payload Health",
+            registry
+        )?;
+
+        let subgraph_last_payload_block_number = register_int_gauge_with_registry!(
+            "subgraph_last_payload_block_number",
+            "Epoch Subgraph Last Payload Block Number",
+            registry
+        )?;
+
         Ok(Self {
             registry,
             jrpc_request_duration_seconds,
@@ -66,6 +81,8 @@ impl Metrics {
             latest_block_number,
             wallet_balance,
             subgraph_indexing_errors,
+            subgraph_last_payload_health,
+            subgraph_last_payload_block_number,
         })
     }
 
@@ -110,6 +127,17 @@ impl Metrics {
 
     pub fn set_subgraph_indexing_errors(&self, error: bool) {
         self.subgraph_indexing_errors.set(error as i64)
+    }
+
+    pub fn set_subgraph_last_payload_health(&self, healthy: bool, block_number: i64) {
+        if healthy {
+            debug!("Latest Epoch Subgraph payload at block #{block_number} is valid");
+            self.subgraph_last_payload_health.set(0)
+        } else {
+            error!("Latest Epoch Subgraph payload at block #{block_number} is invalid");
+            self.subgraph_last_payload_health.set(-1)
+        }
+        self.subgraph_last_payload_block_number.set(block_number)
     }
 }
 

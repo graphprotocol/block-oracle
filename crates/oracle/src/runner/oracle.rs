@@ -3,7 +3,7 @@ use crate::{
     hex_string,
     jrpc_utils::{get_latest_block, get_latest_blocks, JrpcExpBackoff},
     metrics::METRICS,
-    subgraph::{query_subgraph, SubgraphState},
+    subgraph::{query_last_payload, query_subgraph, SubgraphState},
     Caip2ChainId, Config, Error, JrpcProviderForChain,
 };
 use epoch_encoding::{BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
@@ -62,6 +62,8 @@ impl Oracle {
         debug!("Querying the subgraph state...");
         let subgraph_state =
             query_subgraph(&self.config.subgraph_url, &self.config.bearer_token).await?;
+
+        self.check_last_payload_health().await?;
 
         if self.detect_new_epoch(&subgraph_state).await? {
             self.handle_new_epoch(&subgraph_state).await?;
@@ -210,6 +212,14 @@ impl Oracle {
         info!("Owner ETH Balance is {} gwei", balance);
         METRICS.set_wallet_balance(balance as i64);
         Ok(balance)
+    }
+
+    /// Queries the Epoch Subgraph for the last Payload health.
+    ///
+    /// Used for monitoring and logging.
+    async fn check_last_payload_health(&self) -> Result<(), Error> {
+        query_last_payload(&self.config.subgraph_url, &self.config.bearer_token).await?;
+        Ok(())
     }
 }
 

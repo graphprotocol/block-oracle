@@ -6,7 +6,7 @@ use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Url;
 use std::time::Duration;
-use tracing::{error, info};
+use tracing::{debug, error, info, warn};
 
 #[derive(Debug, thiserror::Error)]
 pub enum SubgraphQueryError {
@@ -208,6 +208,14 @@ mod graphql {
         deprecated = "warn"
     )]
     pub struct SubgraphState;
+
+    #[derive(GraphQLQuery)]
+    #[graphql(
+        schema_path = "src/graphql/schema.graphql",
+        query_path = "src/graphql/last_payload.graphql",
+        deprecated = "warn"
+    )]
+    pub struct LastPayload;
 }
 
 #[cfg(test)]
@@ -370,4 +378,50 @@ mod tests {
         .unwrap();
         assert!(matches!(error, SubgraphQueryError::IndexingError));
     }
+}
+
+/// Queries the Epoch Subgraph for the last payload with the purpose of updating Epoch Subgraph
+/// health related metrics.
+pub async fn query_last_payload(url: &Url, bearer_token: &str) -> Result<(), SubgraphQueryError> {
+    debug!("Querying Epoch Subgraph for invalid payloads");
+
+    let client = reqwest::Client::builder()
+        .user_agent("block-oracle")
+        .build()
+        .unwrap();
+    let request_body = graphql::LastPayload::build_query(graphql::last_payload::Variables);
+    let request = client
+        .post(url.clone())
+        .json(&request_body)
+        .bearer_auth(bearer_token);
+    let response = request.send().await?.error_for_status()?;
+    let response_body: Response<graphql::last_payload::ResponseData> = response.json().await?;
+
+    if let Some(errors) = response_body.errors {
+        // We only deal with the first error and ignore the rest.
+        let error = &errors[0];
+        warn!(
+            %error,
+            "Querying the Epoch Subgraph for the last payload failed"
+        );
+    } else if let Some(data) = response_body.data {
+        match &data.payloads[..] {
+            [last_payload] => METRICS
+                .set_subgraph_last_payload_health(last_payload.valid, last_payload.created_at),
+            [] => {
+                return Err(SubgraphQueryError::Other(anyhow::anyhow!(
+                    "The query returned no Payload"
+                )))
+            }
+            _ => {
+                return Err(SubgraphQueryError::BadData(anyhow::anyhow!(
+                    "Got invalid response while querying subgraph for the last payload"
+                )))
+            }
+        }
+    } else {
+        // This is an odd case where neither data nor errors were present in ResponseData
+        debug!("No data or error was returned from query");
+    }
+    Ok(())
 }
