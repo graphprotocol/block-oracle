@@ -54,11 +54,14 @@ pub async fn query_subgraph(
     let response_body: Response<graphql::subgraph_state::ResponseData> = response.json().await?;
 
     match response_body.errors.as_deref() {
-        Some([]) | None => {}
+        Some([]) | None => {
+            METRICS.set_subgraph_indexing_errors(false);
+        }
         Some(errors) => {
             // We only deal with the first error and ignore the rest.
             let e = &errors[0];
             if e.message == "indexing_error" {
+                METRICS.set_subgraph_indexing_errors(true);
                 return Err(SubgraphQueryError::IndexingError);
             } else {
                 return Err(SubgraphQueryError::Other(anyhow::anyhow!("{}", e.message)));
