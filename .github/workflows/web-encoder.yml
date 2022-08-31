@@ -2,9 +2,10 @@ name: Deploy to GH Pages
 
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches:
+      - main
+    paths:
+      - crates/json-encoder-web/Cargo.toml
 
 permissions:
   contents: write
