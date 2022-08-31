@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/*"]
+exclude = ["crates/json-encoder-web"] # wasm-pack has some problems with workspaces.
 
 [profile.release]
 # We want to keep as many checks as possible even for release builds.

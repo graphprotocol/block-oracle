@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link rel="icon" type="image/png" href="https://storage.googleapis.com/graph-web/favicon.png">
+
+	<title>Block Oracle encoder</title>
+
+	<!-- https://github.com/josdejong/jsoneditor -->
+	<!-- script src="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.9.0/jsoneditor.min.js" integrity="sha512-WuimD+3eJ3qkskeMQiQZesaYjwyBiTN2Xg2tI60IDp5jx402/u8lLZAqCgAei92NInz0Jn+xYqJKYCbxic4hIA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script -->
+	<!-- link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jsoneditor/9.9.0/jsoneditor.min.css" integrity="sha512-8ca3Rhl1VGRZ72Vjj35LcQasrUEZZLknd2qJF/RDQocmA/4q/v5gD3H7NZtZ2ssfkN6VqDuzKqYdeaT0YUubZw==" crossorigin="anonymous" referrerpolicy="no-referrer" /-->
+
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+</head>
+
+<body>
+	<section class="section">
+		<div class="container">
+			<h1 class="title">
+				Block Oracle encoder
+			</h1>
+			<form id="form">
+				<div id="container" style="width: 800px; height: 600px; border: 1px solid #ccc"></div>
+				<!--div class="field">
+					<div id="editor"></div>
+					function foo(items) {
+					var x = "All this is syntax highlighted";
+					return x;
+				</div-->
+
+				<div class="field">
+					<label class="label">Output type</label>
+					<div class="select">
+						<select>
+							<option>Calldata</option>
+							<option>Bytes payload</option>
+						</select>
+					</div>
+				</div>
+
+				<div class="field is-grouped">
+					<div class="control">
+						<button class="button is-link" type="button" id="compile-button">Compile</button>
+					</div>
+					<div class="control">
+						<button class="button is-link is-light" type="button" id="clear-all">Clear all</button>
+					</div>
+				</div>
+
+				<div class="field">
+					<div class="control">
+						<input class="input" type="text" value="" id="compiled" readonly>
+					</div>
+				</div>
+
+				<div class="field">
+					<div class="control">
+						<button class="button is-link" type="button" id="copy-to-clipboard">Copy to clipboard</button>
+					</div>
+				</div>
+
+			</form>
+		</div>
+	</section>
+</body>
+
+</html>
