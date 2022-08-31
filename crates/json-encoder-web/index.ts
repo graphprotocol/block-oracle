@@ -1,9 +1,7 @@
-// Note that a dynamic `import` statement here is required due to
-// webpack/webpack#6615, but in theory `import { greet } from './pkg';`
-// will work here one day as well!
 import * as wasm from './pkg';
 import * as copy from 'copy-to-clipboard';
-import * as monaco from 'monaco-editor';
+// https://github.com/microsoft/monaco-editor/issues/2874
+import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/editor.api'
 
 self.MonacoEnvironment = {
 	getWorkerUrl: function (moduleId, label) {
@@ -22,7 +20,7 @@ const samplePayload = `[
 ]
 `;
 
-var editor = monaco.editor.create(document.getElementById('container'), {
+var editor = monacoEditor.create(document.getElementById('container'), {
 	value: samplePayload,
 	language: 'json',
 	minimap: {

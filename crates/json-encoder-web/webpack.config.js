@@ -1,7 +1,8 @@
+const webpack = require('webpack');
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const webpack = require('webpack');
 const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 module.exports = {
 	entry: {
@@ -20,7 +21,12 @@ module.exports = {
 		new WasmPackPlugin({
 			crateDirectory: path.resolve(__dirname, ".")
 		}),
-		// Have this example work in Edge which doesn't ship `TextEncoder` or
+		new MonacoWebpackPlugin({
+			// We don't want to pollute our distribution with support for many
+			// languages we don't care about.
+			languages: ['json']
+		}),
+		// Makes this work in Edge which doesn't ship `TextEncoder` or
 		// `TextDecoder` at this time.
 		new webpack.ProvidePlugin({
 			TextDecoder: ['text-encoding', 'TextDecoder'],
