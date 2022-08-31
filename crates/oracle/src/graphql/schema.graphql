@@ -1,5 +1,6 @@
 type Query {
   globalState(id: String!): GlobalState
+  payloads: [Payload!]!
   _meta: Meta!,
 }
 
@@ -36,4 +37,9 @@ type NetworkEpochBlockNumber {
   delta: String!
   blockNumber: String!
   epochNumber: String!
+}
+
+type Payload {
+  valid: Boolean!
+  createdAt: Int!
 }
