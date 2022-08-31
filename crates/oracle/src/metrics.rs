@@ -29,14 +29,14 @@ impl Metrics {
         let registry = Registry::new();
 
         let jrpc_request_duration_seconds = register_histogram_vec_with_registry!(
-            "jrpc_request_duration_seconds",
+            "epoch_block_oracle_jrpc_request_duration_seconds",
             "JSON RPC Request Duration",
             &["network"],
             registry
         )?;
 
         let current_epoch = register_int_gauge_vec_with_registry!(
-            "current_epoch",
+            "epoch_block_oracle_current_epoch",
             "Current Epoch",
             &["source"],
             registry
@@ -46,7 +46,7 @@ impl Metrics {
             register_gauge_with_registry!("last_sent_message", "Last Sent Message", registry)?;
 
         let latest_block_number = register_int_gauge_vec_with_registry!(
-            "latest_block_number",
+            "epoch_block_oracle_latest_block_number",
             "Latest Block Number",
             &["network", "source"],
             registry
@@ -56,19 +56,19 @@ impl Metrics {
             register_int_gauge_with_registry!("eth_balance", "Owner's ETH Balance", registry)?;
 
         let subgraph_indexing_errors = register_int_gauge_with_registry!(
-            "subgraph_health",
+            "epoch_block_oracle_subgraph_health",
             "Epoch Subgraph Indexing Errors",
             registry
         )?;
 
         let subgraph_last_payload_health = register_int_gauge_with_registry!(
-            "subgraph_last_payload_health",
+            "epoch_block_oracle_subgraph_last_payload_health",
             "Epoch Subgraph Last Payload Health",
             registry
         )?;
 
         let subgraph_last_payload_block_number = register_int_gauge_with_registry!(
-            "subgraph_last_payload_block_number",
+            "epoch_block_oracle_subgraph_last_payload_block_number",
             "Epoch Subgraph Last Payload Block Number",
             registry
         )?;
