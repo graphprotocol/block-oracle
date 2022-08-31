@@ -35,8 +35,14 @@ var editor = monacoEditor.create(document.getElementById('container'), {
 document.getElementById('compile-button').onclick = function () {
 	console.log('button was clicked');
 	let input = editor.getValue();
-	let compiled = wasm.compile(input, true);
-	(<HTMLInputElement>document.getElementById('compiled')).value = compiled;
+
+	try {
+		let compiled = wasm.compile(input, true);
+		(<HTMLInputElement>document.getElementById('compiled')).value = toHexString(compiled);
+	}
+	catch (e: any) {
+		notie.alert({ text: (<string>e), time: 2, type: 'error' });
+	}
 };
 
 document.getElementById('copy-to-clipboard').onclick = function () {
@@ -48,4 +54,13 @@ document.getElementById('copy-to-clipboard').onclick = function () {
 document.getElementById('clear-all').onclick = function () {
 	editor.setValue('');
 	(<HTMLFormElement>document.getElementById("form")).reset();
+}
+
+
+function toHexString(byteArray: Uint8Array): string {
+	var s = '';
+	byteArray.forEach(function (byte) {
+		s += ('0' + (byte & 0xFF).toString(16)).slice(-2);
+	});
+	return s;
 }

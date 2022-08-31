@@ -258,6 +258,7 @@ name = "json-encoder-web"
 version = "0.1.0"
 dependencies = [
  "getrandom",
+ "hex",
  "json-oracle-encoder",
  "serde_json",
  "wasm-bindgen",

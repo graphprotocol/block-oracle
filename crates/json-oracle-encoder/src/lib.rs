@@ -6,11 +6,13 @@ use std::collections::BTreeMap;
 
 type EncodedMessageBlocks = Vec<(Vec<&'static str>, Vec<u8>)>;
 
-pub fn messages_to_calldata(json: serde_json::Value) -> anyhow::Result<String> {
+pub fn messages_to_calldata(json: serde_json::Value) -> anyhow::Result<Vec<u8>> {
     let encoded_message_blocks = messages_to_encoded_message_blocks(json)?;
-    assert_eq!(encoded_message_blocks.len(), 1);
+    if encoded_message_blocks.len() != 1 {
+        return Err(anyhow!("expected exactly one message block"));
+    }
     let calldata = calldata(encoded_message_blocks[0].1.clone());
-    Ok(hex::encode(calldata))
+    Ok(calldata)
 }
 
 pub fn print_encoded_json_messages(
