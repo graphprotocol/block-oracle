@@ -19,7 +19,7 @@ module.exports = {
 			template: 'index.html'
 		}),
 		new WasmPackPlugin({
-			crateDirectory: path.resolve(__dirname, ".")
+			crateDirectory: path.resolve(__dirname, "../../crates/json-encoder-web")
 		}),
 		new MonacoWebpackPlugin({
 			// We don't want to pollute our distribution with support for many

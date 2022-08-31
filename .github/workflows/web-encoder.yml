@@ -19,12 +19,12 @@ jobs:
         with:
           node-version: latest
           cache: "npm"
-          cache-dependency-path: crates/json-encoder-web/package-lock.json
+          cache-dependency-path: packages/json-encoder-web/package-lock.json
       - run: npm install
-        working-directory: crates/json-encoder-web
+        working-directory: packages/json-encoder-web
       - run: npm run build
-        working-directory: crates/json-encoder-web
+        working-directory: packages/json-encoder-web
       - name: Deploy to GH Pages 🚀
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: crates/json-encoder-web/dist
+          folder: packages/json-encoder-web/dist
