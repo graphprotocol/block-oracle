@@ -207,7 +207,7 @@ mod serde_defaults {
     }
 
     pub fn transaction_confirmation_count() -> usize {
-        5
+        15
     }
 
     pub fn metrics_port() -> u16 {
