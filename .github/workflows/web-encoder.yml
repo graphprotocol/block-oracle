@@ -22,7 +22,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: crates/json-encoder-web/package-lock.json
       - run: npm install
-        working-directory: packages/json-encoder-web
+        working-directory: crates/json-encoder-web
       - run: npm run build
         working-directory: crates/json-encoder-web
       - name: Deploy to GH Pages 🚀
