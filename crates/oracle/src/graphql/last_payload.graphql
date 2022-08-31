@@ -1,6 +1,0 @@
-query LastPayload {
-  payloads(first: 1, orderBy: createdAt, orderDirection: desc) {
-    valid
-    createdAt
-  }
-}

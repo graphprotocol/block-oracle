@@ -337,6 +337,12 @@
 			"block": {
 				"number": 7333988
 			}
-		}
+		},
+		"payloads": [
+			{
+				"valid": true,
+				"createdAt": 123456789
+			}
+		]
 	}
 }
