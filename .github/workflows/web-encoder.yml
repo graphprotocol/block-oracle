@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-    paths:
-      - crates/json-encoder-web/Cargo.toml
 
 permissions:
   contents: write
