@@ -1,13 +1,9 @@
 import * as wasm from './pkg';
 import * as copy from 'copy-to-clipboard';
-// https://github.com/microsoft/monaco-editor/issues/2874
+import notie from 'notie';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/editor.api'
 
-self.MonacoEnvironment = {
-	getWorkerUrl: function (moduleId, label) {
-		return './json.worker.bundle.js';
-	}
-};
+require('notie/dist/notie.min.css');
 
 const samplePayload = `[
 	{
@@ -19,6 +15,13 @@ const samplePayload = `[
 	}
 ]
 `;
+
+// https://github.com/microsoft/monaco-editor/issues/2874
+self.MonacoEnvironment = {
+	getWorkerUrl: function (moduleId, label) {
+		return './json.worker.bundle.js';
+	}
+};
 
 var editor = monacoEditor.create(document.getElementById('container'), {
 	value: samplePayload,
@@ -38,6 +41,7 @@ document.getElementById('compile-button').onclick = function () {
 
 document.getElementById('copy-to-clipboard').onclick = function () {
 	let compiled = (<HTMLInputElement>document.getElementById('compiled')).value;
+	notie.alert({ text: `Copied ${compiled.length} characters to the clipboard.`, time: 1, type: 'success' });
 	copy(compiled);
 };
 
