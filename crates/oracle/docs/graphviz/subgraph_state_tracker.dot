@@ -1,0 +1,24 @@
+digraph subgraph_state_tracker {
+    // General Graph Display
+    newrank=true;
+
+    nodesep=1.25
+    fontname="Helvetica,Arial,sans-serif"
+    edge [fontname="Helvetica,Arial,sans-serif"]
+    node [fontname="Helvetica,Arial,sans-serif", shape=doublecircle,
+          style=filled, fillcolor="lightsteelblue"]
+
+    ENTRY [shape=point, fillcolor=black]
+    Uninitialized
+    Failed
+    Valid
+
+    ENTRY -> Uninitialized
+    Uninitialized -> Valid
+    Valid -> Failed
+
+    Uninitialized -> Uninitialized
+    Valid -> Valid
+    Failed -> Failed
+    Failed -> Valid
+}
