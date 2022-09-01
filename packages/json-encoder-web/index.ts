@@ -2,6 +2,7 @@ import * as wasm from './pkg';
 import * as copy from 'copy-to-clipboard';
 import notie from 'notie';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/editor.api'
+import { output } from './webpack.config';
 
 require('notie/dist/notie.min.css');
 
@@ -33,11 +34,13 @@ var editor = monacoEditor.create(document.getElementById('container'), {
 });
 
 document.getElementById('compile-button').onclick = function () {
-	console.log('button was clicked');
 	let input = editor.getValue();
 
 	try {
-		let compiled = wasm.compile(input, true);
+		let outputType = (<HTMLSelectElement>document.getElementById('output-type')).value;
+		let isCalldata = outputType === 'calldata';
+		console.log(`Output type is ${outputType}`);
+		let compiled = wasm.compile(input, isCalldata);
 		(<HTMLInputElement>document.getElementById('compiled')).value = toHexString(compiled);
 	}
 	catch (e: any) {
