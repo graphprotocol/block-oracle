@@ -76,20 +76,24 @@ pub async fn query_subgraph(
         )));
     };
 
-    // Check if the last payload indexed by the subgraph is valid
-    let last_payload = if let [payload] = &data.payloads[..] {
+    let last_indexed_block_number = data.meta.block.number as u64;
+    let global_state = data
+        .global_state
+        .map(|gs| gs.try_into())
+        .transpose()
+        .map_err(SubgraphQueryError::BadData)?;
+    let last_payload: Option<Payload> = data
+        .payloads
+        .get(0)
+        .map(|p| p.try_into())
+        .transpose()
+        .map_err(SubgraphQueryError::BadData)?;
+
+    // Check if the last payload indexed by the subgraph is valid.
+    if let Some(payload) = &last_payload {
         METRICS.set_subgraph_last_payload_health(payload.valid, payload.created_at);
-        Some(payload.into())
     } else {
         warn!("Epoch Subgraph had no previous payload");
-        None
-    };
-
-    let last_indexed_block_number = data.meta.block.number as u64;
-    let global_state = if let Some(gs) = data.global_state {
-        Some(gs.try_into().map_err(SubgraphQueryError::BadData)?)
-    } else {
-        None
     };
 
     Ok(SubgraphState {
@@ -211,30 +215,19 @@ impl TryFrom<graphql::subgraph_state::SubgraphStateGlobalState> for GlobalState 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Payload {
     valid: bool,
-    created_at: u64,
+    created_at: i64,
 }
 
-impl From<&graphql::subgraph_state::SubgraphStatePayloads> for Payload {
-    fn from(value: &graphql::subgraph_state::SubgraphStatePayloads) -> Self {
-        // match &data.payloads[..] {
-        //     [last_payload] => METRICS
-        //         .set_subgraph_last_payload_health(last_payload.valid, last_payload.created_at),
-        //     [] => {
-        //         return Err(SubgraphQueryError::Other(anyhow::anyhow!(
-        //             "The query returned no Payload"
-        //         )))
-        //     }
-        //     _ => {
-        //         return Err(SubgraphQueryError::BadData(anyhow::anyhow!(
-        //             "Got invalid response while querying subgraph for the last payload"
-        //         )))
-        //     }
-        // }
+impl TryFrom<&graphql::subgraph_state::SubgraphStatePayloads> for Payload {
+    type Error = anyhow::Error;
 
-        Payload {
+    fn try_from(
+        value: &graphql::subgraph_state::SubgraphStatePayloads,
+    ) -> Result<Self, Self::Error> {
+        Ok(Payload {
             valid: value.valid,
-            created_at: value.created_at as u64,
-        }
+            created_at: value.created_at.parse()?,
+        })
     }
 }
 
