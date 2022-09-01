@@ -106,5 +106,6 @@ fn init_contracts(config: Config) -> anyhow::Result<Contracts<Http>> {
         &protocol_chain.web3.eth(),
         config.data_edge_address,
         config.epoch_manager_address,
+        config.num_confirmations,
     )
 }

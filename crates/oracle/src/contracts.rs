@@ -19,6 +19,7 @@ where
 {
     data_edge: Contract<T>,
     epoch_manager: Contract<T>,
+    num_confirmations: u64,
 }
 
 impl<T> Contracts<T>
@@ -29,12 +30,14 @@ where
         eth: &Eth<T>,
         data_edge_address: Address,
         epoch_manager_address: Address,
+        num_confirmations: u64,
     ) -> anyhow::Result<Self> {
         let data_edge = Contracts::new_contract(DATA_EDGE_ABI, eth, data_edge_address)?;
         let epoch_manager = Contracts::new_contract(EPOCH_MANAGER_ABI, eth, epoch_manager_address)?;
         Ok(Self {
             data_edge,
             epoch_manager,
+            num_confirmations,
         })
     }
 
@@ -62,13 +65,16 @@ where
     ) -> Result<H256, web3::contract::Error> {
         let transaction_hash = self
             .data_edge
-            .signed_call(
+            .signed_call_with_confirmations(
                 "crossChainEpochOracle",
                 (payload,),
                 Options::default(),
+                self.num_confirmations as usize,
                 owner_private_key,
             )
-            .await?;
+            .await?
+            .transaction_hash;
+
         info!(?transaction_hash, "Sent transaction");
         Ok(transaction_hash)
     }

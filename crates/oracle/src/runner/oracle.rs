@@ -26,6 +26,7 @@ impl Oracle {
             &protocol_chain.web3.eth(),
             config.data_edge_address,
             config.epoch_manager_address,
+            config.num_confirmations,
         )
         .expect("Failed to initialize Block Oracle's required contracts");
 
