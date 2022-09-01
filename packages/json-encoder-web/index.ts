@@ -59,6 +59,20 @@ document.getElementById('clear-all').onclick = function () {
 	(<HTMLFormElement>document.getElementById("form")).reset();
 }
 
+document.getElementById('verify-compiled').oninput = function () {
+	let compiled = (<HTMLInputElement>document.getElementById('compiled')).value;
+	let expected = (<HTMLInputElement>document.getElementById('verify-compiled')).value;
+
+	let text;
+	if (compiled === expected) {
+		text = '✓ matches'
+	} else {
+		text = '✗ does not match'
+	}
+
+	(<HTMLParagraphElement>document.getElementById('verify-result')).innerText = text;
+}
+
 
 function toHexString(byteArray: Uint8Array): string {
 	var s = '';
