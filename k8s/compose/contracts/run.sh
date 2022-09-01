@@ -8,5 +8,5 @@ yarn hardhat run --config extended.config.ts --network compose scripts/deploy-lo
 cd network-contracts
 yarn hardhat migrate --config extended.config.ts --network compose --graph-config config/graph.localhost.yml --skip-confirmation
 
-# set automining interval
-yarn hardhat run --config extended.config.ts --network compose /set-automining-interval.js
+# Seed the DataEdge contract with Register Network & set automining interval
+yarn hardhat run --config extended.config.ts --network compose /seed-then-set-automining-interval.js
