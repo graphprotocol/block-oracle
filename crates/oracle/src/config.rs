@@ -47,6 +47,7 @@ pub struct Config {
     pub protocol_chain: ProtocolChain,
     pub retry_strategy_max_wait_time: Duration,
     pub metrics_port: u16,
+    pub transaction_confirmation_count: usize,
 }
 
 impl Config {
@@ -89,6 +90,7 @@ impl Config {
                 ),
             },
             metrics_port: config_file.metrics_port,
+            transaction_confirmation_count: config_file.transaction_confirmation_count,
         }
     }
 }
@@ -110,10 +112,8 @@ struct ConfigFile {
     freshness_threshold: u64,
     #[serde(default = "serde_defaults::web3_transport_retry_max_wait_time_in_seconds")]
     web3_transport_retry_max_wait_time_in_seconds: u64,
-    #[serde(default = "serde_defaults::transaction_confirmation_poll_interval_in_seconds")]
-    _transaction_confirmation_poll_interval_in_seconds: u64,
     #[serde(default = "serde_defaults::transaction_confirmation_count")]
-    _transaction_confirmation_count: usize,
+    transaction_confirmation_count: usize,
     #[serde(default = "serde_defaults::log_level")]
     log_level: FromStrWrapper<LevelFilter>,
     protocol_chain: SerdeProtocolChain,
@@ -186,7 +186,6 @@ mod serde_utils {
 
 /// These should be expressed as constants once
 /// https://github.com/serde-rs/serde/issues/368 is fixed.
-#[allow(unused)]
 mod serde_defaults {
     use super::serde_utils::FromStrWrapper;
     use tracing_subscriber::filter::LevelFilter;
@@ -207,12 +206,8 @@ mod serde_defaults {
         60
     }
 
-    pub fn transaction_confirmation_poll_interval_in_seconds() -> u64 {
-        5
-    }
-
     pub fn transaction_confirmation_count() -> usize {
-        0
+        15
     }
 
     pub fn metrics_port() -> u16 {

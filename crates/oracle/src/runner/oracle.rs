@@ -26,6 +26,7 @@ impl Oracle {
             &protocol_chain.web3.eth(),
             config.data_edge_address,
             config.epoch_manager_address,
+            config.transaction_confirmation_count,
         )
         .expect("Failed to initialize Block Oracle's required contracts");
 
@@ -161,14 +162,14 @@ impl Oracle {
             .collect();
 
         let payload = set_block_numbers_for_next_epoch(subgraph_state, latest_blocks);
-        let tx_hash = self
+        let transaction_receipt = self
             .contracts
             .submit_call(payload, &self.config.owner_private_key)
             .await
             .map_err(Error::CantSubmitTx)?;
         METRICS.set_last_sent_message();
         info!(
-            tx_hash = tx_hash.to_string().as_str(),
+            tx_hash = transaction_receipt.transaction_hash.to_string().as_str(),
             "Contract call submitted successfully."
         );
 
