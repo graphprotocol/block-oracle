@@ -1,5 +1,22 @@
 {
   "local": false,
-  "owner": "0xeb4ad97a099defc85c900a60adfd2405c455b2c0",
+  "permissionList": [
+    {
+      "address": "0xeb4ad97a099defc85c900a60adfd2405c455b2c0",
+      "permissions": [
+        { "entry": "SetBlockNumbersForEpochMessage" },
+        { "entry": "CorrectEpochsMessage" },
+        { "entry": "ResetStateMessage", "lastEntry": true }
+      ]
+    },
+    {
+      "address": "0x48301fe520f72994d32ead72e2b6a8447873cf50",
+      "permissions": [
+        { "entry": "UpdateVersionsMessage" },
+        { "entry": "RegisterNetworksMessage" },
+        { "entry": "ChangePermissionsMessage", "lastEntry": true }
+      ]
+    }
+  ],
   "epochManager": "0x64f990bf16552a693dcb043bb7bf3866c5e05ddb"
 }

@@ -47,12 +47,13 @@ type UpdateVersionsMessage implements Message @entity {
   oldVersion: Int!
 }
 
-type ChangeOwnershipMessage implements Message @entity {
+type ChangePermissionsMessage implements Message @entity {
   id: ID!
   block: MessageBlock!
   data: Bytes
-  newOwner: String!
-  oldOwner: String!
+  address: String!
+  oldPermissions: [String!]!
+  newPermissions: [String!]!
 }
 
 type ResetStateMessage implements Message @entity {
@@ -94,7 +95,12 @@ type GlobalState @entity {
   latestValidEpoch: Epoch
   networks: [Network!]! @derivedFrom(field:"state")
   encodingVersion: Int!
-  owner: String!
+  permissionList: [PermissionListEntry!]!
+}
+
+type PermissionListEntry @entity {
+  id: ID!
+  permissions: [String!]!
 }
 
 type Epoch @entity {

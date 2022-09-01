@@ -15,7 +15,7 @@ export enum MessageTag {
   CorrectEpochsMessage,
   UpdateVersionsMessage,
   RegisterNetworksMessage,
-  ChangeOwnershipMessage,
+  ChangePermissionsMessage,
   ResetStateMessage
 }
 
@@ -26,7 +26,7 @@ export namespace MessageTag {
       "CorrectEpochsMessage",
       "UpdateVersionsMessage",
       "RegisterNetworksMessage",
-      "ChangeOwnershipMessage",
+      "ChangePermissionsMessage",
       "ResetStateMessage"
     ][tag];
   }
@@ -106,6 +106,21 @@ export function getActiveNetworks(cache: StoreCache): Array<Network> {
     `Found ${networks.length} active networks but ${state.activeNetworkCount} were expected. This is a bug!`
   );
   return networks;
+}
+
+export function isSubmitterAllowed(cache: StoreCache, submitter: String): boolean {
+  let permissionList = cache.getGlobalState().permissionList;
+
+  //double check that this works or whether we need to load entity.
+
+  return permissionList.includes(submitter);
+}
+
+export function doesSubmitterHavePermission(cache: StoreCache, submitter: String, permissionRequired: String): boolean {
+  let permissionList = cache.getGlobalState().permissionList;
+  let permissionListEntry = cache.getPermissionListEntry(submitter)
+
+  return permissionListEntry.permissions.includes(permissionRequired);
 }
 
 // export function swapAndPop(index: u32, networks: Array<Network>): Network {

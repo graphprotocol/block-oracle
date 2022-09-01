@@ -20,10 +20,12 @@ import {
   commitNetworkChanges,
   wipeNetworkList,
   nextEpochId,
-  parseCalldata
+  parseCalldata,
+  isSubmitterAllowed,
+  doesSubmitterHavePermission
 } from "./helpers";
 import { StoreCache } from "./store-cache";
-import { BIGINT_ZERO, BIGINT_ONE, OWNER_ADDRESS_STRING } from "./constants";
+import { BIGINT_ZERO, BIGINT_ONE } from "./constants";
 
 export function handleLogCrossChainEpochOracle(event: Log): void {
   // this is only used in local development, and needs to strip the calldata to only
@@ -68,11 +70,11 @@ export function processPayload(
   let reader = new BytesReader(payloadBytes);
   let blockIdx = 0;
 
-  if (cache.getGlobalState().owner != payload.submitter) {
-    log.error("Invalid submitter. Owner: {}. Submitter: {}. Avoiding payload", [
-      cache.getGlobalState().owner,
-      payload.submitter
-    ]);
+  if (!isSubmitterAllowed(cache, payload.submitter)) {
+    log.error(
+      "Invalid submitter. Allowed addresses: {}. Submitter: {}. Avoiding payload",
+      [cache.getGlobalState().permissionList.toString(), payload.submitter]
+    );
     return;
   }
 
@@ -86,7 +88,7 @@ export function processPayload(
     // Handle message block
     let messageBlock = cache.getMessageBlock([txHash, i].join("-"));
     messageBlock.payload = payload.id;
-    processMessageBlock(cache, messageBlock, reader);
+    processMessageBlock(cache, messageBlock, reader, payload.submitter);
     if (!reader.ok) {
       log.error("Failed to process message block num. {}", [i]);
       payload.valid = false;
@@ -106,7 +108,8 @@ export function processPayload(
 export function processMessageBlock(
   cache: StoreCache,
   messageBlock: MessageBlock,
-  reader: BytesReader
+  reader: BytesReader,
+  submitter: String
 ): void {
   let snapshot = reader.snapshot();
   let tags = decodeTags(reader);
@@ -115,6 +118,17 @@ export function processMessageBlock(
     tags.toString(),
     reader.length().toString()
   ]);
+
+  for (let i = 0; i < tags.length; i++) {
+    let permissionRequired = MessageTag.toString(tags[i]);
+    if (!doesSubmitterHavePermission(cache, submitter, permissionRequired)) {
+      reader.fail(
+        "Submitter {} doesn't have the required permissions to execute {}."
+          .replace("{}", submitter)
+          .replace("{}", permissionRequired)
+      );
+    }
+  }
 
   for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     processMessage(cache, messageBlock, i, tags[i], reader);
@@ -153,8 +167,8 @@ export function processMessage(
     executeUpdateVersionsMessage(cache, snapshot, reader, id, messageBlock);
   } else if (tag == MessageTag.RegisterNetworksMessage) {
     executeRegisterNetworksMessage(cache, snapshot, reader, id, messageBlock);
-  } else if (tag == MessageTag.ChangeOwnershipMessage) {
-    executeChangeOwnershipMessage(cache, snapshot, reader, id, messageBlock);
+  } else if (tag == MessageTag.ChangePermissionsMessage) {
+    executeChangePermissionsMessage(cache, snapshot, reader, id, messageBlock);
   } else if (tag == MessageTag.ResetStateMessage) {
     executeResetStateMessage(cache, snapshot, reader, id, messageBlock);
   } else {
@@ -379,16 +393,28 @@ function executeRegisterNetworksMessage(
 
     idsToRemove.push(networkId);
   }
-  log.warning("ids to remove {}", [idsToRemove.map<String>(element=>element.toString()).toString()])
+  log.warning("ids to remove {}", [
+    idsToRemove
+      .map<String>(element => element.toString())
+      .toString()
+  ]);
 
   for (let i = 0; i < idsToRemove.length; i++) {
     let network = networksMapped[idsToRemove[i]][0];
     removedNetworks.push(network);
     networksMapped[idsToRemove[i]] = [];
   }
-  log.warning("networks mapped {}", [networksMapped.map<String>(element=> element.length > 0 ? element[0].id : "").toString()])
+  log.warning("networks mapped {}", [
+    networksMapped
+      .map<String>(element => (element.length > 0 ? element[0].id : ""))
+      .toString()
+  ]);
   networksMapped = networksMapped.filter(element => element.length > 0);
-  log.warning("networks mapped filtered {}", [networksMapped.map<String>(element=> element.length > 0 ? element[0].id : "").toString()])
+  log.warning("networks mapped filtered {}", [
+    networksMapped
+      .map<String>(element => (element.length > 0 ? element[0].id : ""))
+      .toString()
+  ]);
 
   networks = networksMapped.flat();
 
@@ -427,7 +453,7 @@ function executeRegisterNetworksMessage(
   message.data = reader.diff(snapshot);
 }
 
-function executeChangeOwnershipMessage(
+function executeChangePermissionsMessage(
   cache: StoreCache,
   snapshot: BytesReader,
   reader: BytesReader,
@@ -435,15 +461,37 @@ function executeChangeOwnershipMessage(
   messageBlock: MessageBlock
 ): void {
   let globalState = cache.getGlobalState();
-  let message = cache.getChangeOwnershipMessage(id);
-  let address = reader.advance(20); // address should always be 20 bytes
+  let message = cache.getChangePermissionsMessage(id);
+  let address = reader.advance(20).toHexString(); // address should always be 20 bytes
+
+  // Get the length of the new premissions list
+  let permissionsListLength = decodeU64(reader) as i32;
+  if (!reader.ok) {
+    return;
+  }
+
+  let permissionEntry = cache.getPermissionListEntry(address);
+  let oldPermissionList = permissionEntry.permissions
+  let newPermissionList = new Array<String>();
+
+  for (let i = 0; i < permissionsListLength; i++) {
+    let permission = decodeU64(reader) as i32;
+    newPermissionList.push(MessageTag.toString(permission))
+  }
 
   message.block = messageBlock.id;
-  message.newOwner = address.toHexString();
-  message.oldOwner = globalState.owner;
+  message.address = address;
+  message.oldPermissions = oldPermissionList;
+  message.newPermissions = newPermissionList;
   message.data = reader.diff(snapshot);
 
-  globalState.owner = message.newOwner;
+  if(!isSubmitterAllowed(cache, address)) {
+    let list = globalState.permissionList;
+    list.push(permissionEntry.id)
+    globalState.permissionList = list;
+  }
+  // might want to remove it from the "allow list" if the new permission list length is 0
+  // Right now the address won't be able to execute anything on that case, but it can spam
 }
 
 function executeResetStateMessage(
@@ -467,10 +515,5 @@ function executeResetStateMessage(
 
   wipeNetworkList(networks, message.id);
 
-  globalState.networkCount = 0;
-  globalState.activeNetworkCount = 0;
-  globalState.encodingVersion = 0;
-  globalState.owner = OWNER_ADDRESS_STRING; // maybe not this one?
-  globalState.networkArrayHead = null;
-  globalState.latestValidEpoch = null;
+  cache.resetGlobalState()
 }
