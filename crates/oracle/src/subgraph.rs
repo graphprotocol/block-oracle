@@ -5,7 +5,6 @@ use anyhow::ensure;
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Url;
-use std::time::Duration;
 use tracing::{error, info, warn};
 
 #[derive(Debug, thiserror::Error)]
@@ -27,10 +26,10 @@ impl MainLoopFlow for SubgraphQueryError {
                 // There's no guarantee that the `reqwest::Error` disappears if we wait a full
                 // minute, it's just a simple heuristic that might work when dealing with
                 // straightforward connectivity issues.
-                OracleControlFlow::Continue(Some(Duration::from_secs(60)))
+                OracleControlFlow::Continue(4)
             }
             // Other errors require external intervention, so we poll less frequently.
-            _ => OracleControlFlow::Continue(Some(Duration::from_secs(600))),
+            _ => OracleControlFlow::Continue(40),
         }
     }
 }
