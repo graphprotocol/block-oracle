@@ -41,5 +41,5 @@ type NetworkEpochBlockNumber {
 
 type Payload {
   valid: Boolean!
-  createdAt: Int!
+  createdAt: String!
 }
