@@ -4,10 +4,56 @@ use ethabi::{encode, short_signature, ParamType, Token};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 
+type EncodedMessageBlocks = Vec<(Vec<&'static str>, Vec<u8>)>;
+
+pub fn messages_to_payload(json: serde_json::Value) -> anyhow::Result<Vec<u8>> {
+    let encoded_message_blocks = messages_to_encoded_message_blocks(json)?;
+    if encoded_message_blocks.len() != 1 {
+        return Err(anyhow!("expected exactly one message block"));
+    }
+    Ok(encoded_message_blocks[0].1.clone())
+}
+
+pub fn messages_to_calldata(json: serde_json::Value) -> anyhow::Result<Vec<u8>> {
+    let encoded_message_blocks = messages_to_encoded_message_blocks(json)?;
+    if encoded_message_blocks.len() != 1 {
+        return Err(anyhow!("expected exactly one message block"));
+    }
+    let calldata = calldata(encoded_message_blocks[0].1.clone());
+    Ok(calldata)
+}
+
 pub fn print_encoded_json_messages(
     output_kind: OutputKind,
     json: serde_json::Value,
 ) -> anyhow::Result<()> {
+    let encoded_message_blocks = messages_to_encoded_message_blocks(json)?;
+
+    match output_kind {
+        OutputKind::Calldata => {
+            for (_, block_payload) in encoded_message_blocks.into_iter() {
+                let calldata = calldata(block_payload);
+                println!("{}", hex::encode(calldata));
+            }
+        }
+        OutputKind::Payload => {
+            for (i, (message_types, block_payload)) in encoded_message_blocks.iter().enumerate() {
+                println!(
+                    "{} ({}): 0x{}",
+                    i + 1,
+                    message_types.join(", "),
+                    hex::encode(block_payload)
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn messages_to_encoded_message_blocks(
+    json: serde_json::Value,
+) -> anyhow::Result<EncodedMessageBlocks> {
     let message_blocks: Vec<MessageBlock> = serde_json::from_value(json)?;
 
     let mut encoded_message_blocks = vec![];
@@ -63,26 +109,7 @@ pub fn print_encoded_json_messages(
         encoded_message_blocks.push((message_types, payload));
     }
 
-    match output_kind {
-        OutputKind::Calldata => {
-            for (_, block_payload) in encoded_message_blocks.into_iter() {
-                let calldata = calldata(block_payload);
-                println!("{}", hex::encode(calldata));
-            }
-        }
-        OutputKind::Payload => {
-            for (i, (message_types, block_payload)) in encoded_message_blocks.iter().enumerate() {
-                println!(
-                    "{} ({}): 0x{}",
-                    i + 1,
-                    message_types.join(", "),
-                    hex::encode(block_payload)
-                );
-            }
-        }
-    }
-
-    Ok(())
+    Ok(encoded_message_blocks)
 }
 
 /// Whether the JSON encoder should output the payload of the compressed messages, or the full
