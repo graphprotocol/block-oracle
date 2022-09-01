@@ -20,24 +20,8 @@ pub struct Oracle {
 
 impl Oracle {
     pub fn new(config: Config) -> Self {
-        let backoff_max = config.retry_strategy_max_wait_time;
-        let protocol_chain = {
-            let transport = JrpcExpBackoff::http(
-                config.protocol_chain.jrpc_url.clone(),
-                config.protocol_chain.id.clone(),
-                backoff_max,
-            );
-            JrpcProviderForChain::new(config.protocol_chain.id.clone(), transport)
-        };
-        let indexed_chains = config
-            .indexed_chains
-            .iter()
-            .map(|chain| {
-                let transport =
-                    JrpcExpBackoff::http(chain.jrpc_url.clone(), chain.id.clone(), backoff_max);
-                JrpcProviderForChain::new(chain.id.clone(), transport)
-            })
-            .collect();
+        let protocol_chain = protocol_chain(&config);
+        let indexed_chains = indexed_chains(&config);
         let contracts = Contracts::new(
             &protocol_chain.web3.eth(),
             config.data_edge_address,
@@ -290,6 +274,30 @@ fn set_block_numbers_for_next_epoch(
     );
 
     encoded
+}
+
+fn protocol_chain(config: &Config) -> JrpcProviderForChain<JrpcExpBackoff> {
+    let transport = JrpcExpBackoff::http(
+        config.protocol_chain.jrpc_url.clone(),
+        config.protocol_chain.id.clone(),
+        config.retry_strategy_max_wait_time,
+    );
+    JrpcProviderForChain::new(config.protocol_chain.id.clone(), transport)
+}
+
+fn indexed_chains(config: &Config) -> Vec<JrpcProviderForChain<JrpcExpBackoff>> {
+    config
+        .indexed_chains
+        .iter()
+        .map(|chain| {
+            let transport = JrpcExpBackoff::http(
+                chain.jrpc_url.clone(),
+                chain.id.clone(),
+                config.retry_strategy_max_wait_time,
+            );
+            JrpcProviderForChain::new(chain.id.clone(), transport)
+        })
+        .collect()
 }
 
 mod freshness {
