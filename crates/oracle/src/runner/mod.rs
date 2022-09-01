@@ -54,17 +54,17 @@ impl MainLoopFlow for Error {
         use Error::*;
         match self {
             Subgraph(err) => err.instruction(),
-            BadJrpcProtocolChain(_) => OracleControlFlow::Continue(None),
-            BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(None),
+            BadJrpcProtocolChain(_) => OracleControlFlow::Continue(0),
+            BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(0),
 
             // TODO: Put those variants under a new `contracts::Error` enum
-            CantSubmitTx(_) => OracleControlFlow::Continue(None),
-            EpochManagerCallFailed(_) => OracleControlFlow::Continue(None),
-            EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(None),
+            CantSubmitTx(_) => OracleControlFlow::Continue(0),
+            EpochManagerCallFailed(_) => OracleControlFlow::Continue(0),
+            EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(0),
 
             // TODO: Put those variants under the `SubgraphQueryError` enum
-            SubgraphNotFresh => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
-            SubgraphNotInitialized => OracleControlFlow::Continue(Some(Duration::from_secs(30))),
+            SubgraphNotFresh => OracleControlFlow::Continue(2),
+            SubgraphNotInitialized => OracleControlFlow::Continue(2),
         }
     }
 }
@@ -91,7 +91,7 @@ async fn oracle_task(config: Config) -> Result<(), Error> {
 
     while !CTRLC_HANDLER.poll_ctrlc() {
         if let Err(err) = oracle.run().await {
-            handle_error(err).await?;
+            handle_error(err, config.protocol_chain.polling_interval).await?;
             continue;
         }
 
@@ -106,7 +106,7 @@ async fn oracle_task(config: Config) -> Result<(), Error> {
     Ok(())
 }
 
-async fn handle_error(err: Error) -> Result<(), Error> {
+async fn handle_error(err: Error, polling_interval: Duration) -> Result<(), Error> {
     error!(
         error = err.to_string().as_str(),
         "An error occurred and interrupted the last polling iteration."
@@ -116,12 +116,13 @@ async fn handle_error(err: Error) -> Result<(), Error> {
             error!("This error is non-recoverable. Exiting now.");
             Err(err)
         }
-        OracleControlFlow::Continue(wait) => {
+        OracleControlFlow::Continue(cooldown_multiplier) => {
+            let wait = polling_interval * cooldown_multiplier;
             error!(
-                cooling_off_seconds = wait.unwrap_or_default().as_secs(),
+                cooling_off_seconds = wait.as_secs(),
                 "This error is recoverable.",
             );
-            tokio::time::sleep(wait.unwrap_or_default()).await;
+            tokio::time::sleep(wait).await;
             Ok(())
         }
     }
