@@ -42,8 +42,11 @@ impl Metrics {
             registry
         )?;
 
-        let last_sent_message =
-            register_gauge_with_registry!("last_sent_message", "Last Sent Message", registry)?;
+        let last_sent_message = register_gauge_with_registry!(
+            "epoch_block_oracle_last_sent_message",
+            "Last Sent Message",
+            registry
+        )?;
 
         let latest_block_number = register_int_gauge_vec_with_registry!(
             "epoch_block_oracle_latest_block_number",
@@ -52,8 +55,11 @@ impl Metrics {
             registry
         )?;
 
-        let wallet_balance =
-            register_int_gauge_with_registry!("eth_balance", "Owner's ETH Balance", registry)?;
+        let wallet_balance = register_int_gauge_with_registry!(
+            "epoch_block_oracle_eth_balance",
+            "Owner's ETH Balance",
+            registry
+        )?;
 
         let subgraph_indexing_errors = register_int_gauge_with_registry!(
             "epoch_block_oracle_subgraph_health",
