@@ -312,7 +312,7 @@ mod tests {
                 "payloads": [
                     {
                         "valid": true,
-                        "createdAt": 7503546
+                        "createdAt": "7503546"
                     }
                 ]
             }
