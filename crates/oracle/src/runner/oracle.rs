@@ -60,15 +60,20 @@ impl Oracle {
     /// the Epoch Manager.
     async fn detect_new_epoch(&self, subgraph_state: &SubgraphState) -> Result<bool, Error> {
         // Then we check if there is a new epoch by looking at the current Subgraph state.
-        let last_block_number_indexed_by_subgraph = match self.is_new_epoch(subgraph_state).await? {
+        let last_block_number_indexed_by_subgraph = match self.is_new_epoch(subgraph_state).await {
             // The Subgraph is at the same epoch as the Epoch Manager.
-            NewEpochCheck::SameEpoch => return Ok(false),
+            Ok(NewEpochCheck::SameEpoch) => return Ok(false),
 
             // The Subgraph is at a previous epoch than the Epoch Manager, but we still need to
             // check if the former is fresh.
-            NewEpochCheck::PreviousEpoch {
+            Ok(NewEpochCheck::PreviousEpoch {
                 subgraph_latest_indexed_block,
-            } => subgraph_latest_indexed_block,
+            }) => subgraph_latest_indexed_block,
+
+            // It is always a new epoch for an uninitialized Epoch Subgraph.
+            Err(Error::SubgraphNotInitialized) => return Ok(true),
+
+            Err(other) => return Err(other),
         };
 
         let protocol_chain_current_block = get_latest_block(self.protocol_chain.web3.clone())
