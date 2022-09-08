@@ -120,18 +120,29 @@ pub struct GlobalState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Network {
     pub id: Caip2ChainId,
-    pub latest_block_number: u64,
+    pub array_index: u64,
+    pub latest_block_update: Option<BlockUpdate>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BlockUpdate {
+    pub block_number: u64,
     pub acceleration: i64,
     pub delta: i64,
     pub updated_at_epoch_number: u64,
-    pub array_index: u64,
 }
 
 impl From<Network> for epoch_encoding::Network {
     fn from(val: Network) -> Self {
+        let (block_number, block_delta) = if let Some(block_update) = val.latest_block_update {
+            (block_update.block_number, block_update.delta)
+        } else {
+            (0, 0)
+        };
+
         epoch_encoding::Network {
-            block_number: val.latest_block_number,
-            block_delta: val.delta,
+            block_number,
+            block_delta,
             array_index: val.array_index,
         }
     }
@@ -143,37 +154,45 @@ impl TryFrom<graphql::subgraph_state::SubgraphStateGlobalStateNetworks> for Netw
     fn try_from(
         mut value: graphql::subgraph_state::SubgraphStateGlobalStateNetworks,
     ) -> Result<Self, Self::Error> {
-        ensure!(
-            value.block_numbers.len() == 1,
-            "Network with ID {} has invalid block numbers",
-            value.id
-        );
-
         let id: Caip2ChainId = value
             .id
             .as_str()
             .parse()
             .map_err(|s| anyhow::anyhow!("Invalid network name: {}", s))?;
 
-        let block_number_info = value.block_numbers.pop().unwrap();
-        let latest_block_number: u64 = block_number_info.block_number.parse()?;
-        let acceleration: i64 = block_number_info.acceleration.parse()?;
-        let delta: i64 = block_number_info.delta.parse()?;
-        let updated_at_epoch_number: u64 = block_number_info.epoch_number.parse()?;
         let array_index = value
             .array_index
             .ok_or_else(|| anyhow::anyhow!("Expected a valid array_index for Network"))?
             as u64;
 
-        METRICS.set_latest_block_number(id.as_str(), "subgraph", latest_block_number as i64);
+        ensure!(
+            value.block_numbers.len() <= 1,
+            "Network with ID {} has multiple block numbers. Expected either zero or one.",
+            value.id
+        );
+
+        let latest_block_update = if let Some(block_data) = value.block_numbers.pop() {
+            let block_update = BlockUpdate {
+                block_number: block_data.block_number.parse()?,
+                acceleration: block_data.acceleration.parse()?,
+                delta: block_data.delta.parse()?,
+                updated_at_epoch_number: { block_data.epoch_number.parse()? },
+            };
+            METRICS.set_latest_block_number(
+                id.as_str(),
+                "subgraph",
+                block_update.updated_at_epoch_number as i64,
+            );
+            Some(block_update)
+        } else {
+            info!("Network {} is uninitialized", id.as_str());
+            None
+        };
 
         Ok(Network {
             id,
-            latest_block_number,
-            acceleration,
-            delta,
-            updated_at_epoch_number,
             array_index,
+            latest_block_update,
         })
     }
 }
