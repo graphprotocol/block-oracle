@@ -7,7 +7,7 @@ use prometheus::{
 };
 use std::time::UNIX_EPOCH;
 use tracing::{debug, error, info};
-use warp::Filter;
+use warp::{http::Response, Filter};
 
 lazy_static! {
     pub static ref METRICS: Metrics = Metrics::new().expect("failed to create Metrics");
@@ -166,6 +166,10 @@ impl Metrics {
 
 pub async fn metrics_server(metrics: &'static Metrics, port: u16) {
     info!("Starting metrics server at port {port}/metrics");
-    let endpoint = warp::path("metrics").map(|| metrics.encode());
+    let endpoint = warp::path("metrics").map(|| {
+        Response::builder()
+            .header("Content-Type", "text/plain")
+            .body(metrics.encode())
+    });
     warp::serve(endpoint).run(([127, 0, 0, 1], port)).await;
 }
