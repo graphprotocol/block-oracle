@@ -4,10 +4,9 @@ pub mod jrpc_utils;
 pub mod oracle;
 
 use self::ctrlc::CtrlcHandler;
-use crate::metrics::{server::metrics_server, METRICS};
+use crate::metrics::{metrics_server, METRICS};
 use crate::{Caip2ChainId, Config, SubgraphQueryError};
 use error_handling::{MainLoopFlow, OracleControlFlow};
-use futures::TryFutureExt;
 use lazy_static::lazy_static;
 use oracle::Oracle;
 use std::{env::set_var, path::Path, time::Duration};
@@ -16,14 +15,6 @@ use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 lazy_static! {
     static ref CTRLC_HANDLER: CtrlcHandler = CtrlcHandler::init();
-}
-
-#[derive(Debug, thiserror::Error)]
-enum ApplicationError {
-    #[error(transparent)]
-    Oracle(Error),
-    #[error("The metrics server crashed")]
-    Metrics(#[from] hyper::Error),
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -69,7 +60,7 @@ impl MainLoopFlow for Error {
     }
 }
 
-pub async fn run(config_file: impl AsRef<Path>) -> anyhow::Result<()> {
+pub async fn run(config_file: impl AsRef<Path>) -> Result<(), Error> {
     // Immediately dereference some constants to trigger `lazy_static`
     // initialization.
     let config = Config::parse(config_file);
@@ -78,11 +69,11 @@ pub async fn run(config_file: impl AsRef<Path>) -> anyhow::Result<()> {
     init_logging(config.log_level);
     info!(log_level = %config.log_level, "The block oracle is starting.");
 
-    let metrics_server =
-        metrics_server(&METRICS, config.metrics_port).map_err(ApplicationError::Metrics);
-    let oracle = oracle_task(config).map_err(ApplicationError::Oracle);
-    tokio::try_join!(metrics_server, oracle)?;
-    Ok(())
+    // Spawn the metrics server
+    tokio::spawn(metrics_server(&METRICS, config.metrics_port));
+
+    // Start the Epoch Block Oracle
+    oracle_task(config).await
 }
 
 async fn oracle_task(config: Config) -> Result<(), Error> {
