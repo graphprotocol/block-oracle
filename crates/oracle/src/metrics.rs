@@ -5,7 +5,8 @@ use prometheus::{
     HistogramVec, IntGauge, IntGaugeVec, Registry, TextEncoder,
 };
 use std::time::UNIX_EPOCH;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
+use warp::Filter;
 
 lazy_static! {
     pub static ref METRICS: Metrics = Metrics::new().expect("failed to create Metrics");
@@ -146,40 +147,8 @@ impl Metrics {
     }
 }
 
-pub mod server {
-    use super::Metrics;
-    use futures::Future;
-    use hyper::{
-        service::{make_service_fn, service_fn},
-        Body, Request, Response, Server,
-    };
-    use std::{convert::Infallible, net::SocketAddr};
-    use tracing::info;
-
-    async fn handle_metrics_server_request(
-        _req: Request<Body>,
-        metrics: &'static Metrics,
-    ) -> Result<Response<Body>, Infallible> {
-        let encoded = metrics.encode();
-        let body = Body::from(encoded);
-        let response = Response::builder()
-            .body(body)
-            .expect("failed to build response body with Prometheus encoded metrics");
-        Ok(response)
-    }
-
-    pub fn metrics_server(
-        metrics: &'static Metrics,
-        port: u16,
-    ) -> impl Future<Output = Result<(), hyper::Error>> {
-        // TODO: make this configurable
-        let addr = SocketAddr::from(([0, 0, 0, 0], port));
-        let make_service = make_service_fn(move |_conn| async move {
-            Ok::<_, Infallible>(service_fn(move |req| {
-                handle_metrics_server_request(req, metrics)
-            }))
-        });
-        info!("Starting metrics server at port {port}");
-        Server::bind(&addr).serve(make_service)
-    }
+pub async fn metrics_server(metrics: &'static Metrics, port: u16) {
+    info!("Starting metrics server at port {port}/metrics");
+    let endpoint = warp::path("metrics").map(|| metrics.encode());
+    warp::serve(endpoint).run(([127, 0, 0, 1], port)).await;
 }
