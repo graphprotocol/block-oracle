@@ -1,8 +1,9 @@
 use lazy_static::lazy_static;
 use prometheus::{
     register_gauge_with_registry, register_histogram_vec_with_registry,
-    register_int_gauge_vec_with_registry, register_int_gauge_with_registry, Encoder, Gauge,
-    HistogramVec, IntGauge, IntGaugeVec, Registry, TextEncoder,
+    register_int_counter_vec_with_registry, register_int_gauge_vec_with_registry,
+    register_int_gauge_with_registry, Encoder, Gauge, HistogramVec, IntCounterVec, IntGauge,
+    IntGaugeVec, Registry, TextEncoder,
 };
 use std::time::UNIX_EPOCH;
 use tracing::{debug, error, info};
@@ -16,6 +17,7 @@ lazy_static! {
 pub struct Metrics {
     registry: Registry,
     jrpc_request_duration_seconds: HistogramVec,
+    jrpc_failure: IntCounterVec,
     current_epoch: IntGaugeVec,
     last_sent_message: Gauge,
     latest_block_number: IntGaugeVec,
@@ -32,6 +34,13 @@ impl Metrics {
         let jrpc_request_duration_seconds = register_histogram_vec_with_registry!(
             "epoch_block_oracle_jrpc_request_duration_seconds",
             "JSON RPC Request Duration",
+            &["network"],
+            registry
+        )?;
+
+        let jrpc_failure = register_int_counter_vec_with_registry!(
+            "epoch_block_oracle_jrpc_failure_total",
+            "JSON RPC Request Failure",
             &["network"],
             registry
         )?;
@@ -83,6 +92,7 @@ impl Metrics {
         Ok(Self {
             registry,
             jrpc_request_duration_seconds,
+            jrpc_failure,
             current_epoch,
             last_sent_message,
             latest_block_number,
@@ -144,6 +154,13 @@ impl Metrics {
         }
         self.subgraph_last_payload_health.set(healthy as i64);
         self.subgraph_last_payload_block_number.set(block_number)
+    }
+
+    pub fn track_jrpc_failure(&self, network: &str) {
+        self.jrpc_failure
+            .get_metric_with_label_values(&[network])
+            .unwrap()
+            .inc();
     }
 }
 

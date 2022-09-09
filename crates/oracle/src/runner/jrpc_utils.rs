@@ -11,6 +11,7 @@ use jsonrpc_core::{Call, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::RangeInclusive;
+use std::sync::Arc;
 use std::{future::Future, pin::Pin, time::Duration};
 use tracing::trace;
 use url::Url;
@@ -23,7 +24,7 @@ use web3::{transports::Http, RequestId, Transport, Web3};
 pub struct JrpcExpBackoff<T = Http> {
     inner: T,
     strategy: ExponentialBackoff,
-    network: Caip2ChainId,
+    network: Arc<Caip2ChainId>,
 }
 
 impl<T> JrpcExpBackoff<T> {
@@ -35,7 +36,7 @@ impl<T> JrpcExpBackoff<T> {
         Self {
             inner: transport,
             strategy,
-            network,
+            network: Arc::new(network),
         }
     }
 }
@@ -65,9 +66,11 @@ where
         let op = move || {
             trace!(?id, ?request, %network, "Sending JRPC call");
             let start = std::time::Instant::now();
-            let result = transport
-                .send(id, request.clone())
-                .map_err(backoff::Error::transient);
+            let network2 = network.clone();
+            let result = transport.send(id, request.clone()).map_err(move |e| {
+                METRICS.track_jrpc_failure(network2.as_str());
+                backoff::Error::transient(e)
+            });
             let elapsed = start.elapsed();
             METRICS.set_jrpc_request_duration(network.as_str(), elapsed);
             result
