@@ -171,5 +171,5 @@ pub async fn metrics_server(metrics: &'static Metrics, port: u16) {
             .header("Content-Type", "text/plain")
             .body(metrics.encode())
     });
-    warp::serve(endpoint).run(([127, 0, 0, 1], port)).await;
+    warp::serve(endpoint).run(([0, 0, 0, 0], port)).await;
 }
