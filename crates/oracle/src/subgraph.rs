@@ -181,7 +181,7 @@ impl TryFrom<graphql::subgraph_state::SubgraphStateGlobalStateNetworks> for Netw
             METRICS.set_latest_block_number(
                 id.as_str(),
                 "subgraph",
-                block_update.updated_at_epoch_number as i64,
+                block_update.block_number as i64,
             );
             Some(block_update)
         } else {
