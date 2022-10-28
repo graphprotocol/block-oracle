@@ -4,11 +4,13 @@ use crate::{
     jrpc_utils::{get_latest_block, get_latest_blocks, JrpcExpBackoff},
     metrics::METRICS,
     subgraph::{query_subgraph, SubgraphState},
+    transaction_monitor::TransactionMonitor,
     Caip2ChainId, Config, Error, JrpcProviderForChain,
 };
 use epoch_encoding::{BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::{cmp::Ordering, collections::BTreeMap};
 use tracing::{debug, error, info, warn};
+use web3::types::TransactionReceipt;
 
 /// The main application in-memory state.
 pub struct Oracle {
@@ -167,11 +169,9 @@ impl Oracle {
             .collect();
 
         let payload = set_block_numbers_for_next_epoch(subgraph_state, latest_blocks);
-        let transaction_receipt = self
-            .contracts
-            .submit_call(payload, &self.config.owner_private_key)
-            .await
-            .map_err(Error::CantSubmitTx)?;
+
+        let transaction_receipt = self.submit_transaction_to_data_edge(payload).await?;
+
         METRICS.set_last_sent_message();
         info!(
             tx_hash = transaction_receipt.transaction_hash.to_string().as_str(),
@@ -200,6 +200,26 @@ impl Oracle {
         info!("Owner ETH Balance is {} gwei", balance);
         METRICS.set_wallet_balance(balance as i64);
         Ok(balance)
+    }
+
+    async fn submit_transaction_to_data_edge(
+        &self,
+        payload: Vec<u8>,
+    ) -> Result<TransactionReceipt, Error> {
+        let calldata: web3::types::Bytes = self
+            .contracts
+            .abi_encode_data_edge_payload((payload,))?
+            .into();
+
+        let monitor = TransactionMonitor::new(
+            self.protocol_chain.web3.clone(),
+            &self.config.owner_private_key,
+            self.config.data_edge_address,
+            calldata,
+            todo!("max_retries"),
+            todo!("gas_increase_rate"),
+            todo!("transaction_confirmation_timeout"),
+        );
     }
 }
 

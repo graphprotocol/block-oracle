@@ -2,6 +2,7 @@ pub mod ctrlc;
 pub mod error_handling;
 pub mod jrpc_utils;
 pub mod oracle;
+pub mod transaction_monitor;
 
 use self::ctrlc::CtrlcHandler;
 use crate::metrics::{metrics_server, METRICS};
