@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use web3::{
     error::Error as Web3Error,
     signing::Key,
-    types::{Address, Bytes, TransactionRequest, H256},
+    types::{Address, Bytes, TransactionReceipt, TransactionRequest, H256},
     Transport, Web3,
 };
 
@@ -64,5 +64,26 @@ impl<T: Transport, K: Key> TransactionMonitor<T, K> {
             options,
             sent_transaction_hashes: Default::default(),
         })
+    }
+
+    /// It is possible that previously sent transactions are included in a block while we are trying
+    /// to rebroadcast the original transaction.
+    ///
+    /// If this function detects any confirmation the TransactionManager should abort its ongoing
+    /// operations and return the transaction hash of the confirmed transaction to the Oracle.
+    async fn check_previously_sent_transactions(
+        &self,
+    ) -> Result<TransactionReceipt, TransactionMonitorError> {
+        todo!()
+    }
+
+    /// Broadcasts the transaction and waits for its confirmation.
+    ///
+    /// It will bump the gas price and retry if the transaction takes too long to confirm.
+    /// While doing so, it will also check if previously sent transactions were confirmed.
+    ///
+    /// This function will return an error if we exhaust its maximum retries attempts.
+    pub async fn execute_transaction(&self) -> Result<TransactionReceipt, TransactionMonitorError> {
+        todo!()
     }
 }

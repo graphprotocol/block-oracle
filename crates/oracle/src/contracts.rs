@@ -3,7 +3,6 @@ use crate::{
 };
 use anyhow::Context;
 use secp256k1::SecretKey;
-use std::time::Duration;
 use tracing::{debug, info, trace};
 use web3::{
     api::Eth,
@@ -83,15 +82,15 @@ where
             let calldata: web3::types::Bytes =
                 self.abi_encode_data_edge_payload((payload,))?.into();
 
-            let monitor = TransactionMonitor::new(
+            let transaction_monitor = TransactionMonitor::new(
                 self.client.clone(),
                 owner_private_key,
                 self.data_edge.address(),
                 calldata,
                 self.transaction_monitoring_options,
-            );
-
-            todo!("execute the transaction monitoring step")
+            )
+            .await?;
+            transaction_monitor.execute_transaction().await?
         };
 
         info!(?transaction_receipt.transaction_hash, "Transaction confirmed");
