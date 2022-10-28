@@ -1,10 +1,11 @@
 use crate::metrics::METRICS;
 use anyhow::Context;
 use secp256k1::SecretKey;
+use std::time::Duration;
 use tracing::{debug, info, trace};
 use web3::{
     api::Eth,
-    contract::{tokens::Tokenize, Contract, Options},
+    contract::{tokens::Tokenize, Contract},
     ethabi::Address,
     types::{TransactionReceipt, U256},
     Transport,
@@ -21,7 +22,7 @@ where
 {
     data_edge: Contract<T>,
     epoch_manager: Contract<T>,
-    confirmations: usize,
+    confirmation_timeout: Duration,
 }
 
 impl<T> Contracts<T>
@@ -32,14 +33,14 @@ where
         eth: &Eth<T>,
         data_edge_address: Address,
         epoch_manager_address: Address,
-        confirmations: usize,
+        confirmation_timeout: Duration,
     ) -> anyhow::Result<Self> {
         let data_edge = Contracts::new_contract(DATA_EDGE_ABI, eth, data_edge_address)?;
         let epoch_manager = Contracts::new_contract(EPOCH_MANAGER_ABI, eth, epoch_manager_address)?;
         Ok(Self {
             data_edge,
             epoch_manager,
-            confirmations,
+            confirmation_timeout,
         })
     }
 
@@ -71,20 +72,8 @@ where
         payload: Vec<u8>,
         owner_private_key: &SecretKey,
     ) -> Result<TransactionReceipt, web3::contract::Error> {
-        info!(
-            "Sending transaction and waiting for {} confirmations",
-            self.confirmations
-        );
-        let transaction_receipt = self
-            .data_edge
-            .signed_call_with_confirmations(
-                DATA_EDGE_FUNCTION_NAME,
-                (payload,),
-                Options::default(),
-                self.confirmations,
-                owner_private_key,
-            )
-            .await?;
+        info!("Sending transaction and waiting for confirmations",);
+        let transaction_receipt: TransactionReceipt = todo!("transaction monitor here");
         info!(?transaction_receipt.transaction_hash, "Transaction confirmed");
         Ok(transaction_receipt)
     }
