@@ -47,7 +47,7 @@ pub struct Config {
     pub protocol_chain: ProtocolChain,
     pub retry_strategy_max_wait_time: Duration,
     pub metrics_port: u16,
-    pub transaction_confirmation_count: usize,
+    pub transaction_confirmation_timeout: Duration,
 }
 
 impl Config {
@@ -90,7 +90,9 @@ impl Config {
                 ),
             },
             metrics_port: config_file.metrics_port,
-            transaction_confirmation_count: config_file.transaction_confirmation_count,
+            transaction_confirmation_timeout: Duration::from_secs(
+                config_file.transaction_confirmation_timeout_in_seconds,
+            ),
         }
     }
 }
@@ -112,8 +114,8 @@ struct ConfigFile {
     freshness_threshold: u64,
     #[serde(default = "serde_defaults::web3_transport_retry_max_wait_time_in_seconds")]
     web3_transport_retry_max_wait_time_in_seconds: u64,
-    #[serde(default = "serde_defaults::transaction_confirmation_count")]
-    transaction_confirmation_count: usize,
+    #[serde(default = "serde_defaults::transaction_confirmation_timeout_in_seconds")]
+    transaction_confirmation_timeout_in_seconds: u64,
     #[serde(default = "serde_defaults::log_level")]
     log_level: FromStrWrapper<LevelFilter>,
     protocol_chain: SerdeProtocolChain,
@@ -206,8 +208,8 @@ mod serde_defaults {
         60
     }
 
-    pub fn transaction_confirmation_count() -> usize {
-        15
+    pub fn transaction_confirmation_timeout_in_seconds() -> u64 {
+        120
     }
 
     pub fn metrics_port() -> u16 {
