@@ -88,4 +88,14 @@ where
         info!(?transaction_receipt.transaction_hash, "Transaction confirmed");
         Ok(transaction_receipt)
     }
+
+    pub fn abi_encode_data_edge_payload(
+        &self,
+        params: impl Tokenize,
+    ) -> Result<Vec<u8>, web3::ethabi::Error> {
+        self.data_edge
+            .abi()
+            .function(DATA_EDGE_FUNCTION_NAME)
+            .and_then(|function| function.encode_input(&params.into_tokens()))
+    }
 }
