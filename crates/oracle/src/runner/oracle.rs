@@ -26,9 +26,7 @@ impl Oracle {
             protocol_chain.web3.clone(),
             config.data_edge_address,
             config.epoch_manager_address,
-            config.transaction_confirmation_timeout,
-            config.transaction_monitoring_max_retries,
-            config.transaction_monitoring_gas_increase_rate,
+            config.transaction_monitoring_options,
         )
         .expect("Failed to initialize Block Oracle's required contracts");
 

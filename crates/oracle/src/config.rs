@@ -33,6 +33,20 @@ pub struct ProtocolChain {
     pub polling_interval: Duration,
 }
 
+#[derive(Clone, Deserialize, Debug, Copy)]
+#[serde(rename = "transaction_monitoring")]
+pub struct TransactionMonitoringOptions {
+    #[serde(default = "serde_defaults::transaction_monitoring_confirmation_timeout_in_seconds")]
+    /// How long to wait for a transaction to be confirmed
+    pub confirmation_timeout_in_seconds: u64,
+    #[serde(default = "serde_defaults::transaction_monitoring_max_retries")]
+    /// How many times it has tried to rebroadcast the original transaction.
+    pub max_retries: u32,
+    /// Gas price increase factor
+    #[serde(default = "serde_defaults::transaction_monitoring_gas_increase_rate")]
+    pub gas_increase_rate: f32,
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub log_level: LevelFilter,
@@ -47,9 +61,7 @@ pub struct Config {
     pub protocol_chain: ProtocolChain,
     pub retry_strategy_max_wait_time: Duration,
     pub metrics_port: u16,
-    pub transaction_confirmation_timeout: Duration,
-    pub transaction_monitoring_max_retries: u32,
-    pub transaction_monitoring_gas_increase_rate: f32,
+    pub transaction_monitoring_options: TransactionMonitoringOptions,
 }
 
 impl Config {
@@ -92,12 +104,7 @@ impl Config {
                 ),
             },
             metrics_port: config_file.metrics_port,
-            transaction_confirmation_timeout: Duration::from_secs(
-                config_file.transaction_confirmation_timeout_in_seconds,
-            ),
-            transaction_monitoring_max_retries: config_file.transaction_monitoring_max_retries,
-            transaction_monitoring_gas_increase_rate: config_file
-                .transaction_monitoring_gas_increase_rate,
+            transaction_monitoring_options: config_file.transaction_monitoring_options,
         }
     }
 }
@@ -119,18 +126,14 @@ struct ConfigFile {
     freshness_threshold: u64,
     #[serde(default = "serde_defaults::web3_transport_retry_max_wait_time_in_seconds")]
     web3_transport_retry_max_wait_time_in_seconds: u64,
-    #[serde(default = "serde_defaults::transaction_confirmation_timeout_in_seconds")]
-    transaction_confirmation_timeout_in_seconds: u64,
-    #[serde(default = "serde_defaults::transaction_monitoring_max_retries")]
-    transaction_monitoring_max_retries: u32,
-    #[serde(default = "serde_defaults::transaction_monitoring_gas_increase_rate")]
-    transaction_monitoring_gas_increase_rate: f32,
     #[serde(default = "serde_defaults::log_level")]
     log_level: FromStrWrapper<LevelFilter>,
     protocol_chain: SerdeProtocolChain,
     indexed_chains: HashMap<Caip2ChainId, EitherLiteralOrEnvVar<Url>>,
     #[serde(default = "serde_defaults::metrics_port")]
     metrics_port: u16,
+    #[serde(default = "serde_defaults::transaction_monitoring_options")]
+    transaction_monitoring_options: TransactionMonitoringOptions,
 }
 
 impl ConfigFile {
@@ -198,7 +201,7 @@ mod serde_utils {
 /// These should be expressed as constants once
 /// https://github.com/serde-rs/serde/issues/368 is fixed.
 mod serde_defaults {
-    use super::serde_utils::FromStrWrapper;
+    use super::{serde_utils::FromStrWrapper, TransactionMonitoringOptions};
     use tracing_subscriber::filter::LevelFilter;
 
     pub fn log_level() -> FromStrWrapper<LevelFilter> {
@@ -217,7 +220,7 @@ mod serde_defaults {
         60
     }
 
-    pub fn transaction_confirmation_timeout_in_seconds() -> u64 {
+    pub fn transaction_monitoring_confirmation_timeout_in_seconds() -> u64 {
         120
     }
     pub fn transaction_monitoring_max_retries() -> u32 {
@@ -230,6 +233,15 @@ mod serde_defaults {
 
     pub fn metrics_port() -> u16 {
         9090
+    }
+
+    pub fn transaction_monitoring_options() -> TransactionMonitoringOptions {
+        TransactionMonitoringOptions {
+            confirmation_timeout_in_seconds: transaction_monitoring_confirmation_timeout_in_seconds(
+            ),
+            max_retries: transaction_monitoring_max_retries(),
+            gas_increase_rate: transaction_monitoring_gas_increase_rate(),
+        }
     }
 }
 

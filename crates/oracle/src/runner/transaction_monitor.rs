@@ -1,3 +1,4 @@
+use crate::config::TransactionMonitoringOptions;
 use std::collections::HashSet;
 use web3::{
     error::Error as Web3Error,
@@ -24,14 +25,7 @@ pub struct TransactionMonitor<T: Transport, K: Key> {
     /// confirmations.
     sent_transaction_hashes: HashSet<H256>,
 
-    /// How many times it has tried to rebroadcast the original transaction.
-    max_retries: u32,
-
-    /// Gas price increase factor
-    gas_increase_rate: f32,
-
-    /// How long to wait for a transaction to be confirmed
-    transaction_confirmation_timeout: tokio::time::Duration,
+    options: TransactionMonitoringOptions,
 }
 
 impl<T: Transport, K: Key> TransactionMonitor<T, K> {
@@ -40,9 +34,7 @@ impl<T: Transport, K: Key> TransactionMonitor<T, K> {
         signing_key: K,
         contract_address: Address,
         calldata: Bytes,
-        max_retries: u32,
-        gas_increase_rate: f32,
-        transaction_confirmation_timeout: tokio::time::Duration,
+        options: TransactionMonitoringOptions,
     ) -> Result<Self, TransactionMonitorError> {
         let from = signing_key.address();
 
@@ -69,9 +61,7 @@ impl<T: Transport, K: Key> TransactionMonitor<T, K> {
             client,
             transaction_request,
             signing_key,
-            max_retries,
-            gas_increase_rate,
-            transaction_confirmation_timeout,
+            options,
             sent_transaction_hashes: Default::default(),
         })
     }
