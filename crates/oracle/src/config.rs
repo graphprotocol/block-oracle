@@ -48,6 +48,8 @@ pub struct Config {
     pub retry_strategy_max_wait_time: Duration,
     pub metrics_port: u16,
     pub transaction_confirmation_timeout: Duration,
+    pub transaction_monitoring_max_retries: u32,
+    pub transaction_monitoring_gas_increase_rate: f32,
 }
 
 impl Config {
@@ -93,6 +95,9 @@ impl Config {
             transaction_confirmation_timeout: Duration::from_secs(
                 config_file.transaction_confirmation_timeout_in_seconds,
             ),
+            transaction_monitoring_max_retries: config_file.transaction_monitoring_max_retries,
+            transaction_monitoring_gas_increase_rate: config_file
+                .transaction_monitoring_gas_increase_rate,
         }
     }
 }
@@ -116,6 +121,10 @@ struct ConfigFile {
     web3_transport_retry_max_wait_time_in_seconds: u64,
     #[serde(default = "serde_defaults::transaction_confirmation_timeout_in_seconds")]
     transaction_confirmation_timeout_in_seconds: u64,
+    #[serde(default = "serde_defaults::transaction_monitoring_max_retries")]
+    transaction_monitoring_max_retries: u32,
+    #[serde(default = "serde_defaults::transaction_monitoring_gas_increase_rate")]
+    transaction_monitoring_gas_increase_rate: f32,
     #[serde(default = "serde_defaults::log_level")]
     log_level: FromStrWrapper<LevelFilter>,
     protocol_chain: SerdeProtocolChain,
@@ -210,6 +219,13 @@ mod serde_defaults {
 
     pub fn transaction_confirmation_timeout_in_seconds() -> u64 {
         120
+    }
+    pub fn transaction_monitoring_max_retries() -> u32 {
+        10
+    }
+
+    pub fn transaction_monitoring_gas_increase_rate() -> f32 {
+        0.5 // 50%
     }
 
     pub fn metrics_port() -> u16 {

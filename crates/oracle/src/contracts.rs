@@ -24,6 +24,8 @@ where
     epoch_manager: Contract<T>,
     confirmation_timeout: Duration,
     client: Web3<T>,
+    transaction_monitoring_max_retries: u32,
+    transaction_monitoring_gas_increase_rate: f32,
 }
 
 impl<T> Contracts<T>
@@ -35,6 +37,8 @@ where
         data_edge_address: Address,
         epoch_manager_address: Address,
         confirmation_timeout: Duration,
+        transaction_monitoring_max_retries: u32,
+        transaction_monitoring_gas_increase_rate: f32,
     ) -> anyhow::Result<Self> {
         let data_edge = Contracts::new_contract(DATA_EDGE_ABI, &client.eth(), data_edge_address)?;
         let epoch_manager =
@@ -44,6 +48,8 @@ where
             data_edge,
             epoch_manager,
             confirmation_timeout,
+            transaction_monitoring_max_retries,
+            transaction_monitoring_gas_increase_rate,
         })
     }
 
@@ -86,8 +92,8 @@ where
                 owner_private_key,
                 self.data_edge.address(),
                 calldata,
-                todo!("max_retries"),
-                todo!("gas_increase_rate"),
+                self.transaction_monitoring_max_retries,
+                self.transaction_monitoring_gas_increase_rate,
                 self.confirmation_timeout,
             );
 
