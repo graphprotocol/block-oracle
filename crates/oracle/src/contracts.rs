@@ -1,4 +1,4 @@
-use crate::metrics::METRICS;
+use crate::{metrics::METRICS, transaction_monitor::TransactionMonitor};
 use anyhow::Context;
 use secp256k1::SecretKey;
 use std::time::Duration;
@@ -8,7 +8,7 @@ use web3::{
     contract::{tokens::Tokenize, Contract},
     ethabi::Address,
     types::{TransactionReceipt, U256},
-    Transport,
+    Transport, Web3,
 };
 
 static EPOCH_MANAGER_ABI: &[u8] = include_bytes!("abi/EpochManager.json");
@@ -23,6 +23,7 @@ where
     data_edge: Contract<T>,
     epoch_manager: Contract<T>,
     confirmation_timeout: Duration,
+    client: Web3<T>,
 }
 
 impl<T> Contracts<T>
@@ -30,14 +31,16 @@ where
     T: Clone + Transport,
 {
     pub fn new(
-        eth: &Eth<T>,
+        client: Web3<T>,
         data_edge_address: Address,
         epoch_manager_address: Address,
         confirmation_timeout: Duration,
     ) -> anyhow::Result<Self> {
-        let data_edge = Contracts::new_contract(DATA_EDGE_ABI, eth, data_edge_address)?;
-        let epoch_manager = Contracts::new_contract(EPOCH_MANAGER_ABI, eth, epoch_manager_address)?;
+        let data_edge = Contracts::new_contract(DATA_EDGE_ABI, &client.eth(), data_edge_address)?;
+        let epoch_manager =
+            Contracts::new_contract(EPOCH_MANAGER_ABI, &client.eth(), epoch_manager_address)?;
         Ok(Self {
+            client,
             data_edge,
             epoch_manager,
             confirmation_timeout,
@@ -72,13 +75,30 @@ where
         payload: Vec<u8>,
         owner_private_key: &SecretKey,
     ) -> Result<TransactionReceipt, web3::contract::Error> {
-        info!("Sending transaction and waiting for confirmations",);
-        let transaction_receipt: TransactionReceipt = todo!("transaction monitor here");
+        info!("Sending transaction to DataEdge");
+
+        let transaction_receipt: TransactionReceipt = {
+            let calldata: web3::types::Bytes =
+                self.abi_encode_data_edge_payload((payload,))?.into();
+
+            let monitor = TransactionMonitor::new(
+                self.client.clone(),
+                owner_private_key,
+                self.data_edge.address(),
+                calldata,
+                todo!("max_retries"),
+                todo!("gas_increase_rate"),
+                self.confirmation_timeout,
+            );
+
+            todo!("execute the transaction monitoring step")
+        };
+
         info!(?transaction_receipt.transaction_hash, "Transaction confirmed");
         Ok(transaction_receipt)
     }
 
-    pub fn abi_encode_data_edge_payload(
+    fn abi_encode_data_edge_payload(
         &self,
         params: impl Tokenize,
     ) -> Result<Vec<u8>, web3::ethabi::Error> {
