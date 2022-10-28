@@ -4,14 +4,16 @@ use secp256k1::SecretKey;
 use tracing::{debug, info, trace};
 use web3::{
     api::Eth,
-    contract::{Contract, Options},
+    contract::{tokens::Tokenize, Contract, Options},
     ethabi::Address,
     types::{TransactionReceipt, U256},
     Transport,
 };
 
 static EPOCH_MANAGER_ABI: &[u8] = include_bytes!("abi/EpochManager.json");
+static EPOCH_MANAGER_FUNCTION_NAME: &str = "currentEpoch";
 static DATA_EDGE_ABI: &[u8] = include_bytes!("abi/DataEdge.json");
+static DATA_EDGE_FUNCTION_NAME: &str = "crossChainEpochOracle";
 
 pub struct Contracts<T>
 where
@@ -50,7 +52,13 @@ where
         trace!("Querying the Epoch Manager for the current epoch");
         let epoch_number: U256 = self
             .epoch_manager
-            .query("currentEpoch", (), None, Default::default(), None)
+            .query(
+                EPOCH_MANAGER_FUNCTION_NAME,
+                (),
+                None,
+                Default::default(),
+                None,
+            )
             .await?;
         let current_epoch = epoch_number.as_u64();
         debug!("Epoch Manager is at epoch {current_epoch}");
@@ -70,7 +78,7 @@ where
         let transaction_receipt = self
             .data_edge
             .signed_call_with_confirmations(
-                "crossChainEpochOracle",
+                DATA_EDGE_FUNCTION_NAME,
                 (payload,),
                 Options::default(),
                 self.confirmations,
