@@ -128,7 +128,7 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         let mut sent_transactions = HashSet::new();
         let mut transaction_parameters = self.transaction_parameters.clone();
 
-        while retries >= 0 {
+        while retries > 0 {
             match self
                 .send_transaction_and_wait_for_confirmation(transaction_parameters.clone())
                 .await
