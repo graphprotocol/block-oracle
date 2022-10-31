@@ -103,7 +103,7 @@ fn init_contracts(config: Config) -> anyhow::Result<Contracts<Http>> {
     let transport = Http::new(config.protocol_chain.jrpc_url.as_str())?;
     let protocol_chain = JrpcProviderForChain::new(config.protocol_chain.id, transport);
     Contracts::new(
-        protocol_chain.web3.clone(),
+        protocol_chain.web3,
         config.data_edge_address,
         config.epoch_manager_address,
         config.transaction_monitoring_options,

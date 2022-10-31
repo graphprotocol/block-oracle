@@ -26,7 +26,7 @@ fn compile() -> anyhow::Result<()> {
 }
 
 pub fn encode(calldata: bool) -> anyhow::Result<()> {
-    let calldata = calldata.then(|| "--calldata");
+    let calldata = calldata.then_some("--calldata");
     compile()?;
     let sh = Shell::new()?;
     cmd!(sh, "cargo build --package block-oracle")

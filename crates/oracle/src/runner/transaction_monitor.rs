@@ -140,10 +140,10 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
                 Err(Either::Right(transaction_hash)) => {
                     // This means that we timed out waiting for the transaction to be confirmed.
                     sent_transactions.insert(transaction_hash);
-                    transaction_parameters.gas_price.as_mut().map(|gas| {
+                    if let Some(gas) = transaction_parameters.gas_price.as_mut() {
                         *gas = bump_gas(*gas, self.options.gas_percentual_increase)
                             .expect("gas_price calculation won't overflow a 256-bit number")
-                    });
+                    }
                     retries -= 1;
                 }
             };

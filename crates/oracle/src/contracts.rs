@@ -95,7 +95,7 @@ where
 
             let transaction_monitor = TransactionMonitor::new(
                 self.client.clone(),
-                SecretKeyRef::new(&owner_private_key),
+                SecretKeyRef::new(owner_private_key),
                 self.data_edge.address(),
                 calldata,
                 self.transaction_monitoring_options,
