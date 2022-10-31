@@ -134,13 +134,18 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
                 .await
             {
                 Ok(receipt) => return Ok(receipt),
-                Err(Either::Left(web3_error)) => todo!("how should we recover from this?"),
+                Err(Either::Left(web3_error)) => {
+                    // This means that we failed handling the transaction and got an error before
+                    // the timeout.
+                    todo!("how should we recover from this?")
+                }
                 Err(Either::Right(transaction_hash)) => {
                     // This means that we timed out waiting for the transaction to be confirmed.
                     sent_transactions.insert(transaction_hash);
-                    transaction_parameters.gas_price = transaction_parameters
+                    transaction_parameters
                         .gas_price
-                        .map(|gas_price| bump_gas(gas_price, &self.options.gas_increase_rate));
+                        .as_mut()
+                        .map(|gas| *gas = bump_gas(*gas, &self.options.gas_increase_rate));
                     retries -= 1;
                 }
             };
@@ -152,5 +157,17 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
 }
 
 fn bump_gas(gas_price: U256, rate: &f32) -> U256 {
-    gas_price * (rate * 100.0) as u64 / 100
+    const PRECISION: u64 = 1000;
+    // Converts the rate value from a f32 to an integer type so we can execute integer
+    // multiplication. We multiply it by a factor to retain its decimal information and then divide
+    // the result by that same amount before returning.
+    gas_price * (rate * PRECISION as f32) as u64 / PRECISION
+}
+
+#[test]
+fn test_bump_gas() {
+    let input: U256 = 1000.into();
+    let expected: U256 = 1759.into();
+    let output = bump_gas(input, &1.759);
+    assert_eq!(output, expected);
 }
