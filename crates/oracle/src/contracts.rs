@@ -8,6 +8,7 @@ use web3::{
     api::Eth,
     contract::{tokens::Tokenize, Contract},
     ethabi::Address,
+    signing::SecretKeyRef,
     types::{TransactionReceipt, U256},
     Transport, Web3,
 };
@@ -84,7 +85,7 @@ where
 
             let transaction_monitor = TransactionMonitor::new(
                 self.client.clone(),
-                owner_private_key,
+                SecretKeyRef::new(&owner_private_key),
                 self.data_edge.address(),
                 calldata,
                 self.transaction_monitoring_options,

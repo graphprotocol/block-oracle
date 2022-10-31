@@ -1,9 +1,10 @@
 use crate::config::TransactionMonitoringOptions;
 use std::collections::HashSet;
 use web3::{
+    api::{Accounts, Namespace},
     error::Error as Web3Error,
-    signing::Key,
-    types::{Address, Bytes, TransactionReceipt, TransactionRequest, H256},
+    signing::{Key, SecretKeyRef},
+    types::{Address, Bytes, TransactionParameters, TransactionReceipt, H256},
     Transport, Web3,
 };
 
@@ -11,15 +12,17 @@ use web3::{
 pub enum TransactionMonitorError {
     #[error("failed to determine default values for crafting the transaction")]
     Startup(#[source] Web3Error),
+    #[error("failed to sign the transaction parameters")]
+    Signing(#[source] Web3Error),
 }
 
-pub struct TransactionMonitor<T: Transport, K: Key> {
+pub struct TransactionMonitor<'a, T: Transport> {
     client: Web3<T>,
-    signing_key: K,
+    signing_key: SecretKeyRef<'a>,
 
     /// The unsingned transaction that we want to broadcast.
     /// We keep it around so we can control its `nonce` and `gas_price` values.
-    transaction_request: TransactionRequest,
+    transaction_parameters: TransactionParameters,
 
     /// Holds the hashes of previously sent transactions, so it can check if any of them got anyt
     /// confirmations.
@@ -28,14 +31,14 @@ pub struct TransactionMonitor<T: Transport, K: Key> {
     options: TransactionMonitoringOptions,
 }
 
-impl<T: Transport, K: Key> TransactionMonitor<T, K> {
+impl<'a, T: Transport> TransactionMonitor<'a, T> {
     pub async fn new(
         client: Web3<T>,
-        signing_key: K,
+        signing_key: SecretKeyRef<'a>,
         contract_address: Address,
         calldata: Bytes,
         options: TransactionMonitoringOptions,
-    ) -> Result<Self, TransactionMonitorError> {
+    ) -> Result<TransactionMonitor<'a, T>, TransactionMonitorError> {
         let from = signing_key.address();
 
         let (nonce, gas_price) = futures::future::try_join(
@@ -45,12 +48,11 @@ impl<T: Transport, K: Key> TransactionMonitor<T, K> {
         .await
         .map_err(TransactionMonitorError::Startup)?;
 
-        let transaction_request = TransactionRequest {
-            from,
+        let transaction_parameters = TransactionParameters {
             to: Some(contract_address),
             gas: todo!("should we set a fixed gas limit?"),
             gas_price: Some(gas_price),
-            data: Some(calldata),
+            data: calldata,
             nonce: Some(nonce),
             max_fee_per_gas: todo!("how should we set this?"),
             max_priority_fee_per_gas: todo!("how should we set this?"),
@@ -59,7 +61,7 @@ impl<T: Transport, K: Key> TransactionMonitor<T, K> {
 
         Ok(Self {
             client,
-            transaction_request,
+            transaction_parameters,
             signing_key,
             options,
             sent_transaction_hashes: Default::default(),
