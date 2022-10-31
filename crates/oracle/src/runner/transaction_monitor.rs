@@ -30,10 +30,6 @@ pub struct TransactionMonitor<'a, T: Transport> {
     /// We keep it around so we can control its `nonce` and `gas_price` values.
     transaction_parameters: TransactionParameters,
 
-    /// Holds the hashes of previously sent transactions, so it can check if any of them got anyt
-    /// confirmations.
-    sent_transaction_hashes: HashSet<H256>,
-
     options: TransactionMonitoringOptions,
 }
 
@@ -71,7 +67,6 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
             transaction_parameters,
             signing_key,
             options,
-            sent_transaction_hashes: Default::default(),
         })
     }
 
