@@ -12,10 +12,12 @@ use web3::{
 
 #[derive(thiserror::Error, Debug)]
 pub enum TransactionMonitorError {
-    #[error("failed to determine default values for crafting the transaction")]
+    #[error("failed to determine default values for crafting the transaction: {0}")]
     Startup(#[source] Web3Error),
-    #[error("failed to sign the transaction parameters")]
+    #[error("failed to sign the transaction parameters: {0}")]
     Signing(#[source] Web3Error),
+    #[error("failed to send a signed transaction: {0}")]
+    Provider(#[source] Web3Error),
     #[error("failed to send transaction after exhausting all retries")]
     BroadcastFailure,
 }
@@ -54,12 +56,13 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
 
         let transaction_parameters = TransactionParameters {
             to: Some(contract_address),
-            gas: todo!("should we set a fixed gas limit?"),
+            gas: options.gas_limit.into(),
             gas_price: Some(gas_price),
             data: calldata,
             nonce: Some(nonce),
-            max_fee_per_gas: todo!("how should we set this?"),
-            max_priority_fee_per_gas: todo!("how should we set this?"),
+            max_fee_per_gas: options.max_fee_per_gas.map(Into::into),
+            max_priority_fee_per_gas: options.max_priority_fee_per_gas.map(Into::into),
+
             ..Default::default()
         };
 
@@ -101,8 +104,8 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         let send_transaction_future = web3::confirm::send_raw_transaction_with_confirmation(
             self.client.transport().clone(),
             signed_transaction.raw_transaction,
-            todo!("define the poll interval"),
-            todo!("define the number of confirmations"),
+            Duration::from_secs(self.options.poll_interval_in_seconds),
+            self.options.confirmations,
         );
         let with_timeout = timeout(
             Duration::from_secs(self.options.confirmation_timeout_in_seconds),
@@ -135,9 +138,9 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
             {
                 Ok(receipt) => return Ok(receipt),
                 Err(Either::Left(web3_error)) => {
-                    // This means that we failed handling the transaction and got an error before
-                    // the timeout.
-                    todo!("how should we recover from this?")
+                    // This means that we failed handling the transaction and got a provider error
+                    // before the timeout.
+                    return Err(TransactionMonitorError::Provider(web3_error));
                 }
                 Err(Either::Right(transaction_hash)) => {
                     // This means that we timed out waiting for the transaction to be confirmed.

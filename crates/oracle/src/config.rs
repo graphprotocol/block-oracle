@@ -45,6 +45,35 @@ pub struct TransactionMonitoringOptions {
     /// Gas price percentual increase
     #[serde(default = "serde_defaults::transaction_monitoring_gas_percentual_increase")]
     pub gas_percentual_increase: u32,
+    /// How much time to wait between querying the JSON RPC provider for confirmations
+    #[serde(default = "serde_defaults::transaction_monitoring_poll_interval_in_seconds")]
+    pub poll_interval_in_seconds: u64,
+    /// How many confirmations to wait for
+    #[serde(default = "serde_defaults::transaction_monitoring_confirmations")]
+    pub confirmations: usize,
+    #[serde(default)]
+    pub gas_limit: u64,
+    #[serde(default)]
+    pub max_fee_per_gas: Option<u64>,
+    #[serde(default)]
+    pub max_priority_fee_per_gas: Option<u64>,
+}
+
+impl Default for TransactionMonitoringOptions {
+    fn default() -> Self {
+        use serde_defaults::*;
+        Self {
+            confirmation_timeout_in_seconds: transaction_monitoring_confirmation_timeout_in_seconds(
+            ),
+            max_retries: transaction_monitoring_max_retries(),
+            gas_percentual_increase: transaction_monitoring_gas_percentual_increase(),
+            poll_interval_in_seconds: transaction_monitoring_poll_interval_in_seconds(),
+            confirmations: transaction_monitoring_confirmations(),
+            gas_limit: 0,
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -132,7 +161,7 @@ struct ConfigFile {
     indexed_chains: HashMap<Caip2ChainId, EitherLiteralOrEnvVar<Url>>,
     #[serde(default = "serde_defaults::metrics_port")]
     metrics_port: u16,
-    #[serde(default = "serde_defaults::transaction_monitoring_options")]
+    #[serde(default)]
     transaction_monitoring_options: TransactionMonitoringOptions,
 }
 
@@ -201,7 +230,7 @@ mod serde_utils {
 /// These should be expressed as constants once
 /// https://github.com/serde-rs/serde/issues/368 is fixed.
 mod serde_defaults {
-    use super::{serde_utils::FromStrWrapper, TransactionMonitoringOptions};
+    use super::serde_utils::FromStrWrapper;
     use tracing_subscriber::filter::LevelFilter;
 
     pub fn log_level() -> FromStrWrapper<LevelFilter> {
@@ -223,6 +252,7 @@ mod serde_defaults {
     pub fn transaction_monitoring_confirmation_timeout_in_seconds() -> u64 {
         120
     }
+
     pub fn transaction_monitoring_max_retries() -> u32 {
         10
     }
@@ -231,17 +261,16 @@ mod serde_defaults {
         50 // 50%
     }
 
-    pub fn metrics_port() -> u16 {
-        9090
+    pub fn transaction_monitoring_poll_interval_in_seconds() -> u64 {
+        5
     }
 
-    pub fn transaction_monitoring_options() -> TransactionMonitoringOptions {
-        TransactionMonitoringOptions {
-            confirmation_timeout_in_seconds: transaction_monitoring_confirmation_timeout_in_seconds(
-            ),
-            max_retries: transaction_monitoring_max_retries(),
-            gas_percentual_increase: transaction_monitoring_gas_percentual_increase(),
-        }
+    pub fn transaction_monitoring_confirmations() -> usize {
+        2
+    }
+
+    pub fn metrics_port() -> u16 {
+        9090
     }
 }
 
