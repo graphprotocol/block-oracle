@@ -1,5 +1,7 @@
 use crate::{
-    config::TransactionMonitoringOptions, metrics::METRICS, transaction_monitor::TransactionMonitor,
+    config::TransactionMonitoringOptions,
+    metrics::METRICS,
+    transaction_monitor::{TransactionMonitor, TransactionMonitorError},
 };
 use anyhow::Context;
 use secp256k1::SecretKey;
@@ -17,6 +19,14 @@ static EPOCH_MANAGER_ABI: &[u8] = include_bytes!("abi/EpochManager.json");
 static EPOCH_MANAGER_FUNCTION_NAME: &str = "currentEpoch";
 static DATA_EDGE_ABI: &[u8] = include_bytes!("abi/DataEdge.json");
 static DATA_EDGE_FUNCTION_NAME: &str = "crossChainEpochOracle";
+
+#[derive(thiserror::Error, Debug)]
+pub enum ContractError {
+    #[error(transparent)]
+    TransactionMonitor(#[from] TransactionMonitorError),
+    #[error(transparent)]
+    AbiEncode(#[from] web3::ethabi::Error),
+}
 
 pub struct Contracts<T>
 where
@@ -76,7 +86,7 @@ where
         &self,
         payload: Vec<u8>,
         owner_private_key: &SecretKey,
-    ) -> Result<TransactionReceipt, web3::contract::Error> {
+    ) -> Result<TransactionReceipt, ContractError> {
         info!("Sending transaction to DataEdge");
 
         let transaction_receipt: TransactionReceipt = {

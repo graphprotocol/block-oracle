@@ -171,7 +171,7 @@ impl Oracle {
             .contracts
             .submit_call(payload, &self.config.owner_private_key)
             .await
-            .map_err(Error::CantSubmitTx)?;
+            .map_err(Error::ContractError)?;
         METRICS.set_last_sent_message();
         info!(
             tx_hash = transaction_receipt.transaction_hash.to_string().as_str(),
