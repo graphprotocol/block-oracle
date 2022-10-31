@@ -1,10 +1,12 @@
 use crate::config::TransactionMonitoringOptions;
+use either::Either;
 use std::collections::HashSet;
+use tokio::time::{timeout, Duration};
 use web3::{
     api::{Accounts, Namespace},
     error::Error as Web3Error,
     signing::{Key, SecretKeyRef},
-    types::{Address, Bytes, TransactionParameters, TransactionReceipt, H256},
+    types::{Address, Bytes, TransactionParameters, TransactionReceipt, H256, U256},
     Transport, Web3,
 };
 
@@ -14,6 +16,8 @@ pub enum TransactionMonitorError {
     Startup(#[source] Web3Error),
     #[error("failed to sign the transaction parameters")]
     Signing(#[source] Web3Error),
+    #[error("failed to send transaction after exhausting all retries")]
+    BroadcastFailure,
 }
 
 pub struct TransactionMonitor<'a, T: Transport> {
@@ -73,10 +77,43 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
     ///
     /// If this function detects any confirmation the TransactionManager should abort its ongoing
     /// operations and return the transaction hash of the confirmed transaction to the Oracle.
-    async fn check_previously_sent_transactions(
-        &self,
-    ) -> Result<TransactionReceipt, TransactionMonitorError> {
+    async fn check_previously_sent_transactions(&self) {
         todo!()
+    }
+
+    /// Attempts to sign and broadcast a transaction, returing its receipt on success.
+    /// This function has two error types:
+    /// - the generalist `web3::error:Error, and
+    /// - the hash of the transaction that we given up waiting for it to be confirmed.
+    async fn send_transaction_and_wait_for_confirmation(
+        &self,
+        transaction_parameters: TransactionParameters,
+    ) -> Result<TransactionReceipt, Either<Web3Error, H256>> {
+        // Sign the transaction
+        let signed_transaction = Accounts::new(self.client.transport().clone())
+            .sign_transaction(transaction_parameters, &*self.signing_key)
+            .await
+            .map_err(Either::Left)?;
+
+        let transaction_hash = signed_transaction.transaction_hash;
+
+        // Wrap the transaction broadcast in a tokio::timeout future
+        let send_transaction_future = web3::confirm::send_raw_transaction_with_confirmation(
+            self.client.transport().clone(),
+            signed_transaction.raw_transaction,
+            todo!("define the poll interval"),
+            todo!("define the number of confirmations"),
+        );
+        let with_timeout = timeout(
+            Duration::from_secs(self.options.confirmation_timeout_in_seconds),
+            send_transaction_future,
+        );
+
+        match with_timeout.await {
+            Ok(Ok(receipt)) => Ok(receipt),
+            Ok(Err(web3_error)) => Err(Either::Left(web3_error)),
+            Err(Elapsed) => Err(Either::Right(transaction_hash)),
+        }
     }
 
     /// Broadcasts the transaction and waits for its confirmation.
@@ -86,6 +123,34 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
     ///
     /// This function will return an error if we exhaust its maximum retries attempts.
     pub async fn execute_transaction(&self) -> Result<TransactionReceipt, TransactionMonitorError> {
-        todo!()
+        let mut retries = self.options.max_retries;
+
+        let mut sent_transactions = HashSet::new();
+        let mut transaction_parameters = self.transaction_parameters.clone();
+
+        while retries >= 0 {
+            match self
+                .send_transaction_and_wait_for_confirmation(transaction_parameters.clone())
+                .await
+            {
+                Ok(receipt) => return Ok(receipt),
+                Err(Either::Left(web3_error)) => todo!("how should we recover from this?"),
+                Err(Either::Right(transaction_hash)) => {
+                    // This means that we timed out waiting for the transaction to be confirmed.
+                    sent_transactions.insert(transaction_hash);
+                    transaction_parameters.gas_price = transaction_parameters
+                        .gas_price
+                        .map(|gas_price| bump_gas(gas_price, &self.options.gas_increase_rate));
+                    retries -= 1;
+                }
+            };
+        }
+
+        // At this point, we have exhausted all retry attempts
+        Err(TransactionMonitorError::BroadcastFailure)
     }
+}
+
+fn bump_gas(gas_price: U256, rate: &f32) -> U256 {
+    gas_price * (rate * 100.0) as u64 / 100
 }
