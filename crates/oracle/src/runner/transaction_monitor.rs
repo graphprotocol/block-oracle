@@ -112,7 +112,7 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         match with_timeout.await {
             Ok(Ok(receipt)) => Ok(receipt),
             Ok(Err(web3_error)) => Err(Either::Left(web3_error)),
-            Err(Elapsed) => Err(Either::Right(transaction_hash)),
+            Err(_timed_out) => Err(Either::Right(transaction_hash)),
         }
     }
 
@@ -142,10 +142,10 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
                 Err(Either::Right(transaction_hash)) => {
                     // This means that we timed out waiting for the transaction to be confirmed.
                     sent_transactions.insert(transaction_hash);
-                    transaction_parameters
-                        .gas_price
-                        .as_mut()
-                        .map(|gas| *gas = bump_gas(*gas, &self.options.gas_increase_rate));
+                    transaction_parameters.gas_price.as_mut().map(|gas| {
+                        *gas = bump_gas(*gas, self.options.gas_percentual_increase)
+                            .expect("gas_price calculation won't overflow a 256-bit number")
+                    });
                     retries -= 1;
                 }
             };
@@ -156,18 +156,17 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
     }
 }
 
-fn bump_gas(gas_price: U256, rate: &f32) -> U256 {
-    const PRECISION: u64 = 1000;
-    // Converts the rate value from a f32 to an integer type so we can execute integer
-    // multiplication. We multiply it by a factor to retain its decimal information and then divide
-    // the result by that same amount before returning.
-    gas_price * (rate * PRECISION as f32) as u64 / PRECISION
+fn bump_gas(gas_price: U256, percentual_increase: u32) -> Option<U256> {
+    let factor = U256::from(100 + percentual_increase);
+    let denominator = U256::from(100);
+    gas_price.checked_mul(factor)?.checked_div(denominator)
 }
 
 #[test]
 fn test_bump_gas() {
     let input: U256 = 1000.into();
-    let expected: U256 = 1759.into();
-    let output = bump_gas(input, &1.759);
-    assert_eq!(output, expected);
+    let percentual_increase: u32 = 25;
+    let expected: U256 = 1250.into();
+    let output = bump_gas(input, percentual_increase);
+    assert_eq!(output, Some(expected));
 }

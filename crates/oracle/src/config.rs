@@ -42,9 +42,9 @@ pub struct TransactionMonitoringOptions {
     #[serde(default = "serde_defaults::transaction_monitoring_max_retries")]
     /// How many times it has tried to rebroadcast the original transaction.
     pub max_retries: u32,
-    /// Gas price increase factor
-    #[serde(default = "serde_defaults::transaction_monitoring_gas_increase_rate")]
-    pub gas_increase_rate: f32,
+    /// Gas price percentual increase
+    #[serde(default = "serde_defaults::transaction_monitoring_gas_percentual_increase")]
+    pub gas_percentual_increase: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -227,8 +227,8 @@ mod serde_defaults {
         10
     }
 
-    pub fn transaction_monitoring_gas_increase_rate() -> f32 {
-        0.5 // 50%
+    pub fn transaction_monitoring_gas_percentual_increase() -> u32 {
+        50 // 50%
     }
 
     pub fn metrics_port() -> u16 {
@@ -240,7 +240,7 @@ mod serde_defaults {
             confirmation_timeout_in_seconds: transaction_monitoring_confirmation_timeout_in_seconds(
             ),
             max_retries: transaction_monitoring_max_retries(),
-            gas_increase_rate: transaction_monitoring_gas_increase_rate(),
+            gas_percentual_increase: transaction_monitoring_gas_percentual_increase(),
         }
     }
 }
