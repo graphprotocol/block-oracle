@@ -1,11 +1,11 @@
 use crate::config::TransactionMonitoringOptions;
 use either::Either;
 use futures::stream::{FuturesUnordered, StreamExt};
-use std::{collections::HashSet, sync::Arc};
+use std::collections::HashSet;
 use tokio::time::{timeout, Duration};
 use tracing::{debug, info, warn};
 use web3::{
-    api::{Accounts, Eth, Namespace},
+    api::{Accounts, Namespace},
     error::Error as Web3Error,
     signing::{Key, SecretKeyRef},
     types::{Address, Bytes, TransactionParameters, TransactionReceipt, H256, U256},
@@ -78,16 +78,17 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
     /// If this function detects any confirmation the TransactionManager should abort its ongoing
     /// operations and return the transaction hash of the confirmed transaction to the Oracle.
     async fn check_previously_sent_transactions(
-        eth: Arc<Eth<T>>,
-        sent_transaction_hashes: &[H256],
+        &self,
+        sent_transaction_hashes: HashSet<H256>,
     ) -> Result<Option<TransactionReceipt>, Web3Error> {
         // Create a task list with every transaction hash we have
         let mut futures = FuturesUnordered::new();
-        for hash in sent_transaction_hashes {
-            let eth_clone = eth.clone();
+
+        for hash in &sent_transaction_hashes {
+            let eth = self.client.eth();
             let future = async move {
-                debug!(%hash, "Checking for previously sent transaction confirmations");
-                eth_clone.transaction_receipt(*hash).await
+                debug!( %hash, "Checking for previously sent transaction confirmations");
+                eth.transaction_receipt(*hash).await
             };
             futures.push(future)
         }
@@ -160,10 +161,18 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         let mut transaction_parameters = self.transaction_parameters.clone();
 
         while retries > 0 {
-            match self
-                .send_transaction_and_wait_for_confirmation(transaction_parameters.clone())
-                .await
-            {
+            // While we broadcast the current transaction, also check if any previously sent
+            // transaction was confirmed.
+            let (current_transaction_receipt, previous_transactions_receipt) = tokio::join!(
+                self.send_transaction_and_wait_for_confirmation(transaction_parameters.clone()),
+                self.check_previously_sent_transactions(sent_transactions.clone()),
+            );
+
+            if let Ok(Some(receipt)) = previous_transactions_receipt {
+                return Ok(receipt);
+            }
+
+            match current_transaction_receipt {
                 Ok(receipt) => return Ok(receipt),
                 Err(Either::Left(web3_error)) => {
                     // This means that we failed handling the transaction and got a provider error
