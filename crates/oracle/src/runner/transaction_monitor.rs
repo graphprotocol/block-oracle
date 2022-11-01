@@ -1,9 +1,11 @@
 use crate::config::TransactionMonitoringOptions;
 use either::Either;
-use std::collections::HashSet;
+use futures::stream::{FuturesUnordered, StreamExt};
+use std::{collections::HashSet, sync::Arc};
 use tokio::time::{timeout, Duration};
+use tracing::{debug, info, warn};
 use web3::{
-    api::{Accounts, Namespace},
+    api::{Accounts, Eth, Namespace},
     error::Error as Web3Error,
     signing::{Key, SecretKeyRef},
     types::{Address, Bytes, TransactionParameters, TransactionReceipt, H256, U256},
@@ -75,8 +77,39 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
     ///
     /// If this function detects any confirmation the TransactionManager should abort its ongoing
     /// operations and return the transaction hash of the confirmed transaction to the Oracle.
-    async fn check_previously_sent_transactions(&self) {
-        todo!()
+    async fn check_previously_sent_transactions(
+        eth: Arc<Eth<T>>,
+        sent_transaction_hashes: &[H256],
+    ) -> Result<Option<TransactionReceipt>, Web3Error> {
+        // Create a task list with every transaction hash we have
+        let mut futures = FuturesUnordered::new();
+        for hash in sent_transaction_hashes {
+            let eth_clone = eth.clone();
+            let future = async move {
+                debug!(%hash, "Checking for previously sent transaction confirmations");
+                eth_clone.transaction_receipt(*hash).await
+            };
+            futures.push(future)
+        }
+
+        // Await and check if any of those transactions has a receipt
+        while let Some(result) = futures.next().await {
+            match result {
+                Ok(None) => {}
+                Ok(Some(receipt)) => {
+                    info!(
+                        receipt = %receipt.transaction_hash,
+                        "Found a receipt for a previously sent transaction"
+                    );
+                    return Ok(Some(receipt));
+                }
+                Err(error) => {
+                    warn!(%error, "Provider failure while attempting to check confirmations for \
+                                   previously sent transactions")
+                }
+            }
+        }
+        Ok(None)
     }
 
     /// Attempts to sign and broadcast a transaction, returing its receipt on success.
