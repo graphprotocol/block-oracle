@@ -43,6 +43,8 @@ impl Oracle {
     pub async fn run(&mut self) -> Result<(), Error> {
         info!("New polling iteration.");
 
+        self.query_owner_eth_balance().await?;
+
         // Before anything else, we must get the latest subgraph state
         debug!("Querying the subgraph state...");
         let subgraph_state =
@@ -143,8 +145,6 @@ impl Oracle {
     async fn handle_new_epoch(&mut self, subgraph_state: &SubgraphState) -> Result<(), Error> {
         info!("Entering a new epoch.");
         info!("Collecting latest block information from all indexed chains.");
-
-        self.query_owner_eth_balance().await?;
 
         let latest_blocks_res = get_latest_blocks(&self.indexed_chains).await;
         let latest_blocks = latest_blocks_res
