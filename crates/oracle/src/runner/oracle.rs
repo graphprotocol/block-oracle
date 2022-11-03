@@ -70,6 +70,10 @@ impl Oracle {
                 subgraph_latest_indexed_block,
             }) => subgraph_latest_indexed_block,
 
+            // The Subgraph was recently initialized and needs to receive its first
+            // SetBlockNumbersForNextEpoch message.
+            Ok(NewEpochCheck::RecentlyInitialized) => return Ok(true),
+
             Err(other) => return Err(other),
         };
 
@@ -107,13 +111,17 @@ impl Oracle {
     async fn is_new_epoch(&self, subgraph_state: &SubgraphState) -> Result<NewEpochCheck, Error> {
         use NewEpochCheck::*;
         let (subgraph_latest_indexed_block, subgraph_latest_epoch) = {
-            match subgraph_state
-                .global_state
-                .as_ref()
-                .and_then(|gs| gs.latest_epoch_number)
-            {
+            match subgraph_state.latest_epoch_number() {
                 Some(epoch_num) => (subgraph_state.last_indexed_block_number, epoch_num),
-                None => return Err(Error::SubgraphNotInitialized),
+                None => {
+                    // If the Epoch Subgraph has registered networks, then this means it was
+                    // recently initialized but never received its first SetBlockNumbersForNextEpoch
+                    // message.
+                    if subgraph_state.has_registered_networks() {
+                        return Ok(NewEpochCheck::RecentlyInitialized);
+                    }
+                    return Err(Error::SubgraphNotInitialized);
+                }
             }
         };
 
@@ -389,6 +397,9 @@ mod freshness {
 /// Used inside the 'Oracle::is_new_epoch' method to return information about the Epoch Subgraph
 /// current state.
 enum NewEpochCheck {
+    /// The Epoch Subgraph was recently initialized but never received a SetBlockNumbersForNextEpoch
+    /// message.
+    RecentlyInitialized,
     /// The Epoch Subgraph is at a previous epoch than the Epoch Manager.
     PreviousEpoch { subgraph_latest_indexed_block: u64 },
     /// The Epoch Subgraph is at the same epoch as the Epoch Manager.
