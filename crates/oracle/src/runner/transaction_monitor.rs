@@ -43,6 +43,8 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         calldata: Bytes,
         options: TransactionMonitoringOptions,
     ) -> Result<TransactionMonitor<'a, T>, TransactionMonitorError> {
+        trace!(?options, "Starting Transaction Monitor");
+
         let from = signing_key.address();
 
         let (nonce, gas_price) = futures::future::try_join(
@@ -135,7 +137,12 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
 
         let transaction_hash = signed_transaction.transaction_hash;
 
-        trace!(hash = ?transaction_hash, %gas, "Broadcasting transaction");
+        trace!(
+            %gas,
+            hash = ?transaction_hash,
+            timeout = self.options.confirmation_timeout_in_seconds,
+            "Broadcasting transaction with timeout"
+        );
 
         // Wrap the transaction broadcast in a tokio::timeout future
         let send_transaction_future = web3::confirm::send_raw_transaction_with_confirmation(
@@ -163,8 +170,6 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
     ///
     /// This function will return an error if we exhaust its maximum retries attempts.
     pub async fn execute_transaction(&self) -> Result<TransactionReceipt, TransactionMonitorError> {
-        debug!("Started transaction monitoring");
-
         let mut retries = self.options.max_retries;
 
         let mut sent_transactions = HashSet::new();
