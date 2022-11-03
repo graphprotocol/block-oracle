@@ -1,7 +1,6 @@
 async function main() {
   const epochManagerAddress = process.env.EPOCH_MANAGER_CONTRACT_ADDRESS;
   const dataEdgeAddress = process.env.DATA_EDGE_CONTRACT_ADDRESS;
-  console.table({ epochManagerAddress, dataEdgeAddress });
   const [signer] = await ethers.getSigners();
   const epochManager = await ethers.getContractAt(
     "EpochManager",

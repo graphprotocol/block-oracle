@@ -6,6 +6,15 @@ epoch_manager_address = "$EPOCH_MANAGER_CONTRACT_ADDRESS"
 subgraph_url = "$SUBGRAPH_URL"
 bearer_token = "TODO"
 
+[transaction_monitoring]
+confirmation_timeout_in_seconds = 1
+max_retries = 3
+gas_percentual_increase = 10
+pol_interval_in_seconds = 1
+confirmations = 2
+
+
+
 [protocol_chain]
 name = "eip155:1337"
 jrpc = "$PROTOCOL_CHAIN_JRPC_URL"
