@@ -3,7 +3,7 @@ use either::Either;
 use futures::stream::{FuturesUnordered, StreamExt};
 use std::collections::HashSet;
 use tokio::time::{timeout, Duration};
-use tracing::{debug, info, warn};
+use tracing::{debug, error, trace, warn};
 use web3::{
     api::{Accounts, Namespace},
     error::Error as Web3Error,
@@ -51,6 +51,10 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         )
         .await
         .map_err(TransactionMonitorError::Startup)?;
+        debug!(
+            %nonce,
+            %gas_price, "Fetched current nonce and gas price from provider"
+        );
 
         let transaction_parameters = TransactionParameters {
             to: Some(contract_address),
@@ -87,7 +91,7 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         for hash in &sent_transaction_hashes {
             let eth = self.client.eth();
             let future = async move {
-                debug!( %hash, "Checking for previously sent transaction confirmations");
+                trace!( %hash, "Checking for previously sent transaction confirmations");
                 eth.transaction_receipt(*hash).await
             };
             futures.push(future)
@@ -98,10 +102,6 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
             match result {
                 Ok(None) => {}
                 Ok(Some(receipt)) => {
-                    info!(
-                        receipt = %receipt.transaction_hash,
-                        "Found a receipt for a previously sent transaction"
-                    );
                     return Ok(Some(receipt));
                 }
                 Err(error) => {
@@ -121,6 +121,7 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         &self,
         transaction_parameters: TransactionParameters,
     ) -> Result<TransactionReceipt, Either<Web3Error, H256>> {
+        trace!(?transaction_parameters, "Broadcasting transaction");
         // Sign the transaction
         let signed_transaction = Accounts::new(self.client.transport().clone())
             .sign_transaction(transaction_parameters, &*self.signing_key)
@@ -155,6 +156,8 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
     ///
     /// This function will return an error if we exhaust its maximum retries attempts.
     pub async fn execute_transaction(&self) -> Result<TransactionReceipt, TransactionMonitorError> {
+        debug!("Started transaction monitoring");
+
         let mut retries = self.options.max_retries;
 
         let mut sent_transactions = HashSet::new();
@@ -187,6 +190,7 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
                             .expect("gas_price calculation won't overflow a 256-bit number")
                     }
                     retries -= 1;
+                    debug!(%transaction_hash, retries_left = %retries, "Timed out waiting for the transaction confirmation");
                 }
             };
         }

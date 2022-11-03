@@ -179,7 +179,7 @@ impl Oracle {
             .map_err(Error::ContractError)?;
         METRICS.set_last_sent_message();
         info!(
-            tx_hash = transaction_receipt.transaction_hash.to_string().as_str(),
+            tx_hash = %transaction_receipt.transaction_hash,
             "Contract call submitted successfully."
         );
 

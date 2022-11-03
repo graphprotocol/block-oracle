@@ -104,7 +104,6 @@ where
             transaction_monitor.execute_transaction().await?
         };
 
-        info!(?transaction_receipt.transaction_hash, "Transaction confirmed");
         Ok(transaction_receipt)
     }
 
