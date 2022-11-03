@@ -70,9 +70,6 @@ impl Oracle {
                 subgraph_latest_indexed_block,
             }) => subgraph_latest_indexed_block,
 
-            // It is always a new epoch for an uninitialized Epoch Subgraph.
-            Err(Error::SubgraphNotInitialized) => return Ok(true),
-
             Err(other) => return Err(other),
         };
 
