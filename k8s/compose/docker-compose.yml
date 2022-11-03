@@ -86,6 +86,9 @@ services:
       context: ../../packages/contracts
       dockerfile: ../../k8s/compose/contracts/Dockerfile
     command: sh /app/run.sh
+    environment:
+      EPOCH_MANAGER_CONTRACT_ADDRESS: '0xd833215cbcc3f914bd1c9ece3ee7bf8b14f841bb'
+      DATA_EDGE_CONTRACT_ADDRESS: '0xe78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab'
     volumes:
       - ./contracts/seed-then-set-automining-interval.js:/seed-then-set-automining-interval.js
       - ./contracts/extended.config.ts:/app/extended.config.ts

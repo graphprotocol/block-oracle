@@ -33,6 +33,49 @@ pub struct ProtocolChain {
     pub polling_interval: Duration,
 }
 
+#[derive(Clone, Deserialize, Debug, Copy)]
+#[serde(rename = "transaction_monitoring")]
+pub struct TransactionMonitoringOptions {
+    #[serde(default = "serde_defaults::transaction_monitoring_confirmation_timeout_in_seconds")]
+    /// How long to wait for a transaction to be confirmed
+    pub confirmation_timeout_in_seconds: u64,
+    #[serde(default = "serde_defaults::transaction_monitoring_max_retries")]
+    /// How many times it has tried to rebroadcast the original transaction.
+    pub max_retries: u32,
+    /// Gas price percentual increase
+    #[serde(default = "serde_defaults::transaction_monitoring_gas_percentual_increase")]
+    pub gas_percentual_increase: u32,
+    /// How much time to wait between querying the JSON RPC provider for confirmations
+    #[serde(default = "serde_defaults::transaction_monitoring_poll_interval_in_seconds")]
+    pub poll_interval_in_seconds: u64,
+    /// How many confirmations to wait for
+    #[serde(default = "serde_defaults::transaction_monitoring_confirmations")]
+    pub confirmations: usize,
+    #[serde(default = "serde_defaults::transaction_monitoring_gas_limit")]
+    pub gas_limit: u64,
+    #[serde(default)]
+    pub max_fee_per_gas: Option<u64>,
+    #[serde(default)]
+    pub max_priority_fee_per_gas: Option<u64>,
+}
+
+impl Default for TransactionMonitoringOptions {
+    fn default() -> Self {
+        use serde_defaults::*;
+        Self {
+            confirmation_timeout_in_seconds: transaction_monitoring_confirmation_timeout_in_seconds(
+            ),
+            max_retries: transaction_monitoring_max_retries(),
+            gas_percentual_increase: transaction_monitoring_gas_percentual_increase(),
+            poll_interval_in_seconds: transaction_monitoring_poll_interval_in_seconds(),
+            confirmations: transaction_monitoring_confirmations(),
+            gas_limit: transaction_monitoring_gas_limit(),
+            max_fee_per_gas: None,
+            max_priority_fee_per_gas: None,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Config {
     pub log_level: LevelFilter,
@@ -47,7 +90,7 @@ pub struct Config {
     pub protocol_chain: ProtocolChain,
     pub retry_strategy_max_wait_time: Duration,
     pub metrics_port: u16,
-    pub transaction_confirmation_count: usize,
+    pub transaction_monitoring_options: TransactionMonitoringOptions,
 }
 
 impl Config {
@@ -90,7 +133,7 @@ impl Config {
                 ),
             },
             metrics_port: config_file.metrics_port,
-            transaction_confirmation_count: config_file.transaction_confirmation_count,
+            transaction_monitoring_options: config_file.transaction_monitoring_options,
         }
     }
 }
@@ -112,14 +155,14 @@ struct ConfigFile {
     freshness_threshold: u64,
     #[serde(default = "serde_defaults::web3_transport_retry_max_wait_time_in_seconds")]
     web3_transport_retry_max_wait_time_in_seconds: u64,
-    #[serde(default = "serde_defaults::transaction_confirmation_count")]
-    transaction_confirmation_count: usize,
     #[serde(default = "serde_defaults::log_level")]
     log_level: FromStrWrapper<LevelFilter>,
     protocol_chain: SerdeProtocolChain,
     indexed_chains: HashMap<Caip2ChainId, EitherLiteralOrEnvVar<Url>>,
     #[serde(default = "serde_defaults::metrics_port")]
     metrics_port: u16,
+    #[serde(default)]
+    transaction_monitoring_options: TransactionMonitoringOptions,
 }
 
 impl ConfigFile {
@@ -206,8 +249,28 @@ mod serde_defaults {
         60
     }
 
-    pub fn transaction_confirmation_count() -> usize {
-        15
+    pub fn transaction_monitoring_confirmation_timeout_in_seconds() -> u64 {
+        120
+    }
+
+    pub fn transaction_monitoring_max_retries() -> u32 {
+        10
+    }
+
+    pub fn transaction_monitoring_gas_percentual_increase() -> u32 {
+        50 // 50%
+    }
+
+    pub fn transaction_monitoring_poll_interval_in_seconds() -> u64 {
+        5
+    }
+
+    pub fn transaction_monitoring_confirmations() -> usize {
+        2
+    }
+
+    pub fn transaction_monitoring_gas_limit() -> u64 {
+        100_000
     }
 
     pub fn metrics_port() -> u16 {

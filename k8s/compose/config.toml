@@ -6,11 +6,19 @@ epoch_manager_address = "$EPOCH_MANAGER_CONTRACT_ADDRESS"
 subgraph_url = "$SUBGRAPH_URL"
 bearer_token = "TODO"
 
+[transaction_monitoring]
+confirmation_timeout_in_seconds = 1
+max_retries = 3
+gas_percentual_increase = 10
+pol_interval_in_seconds = 1
+confirmations = 2
+
+
+
 [protocol_chain]
 name = "eip155:1337"
 jrpc = "$PROTOCOL_CHAIN_JRPC_URL"
 polling_interval_in_seconds = 5
 
 [indexed_chains]
-"eip155:77" = "https://sokol-archive.blockscout.com/" # POA Network Sokol
-"eip155:99" = "https://core-archive.blockscout.com/"  # POA Network Core
+"eip155:1337" = "$PROTOCOL_CHAIN_JRPC_URL" # index the protocol chain itself

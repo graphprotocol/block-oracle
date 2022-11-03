@@ -23,10 +23,10 @@ impl Oracle {
         let protocol_chain = protocol_chain(&config);
         let indexed_chains = indexed_chains(&config);
         let contracts = Contracts::new(
-            &protocol_chain.web3.eth(),
+            protocol_chain.web3.clone(),
             config.data_edge_address,
             config.epoch_manager_address,
-            config.transaction_confirmation_count,
+            config.transaction_monitoring_options,
         )
         .expect("Failed to initialize Block Oracle's required contracts");
 
@@ -70,8 +70,9 @@ impl Oracle {
                 subgraph_latest_indexed_block,
             }) => subgraph_latest_indexed_block,
 
-            // It is always a new epoch for an uninitialized Epoch Subgraph.
-            Err(Error::SubgraphNotInitialized) => return Ok(true),
+            // The Subgraph was recently initialized and needs to receive its first
+            // SetBlockNumbersForNextEpoch message.
+            Ok(NewEpochCheck::RecentlyInitialized) => return Ok(true),
 
             Err(other) => return Err(other),
         };
@@ -110,13 +111,17 @@ impl Oracle {
     async fn is_new_epoch(&self, subgraph_state: &SubgraphState) -> Result<NewEpochCheck, Error> {
         use NewEpochCheck::*;
         let (subgraph_latest_indexed_block, subgraph_latest_epoch) = {
-            match subgraph_state
-                .global_state
-                .as_ref()
-                .and_then(|gs| gs.latest_epoch_number)
-            {
+            match subgraph_state.latest_epoch_number() {
                 Some(epoch_num) => (subgraph_state.last_indexed_block_number, epoch_num),
-                None => return Err(Error::SubgraphNotInitialized),
+                None => {
+                    // If the Epoch Subgraph has registered networks, then this means it was
+                    // recently initialized but never received its first SetBlockNumbersForNextEpoch
+                    // message.
+                    if subgraph_state.has_registered_networks() {
+                        return Ok(NewEpochCheck::RecentlyInitialized);
+                    }
+                    return Err(Error::SubgraphNotInitialized);
+                }
             }
         };
 
@@ -171,10 +176,10 @@ impl Oracle {
             .contracts
             .submit_call(payload, &self.config.owner_private_key)
             .await
-            .map_err(Error::CantSubmitTx)?;
+            .map_err(Error::ContractError)?;
         METRICS.set_last_sent_message();
         info!(
-            tx_hash = transaction_receipt.transaction_hash.to_string().as_str(),
+            tx_hash = ?transaction_receipt.transaction_hash,
             "Contract call submitted successfully."
         );
 
@@ -188,18 +193,26 @@ impl Oracle {
     /// Queries the Protocol Chain for the current balance of the Owner's account.
     ///
     /// Used for monitoring and logging.
-    async fn query_owner_eth_balance(&self) -> Result<usize, Error> {
+    async fn query_owner_eth_balance(&self) -> Result<(), Error> {
         let balance = self
             .protocol_chain
             .web3
             .eth()
             .balance(self.config.owner_address, None)
             .await
-            .map_err(Error::BadJrpcProtocolChain)?
-            .as_usize();
+            .map_err(Error::BadJrpcProtocolChain)?;
+
         info!("Owner ETH Balance is {} gwei", balance);
-        METRICS.set_wallet_balance(balance as i64);
-        Ok(balance)
+
+        // overflow check
+        if balance.bits() as u32 > i64::BITS / 2 {
+            // number can't be represented as i64
+            METRICS.set_wallet_balance(i64::MAX);
+        } else {
+            METRICS.set_wallet_balance(balance.as_u64() as i64);
+        };
+
+        Ok(())
     }
 }
 
@@ -384,6 +397,9 @@ mod freshness {
 /// Used inside the 'Oracle::is_new_epoch' method to return information about the Epoch Subgraph
 /// current state.
 enum NewEpochCheck {
+    /// The Epoch Subgraph was recently initialized but never received a SetBlockNumbersForNextEpoch
+    /// message.
+    RecentlyInitialized,
     /// The Epoch Subgraph is at a previous epoch than the Epoch Manager.
     PreviousEpoch { subgraph_latest_indexed_block: u64 },
     /// The Epoch Subgraph is at the same epoch as the Epoch Manager.

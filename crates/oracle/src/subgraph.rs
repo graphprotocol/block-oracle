@@ -110,6 +110,22 @@ pub struct SubgraphState {
     pub last_payload: Option<Payload>,
 }
 
+impl SubgraphState {
+    pub fn latest_epoch_number(&self) -> Option<u64> {
+        self.global_state
+            .as_ref()
+            .and_then(|gs| gs.latest_epoch_number)
+    }
+
+    pub fn has_registered_networks(&self) -> bool {
+        self.global_state
+            .as_ref()
+            .map(|gs| gs.networks.len())
+            .unwrap_or(0)
+            > 0
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GlobalState {
     pub networks: Vec<Network>,

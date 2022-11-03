@@ -2,8 +2,10 @@ pub mod ctrlc;
 pub mod error_handling;
 pub mod jrpc_utils;
 pub mod oracle;
+pub mod transaction_monitor;
 
 use self::ctrlc::CtrlcHandler;
+use crate::contracts::ContractError;
 use crate::metrics::{metrics_server, METRICS};
 use crate::{Caip2ChainId, Config, SubgraphQueryError};
 use error_handling::{MainLoopFlow, OracleControlFlow};
@@ -28,8 +30,8 @@ pub enum Error {
     },
     #[error(transparent)]
     Subgraph(#[from] SubgraphQueryError),
-    #[error("Couldn't submit a transaction to the mempool of the JRPC provider: {0}")]
-    CantSubmitTx(web3::contract::Error),
+    #[error(transparent)]
+    ContractError(#[from] ContractError),
     #[error("Failed to call Epoch Manager")]
     EpochManagerCallFailed(#[from] web3::contract::Error),
     #[error("Epoch Manager latest epoch ({manager}) is behind Epoch Subgraph's ({subgraph})")]
@@ -49,7 +51,7 @@ impl MainLoopFlow for Error {
             BadJrpcIndexedChain { .. } => OracleControlFlow::Continue(0),
 
             // TODO: Put those variants under a new `contracts::Error` enum
-            CantSubmitTx(_) => OracleControlFlow::Continue(0),
+            ContractError(_) => OracleControlFlow::Continue(0),
             EpochManagerCallFailed(_) => OracleControlFlow::Continue(0),
             EpochManagerBehindSubgraph { .. } => OracleControlFlow::Continue(0),
 
