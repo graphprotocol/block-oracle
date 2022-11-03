@@ -34,7 +34,6 @@ pub struct ProtocolChain {
 }
 
 #[derive(Clone, Deserialize, Debug, Copy)]
-#[serde(rename = "transaction_monitoring")]
 pub struct TransactionMonitoringOptions {
     #[serde(default = "serde_defaults::transaction_monitoring_confirmation_timeout_in_seconds")]
     /// How long to wait for a transaction to be confirmed
@@ -161,7 +160,7 @@ struct ConfigFile {
     indexed_chains: HashMap<Caip2ChainId, EitherLiteralOrEnvVar<Url>>,
     #[serde(default = "serde_defaults::metrics_port")]
     metrics_port: u16,
-    #[serde(default)]
+    #[serde(rename = "transaction_monitoring")]
     transaction_monitoring_options: TransactionMonitoringOptions,
 }
 
