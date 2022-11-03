@@ -188,18 +188,26 @@ impl Oracle {
     /// Queries the Protocol Chain for the current balance of the Owner's account.
     ///
     /// Used for monitoring and logging.
-    async fn query_owner_eth_balance(&self) -> Result<usize, Error> {
+    async fn query_owner_eth_balance(&self) -> Result<(), Error> {
         let balance = self
             .protocol_chain
             .web3
             .eth()
             .balance(self.config.owner_address, None)
             .await
-            .map_err(Error::BadJrpcProtocolChain)?
-            .as_usize();
+            .map_err(Error::BadJrpcProtocolChain)?;
+
         info!("Owner ETH Balance is {} gwei", balance);
-        METRICS.set_wallet_balance(balance as i64);
-        Ok(balance)
+
+        // overflow check
+        if balance.bits() as u32 > i64::BITS / 2 {
+            // number can't be represented as i64
+            METRICS.set_wallet_balance(i64::MAX);
+        } else {
+            METRICS.set_wallet_balance(balance.as_u64() as i64);
+        };
+
+        Ok(())
     }
 }
 
