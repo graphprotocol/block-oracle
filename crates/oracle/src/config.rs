@@ -51,7 +51,7 @@ pub struct TransactionMonitoringOptions {
     /// How many confirmations to wait for
     #[serde(default = "serde_defaults::transaction_monitoring_confirmations")]
     pub confirmations: usize,
-    #[serde(default)]
+    #[serde(default = "serde_defaults::transaction_monitoring_gas_limit")]
     pub gas_limit: u64,
     #[serde(default)]
     pub max_fee_per_gas: Option<u64>,
@@ -69,7 +69,7 @@ impl Default for TransactionMonitoringOptions {
             gas_percentual_increase: transaction_monitoring_gas_percentual_increase(),
             poll_interval_in_seconds: transaction_monitoring_poll_interval_in_seconds(),
             confirmations: transaction_monitoring_confirmations(),
-            gas_limit: 0,
+            gas_limit: transaction_monitoring_gas_limit(),
             max_fee_per_gas: None,
             max_priority_fee_per_gas: None,
         }
@@ -267,6 +267,10 @@ mod serde_defaults {
 
     pub fn transaction_monitoring_confirmations() -> usize {
         2
+    }
+
+    pub fn transaction_monitoring_gas_limit() -> u64 {
+        100_000
     }
 
     pub fn metrics_port() -> u16 {
