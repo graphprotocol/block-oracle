@@ -120,11 +120,6 @@ impl Oracle {
             }
         };
 
-        // Go back to sleep if the Epoch Subgraph has no registered networks
-        if matches!(subgraph_state.network_count(), None | Some(0)) {
-            return Err(Error::SubgraphWithoutRegisteredNetworks);
-        }
-
         debug!("Subgraph is at epoch {subgraph_latest_epoch}");
         METRICS.set_current_epoch("subgraph", subgraph_latest_epoch as i64);
         let manager_current_epoch = self.contracts.query_current_epoch().await?;

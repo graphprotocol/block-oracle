@@ -40,8 +40,6 @@ pub enum Error {
     SubgraphNotFresh,
     #[error("The subgraph has not been initialized yet")]
     SubgraphNotInitialized,
-    #[error("The subgraph's global state has no registered networks")]
-    SubgraphWithoutRegisteredNetworks,
 }
 
 impl MainLoopFlow for Error {
@@ -60,7 +58,6 @@ impl MainLoopFlow for Error {
             // TODO: Put those variants under the `SubgraphQueryError` enum
             SubgraphNotFresh => OracleControlFlow::Continue(2),
             SubgraphNotInitialized => OracleControlFlow::Continue(2),
-            SubgraphWithoutRegisteredNetworks => OracleControlFlow::Continue(2),
         }
     }
 }

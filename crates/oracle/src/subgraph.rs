@@ -110,12 +110,6 @@ pub struct SubgraphState {
     pub last_payload: Option<Payload>,
 }
 
-impl SubgraphState {
-    pub fn network_count(&self) -> Option<usize> {
-        self.global_state.as_ref().map(|gs| gs.networks.len())
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GlobalState {
     pub networks: Vec<Network>,
