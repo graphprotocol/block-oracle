@@ -121,7 +121,9 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         &self,
         transaction_parameters: TransactionParameters,
     ) -> Result<TransactionReceipt, Either<Web3Error, H256>> {
-        trace!(?transaction_parameters, "Broadcasting transaction");
+        // we will log this later
+        let gas = transaction_parameters.gas;
+
         // Sign the transaction
         let signed_transaction = Accounts::new(self.client.transport().clone())
             .sign_transaction(transaction_parameters, &*self.signing_key)
@@ -129,6 +131,8 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
             .map_err(Either::Left)?;
 
         let transaction_hash = signed_transaction.transaction_hash;
+
+        trace!(hash = ?transaction_hash, %gas, "Broadcasting transaction");
 
         // Wrap the transaction broadcast in a tokio::timeout future
         let send_transaction_future = web3::confirm::send_raw_transaction_with_confirmation(
