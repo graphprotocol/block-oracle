@@ -91,7 +91,10 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         for hash in &sent_transaction_hashes {
             let eth = self.client.eth();
             let future = async move {
-                trace!( %hash, "Checking for previously sent transaction confirmations");
+                trace!(
+                    ?hash,
+                    "Checking for previously sent transaction confirmations"
+                );
                 eth.transaction_receipt(*hash).await
             };
             futures.push(future)
@@ -194,7 +197,7 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
                             .expect("gas_price calculation won't overflow a 256-bit number")
                     }
                     retries -= 1;
-                    debug!(%transaction_hash, retries_left = %retries, "Timed out waiting for the transaction confirmation");
+                    debug!(?transaction_hash, retries_left = %retries, "Timed out waiting for the transaction confirmation");
                 }
             };
         }
