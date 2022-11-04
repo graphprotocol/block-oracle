@@ -19,7 +19,7 @@ impl std::fmt::Debug for BlockPtr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BlockPtr")
             .field("number", &self.number)
-            .field("hash", &format!("0x{}", hex::encode(&self.hash)))
+            .field("hash", &format!("0x{}", hex::encode(self.hash)))
             .finish()
     }
 }
