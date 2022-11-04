@@ -160,7 +160,7 @@ struct ConfigFile {
     indexed_chains: HashMap<Caip2ChainId, EitherLiteralOrEnvVar<Url>>,
     #[serde(default = "serde_defaults::metrics_port")]
     metrics_port: u16,
-    #[serde(rename = "transaction_monitoring")]
+    #[serde(default, rename = "transaction_monitoring")]
     transaction_monitoring_options: TransactionMonitoringOptions,
 }
 
