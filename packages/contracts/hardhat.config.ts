@@ -28,6 +28,7 @@ interface NetworkConfig {
   chainId: number
   gas?: number | 'auto'
   gasPrice?: number | 'auto'
+  url?: string
 }
 
 const networkConfigs: NetworkConfig[] = [
@@ -35,6 +36,16 @@ const networkConfigs: NetworkConfig[] = [
   { network: 'ropsten', chainId: 3 },
   { network: 'rinkeby', chainId: 4 },
   { network: 'kovan', chainId: 42 },
+  {
+    network: 'arbitrum-one',
+    chainId: 42161,
+    url: 'https://arb1.arbitrum.io/rpc',
+  },
+  {
+    network: 'arbitrum-goerli',
+    chainId: 421613,
+    url: 'https://goerli-rollup.arbitrum.io/rpc',
+  },
 ]
 
 function getAccountMnemonic() {
@@ -49,7 +60,7 @@ function setupDefaultNetworkProviders(buidlerConfig) {
   for (const netConfig of networkConfigs) {
     buidlerConfig.networks[netConfig.network] = {
       chainId: netConfig.chainId,
-      url: getDefaultProviderURL(netConfig.network),
+      url: netConfig.url ? netConfig.url : getDefaultProviderURL(netConfig.network),
       gas: netConfig.gasPrice || 'auto',
       gasPrice: netConfig.gasPrice || 'auto',
       accounts: {
