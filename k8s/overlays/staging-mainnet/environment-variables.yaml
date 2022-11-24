@@ -13,3 +13,18 @@ spec:
                 secretKeyRef:
                   name: block-oracle
                   key: private_key_staging_mainnet
+            - name: ETHEREUM_MAINNET
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: ethereum_mainnet
+            - name: ETHEREUM_GOERLI
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: ethereum_goerli
+            - name: GNOSIS_MAINNET
+              valueFrom:
+                secretKeyRef:
+                  name: block-oracle
+                  key: gnosis_mainnet
