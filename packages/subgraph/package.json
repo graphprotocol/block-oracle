@@ -7,14 +7,16 @@
     "test": "yarn codegen && yarn prep:test && graph test",
     "build": "yarn && yarn prepare && graph build",
     "deploy": "yarn codegen && yarn prep:prod && graph deploy --node https://api.thegraph.com/deploy/ edgeandnode/block-oracle",
-    "deploy-staging": "yarn codegen && yarn prep:staging && graph build --network goerli && graph deploy --node https://api.thegraph.com/deploy/ juanmardefago/block-oracle",
+    "deploy-staging": "yarn codegen && yarn prep:staging-l2 && graph build --network arbitrum-goerli && graph deploy --node https://api.thegraph.com/deploy/ juanmardefago/arb-goerli-epoch-block-oracle",
     "create-local": "graph create --node http://127.0.0.1:8020/ edgeandnode/block-oracle",
     "remove-local": "graph remove --node http://127.0.0.1:8020/ edgeandnode/block-oracle",
     "deploy-local": "yarn codegen && graph deploy --node http://127.0.0.1:8020/ --ipfs http://localhost:${IPFS_PORT} edgeandnode/block-oracle --version-label 0.1.0",
     "prep:local": "mustache ./config/local.json subgraph.template.yaml > subgraph.yaml && mustache ./config/local.json src/constants.template.ts > src/constants.ts",
     "prep:test": "mustache ./config/test.json subgraph.template.yaml > subgraph.yaml && mustache ./config/test.json src/constants.template.ts > src/constants.ts",
     "prep:prod": "mustache ./config/prod.json subgraph.template.yaml > subgraph.yaml && mustache ./config/prod.json src/constants.template.ts > src/constants.ts",
-    "prep:staging": "mustache ./config/staging.json subgraph.template.yaml > subgraph.yaml && mustache ./config/staging.json src/constants.template.ts > src/constants.ts"
+    "prep:prod-l2": "mustache ./config/prod-l2.json subgraph.template.yaml > subgraph.yaml && mustache ./config/prod-l2.json src/constants.template.ts > src/constants.ts",
+    "prep:staging": "mustache ./config/staging.json subgraph.template.yaml > subgraph.yaml && mustache ./config/staging.json src/constants.template.ts > src/constants.ts",
+    "prep:staging-l2": "mustache ./config/staging-l2.json subgraph.template.yaml > subgraph.yaml && mustache ./config/staging-l2.json src/constants.template.ts > src/constants.ts"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "^0.30.4",
