@@ -12,6 +12,7 @@
     {
       "address": "0x48301fe520f72994d32ead72e2b6a8447873cf50",
       "permissions": [
+        { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "UpdateVersionsMessage" },
         { "entry": "RegisterNetworksMessage" },
         { "entry": "ChangePermissionsMessage", "lastEntry": true }

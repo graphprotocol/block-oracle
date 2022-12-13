@@ -4,11 +4,11 @@ schema:
 dataSources:
   - kind: ethereum
     name: DataEdge
-    network: goerli
+    network: mainnet
     source:
       abi: DataEdge
-      address: "0xc4228701A7B92793b2428687DC37D0ed92e0d7A7"
-      startBlock: 7105079
+      address: "0xADE906194C923b28F03F48BC5D9D987AAE21fFab"
+      startBlock: 15233152
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.6
