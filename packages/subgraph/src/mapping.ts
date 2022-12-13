@@ -43,7 +43,7 @@ export function handleCrossChainEpochOracle(
   call: CrossChainEpochOracleCall
 ): void {
   processPayload(
-    call.transaction.from.toHexString(),
+    call.from.toHexString(),
     call.inputs._payload,
     call.transaction.hash.toHexString(),
     call.block.number
