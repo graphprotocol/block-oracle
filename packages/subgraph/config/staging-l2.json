@@ -1,12 +1,15 @@
 {
-  "local": false,
+  "eventful": true,
   "permissionList": [
     {
       "address": "0x9678700bc23bae0def67aff75e41ff4453e8df4a",
       "permissions": [
         { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "CorrectEpochsMessage" },
-        { "entry": "ResetStateMessage", "lastEntry": true }
+        { "entry": "ResetStateMessage" },
+        { "entry": "UpdateVersionsMessage" },
+        { "entry": "RegisterNetworksMessage" },
+        { "entry": "ChangePermissionsMessage", "lastEntry": true }
       ]
     },
     {

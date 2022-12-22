@@ -13,8 +13,8 @@
   },
   "arbitrum-goerli": {
     "DataEdge": {
-      "address": "0xFdF8bFA7A72a1689b07bEcC8709ddD262640Da56",
-      "startBlock": 1540722
+      "address": "0x1b3E91512C8B41a677730996E84201986810e7AF",
+      "startBlock": 3359570
     }
   },
   "mainnet": {
