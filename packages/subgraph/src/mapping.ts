@@ -114,6 +114,10 @@ export function processMessageBlock(
   let snapshot = reader.snapshot();
   let tags = decodeTags(reader);
 
+  if (!reader.ok) {
+    return;
+  }
+
   log.warning("Tags to process: {}. Remaining reader length: {}", [
     tags.toString(),
     reader.length().toString()
@@ -471,12 +475,12 @@ function executeChangePermissionsMessage(
   }
 
   let permissionEntry = cache.getPermissionListEntry(address);
-  let oldPermissionList = permissionEntry.permissions
+  let oldPermissionList = permissionEntry.permissions;
   let newPermissionList = new Array<String>();
 
   for (let i = 0; i < permissionsListLength; i++) {
     let permission = decodeU64(reader) as i32;
-    newPermissionList.push(MessageTag.toString(permission))
+    newPermissionList.push(MessageTag.toString(permission));
   }
 
   message.block = messageBlock.id;
@@ -485,9 +489,9 @@ function executeChangePermissionsMessage(
   message.newPermissions = newPermissionList;
   message.data = reader.diff(snapshot);
 
-  if(!isSubmitterAllowed(cache, address)) {
+  if (!isSubmitterAllowed(cache, address)) {
     let list = globalState.permissionList;
-    list.push(permissionEntry.id)
+    list.push(permissionEntry.id);
     globalState.permissionList = list;
   }
   // might want to remove it from the "allow list" if the new permission list length is 0
@@ -515,5 +519,5 @@ function executeResetStateMessage(
 
   wipeNetworkList(networks, message.id);
 
-  cache.resetGlobalState()
+  cache.resetGlobalState();
 }

@@ -1,4 +1,4 @@
-import { BigInt, Bytes, Address } from "@graphprotocol/graph-ts";
+import { BigInt, Bytes, Address, log } from "@graphprotocol/graph-ts";
 import {
   GlobalState,
   Epoch,
@@ -20,15 +20,19 @@ export enum MessageTag {
 }
 
 export namespace MessageTag {
+  const tags = [
+    "SetBlockNumbersForEpochMessage",
+    "CorrectEpochsMessage",
+    "UpdateVersionsMessage",
+    "RegisterNetworksMessage",
+    "ChangePermissionsMessage",
+    "ResetStateMessage"
+  ]
   export function toString(tag: MessageTag): string {
-    return [
-      "SetBlockNumbersForEpochMessage",
-      "CorrectEpochsMessage",
-      "UpdateVersionsMessage",
-      "RegisterNetworksMessage",
-      "ChangePermissionsMessage",
-      "ResetStateMessage"
-    ][tag];
+    return tags[tag];
+  }
+  export function isValid(tag: MessageTag): boolean {
+    return tags.length > tag
   }
 }
 
