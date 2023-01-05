@@ -1,12 +1,15 @@
 {
-  "local": false,
+  "eventful": true,
   "permissionList": [
     {
       "address": "0x9678700bc23bae0def67aff75e41ff4453e8df4a",
       "permissions": [
         { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "CorrectEpochsMessage" },
-        { "entry": "ResetStateMessage", "lastEntry": true }
+        { "entry": "ResetStateMessage" },
+        { "entry": "UpdateVersionsMessage" },
+        { "entry": "RegisterNetworksMessage" },
+        { "entry": "ChangePermissionsMessage", "lastEntry": true }
       ]
     },
     {
@@ -18,5 +21,5 @@
       ]
     }
   ],
-  "epochManager": "0x03541c5cd35953cd447261122f93a5e7b812d697"
+  "epochManager": "0x8ecedc7631f4616d7f4074f9fc9d0368674794be"
 }

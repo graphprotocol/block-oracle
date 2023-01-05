@@ -71,7 +71,12 @@ export function decodeTags(reader: BytesReader): Array<MessageTag> {
   let tags = new Array<MessageTag>();
   let bytes = reader.advance(PREAMBLE_BYTE_LENGTH);
   for (let i = 0; i < PREAMBLE_BIT_LENGTH / TAG_BIT_LENGTH; i++) {
-    tags.push(getTag(bytes, i));
+    let tag = getTag(bytes, i);
+    if (MessageTag.isValid(tag)) {
+      tags.push(tag);
+    } else {
+      reader.fail("Decoded tag " + tag.toString() + " is invalid");
+    }
   }
   return tags;
 }

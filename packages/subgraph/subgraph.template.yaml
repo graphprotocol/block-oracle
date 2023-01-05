@@ -21,14 +21,14 @@ dataSources:
           file: ./abis/DataEdgeFull.json
         - name: EpochManager
           file: ./abis/EpochManager.json
-      {{#local}}
+      {{#eventful}}
       eventHandlers:
         - event: Log(bytes)
           handler: handleLogCrossChainEpochOracle
-      {{/local}}
-      {{^local}}
+      {{/eventful}}
+      {{^eventful}}
       callHandlers:
         - function: crossChainEpochOracle(bytes)
           handler: handleCrossChainEpochOracle
-      {{/local}}
+      {{/eventful}}
       file: ./src/mapping.ts
