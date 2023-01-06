@@ -56,6 +56,10 @@ export function processPayload(
   txHash: string,
   blockNumber: BigInt
 ): void {
+  log.warning(
+    "Processing payload. Submitter: {}, txHash: {}, blockNumber: {}",
+    [submitter, txHash, blockNumber.toString()]
+  );
   // Start the StoreCache
   let cache = new StoreCache();
 
@@ -103,6 +107,10 @@ export function processPayload(
 
   payload.save();
   cache.commitChanges();
+  log.warning(
+    "Processed payload. Submitter: {}, txHash: {}, blockNumber: {}",
+    [submitter, txHash, blockNumber.toString()]
+  );
 }
 
 export function processMessageBlock(
