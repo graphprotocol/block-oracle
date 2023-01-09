@@ -27,20 +27,27 @@ export namespace MessageTag {
     "RegisterNetworksMessage",
     "ChangePermissionsMessage",
     "ResetStateMessage"
-  ]
+  ];
   export function toString(tag: MessageTag): string {
     return tags[tag];
   }
   export function isValid(tag: MessageTag): boolean {
-    return tags.length > tag
+    return tags.length > tag;
   }
 }
 
 export function nextEpochId(state: GlobalState, reader: BytesReader): BigInt {
+  log.warning("[nextEpochId] Using EpochManager address: {}", [
+    EPOCH_MANAGER_ADDRESS
+  ]);
   let epochManager = EpochManager.bind(
     Address.fromString(EPOCH_MANAGER_ADDRESS)
   );
   let response = epochManager.try_currentEpoch(); // maybe add try_ version later
+  log.warning("[nextEpochId] latestValidEpoch: {}, response: {}.", [
+    state.latestValidEpoch ? state.latestValidEpoch! : "null",
+    response.reverted ? "Contract call reverted" : response.value.toString()
+  ]);
   if (response.reverted) {
     reader.fail(
       "currentEpoch transaction reverted. Can't read current epoch from EpochManager contract"
@@ -112,7 +119,10 @@ export function getActiveNetworks(cache: StoreCache): Array<Network> {
   return networks;
 }
 
-export function isSubmitterAllowed(cache: StoreCache, submitter: String): boolean {
+export function isSubmitterAllowed(
+  cache: StoreCache,
+  submitter: String
+): boolean {
   let permissionList = cache.getGlobalState().permissionList;
 
   //double check that this works or whether we need to load entity.
@@ -120,9 +130,13 @@ export function isSubmitterAllowed(cache: StoreCache, submitter: String): boolea
   return permissionList.includes(submitter);
 }
 
-export function doesSubmitterHavePermission(cache: StoreCache, submitter: String, permissionRequired: String): boolean {
+export function doesSubmitterHavePermission(
+  cache: StoreCache,
+  submitter: String,
+  permissionRequired: String
+): boolean {
   let permissionList = cache.getGlobalState().permissionList;
-  let permissionListEntry = cache.getPermissionListEntry(submitter)
+  let permissionListEntry = cache.getPermissionListEntry(submitter);
 
   return permissionListEntry.permissions.includes(permissionRequired);
 }

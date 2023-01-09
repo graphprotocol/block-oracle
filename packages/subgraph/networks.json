@@ -14,7 +14,7 @@
   "arbitrum-goerli": {
     "DataEdge": {
       "address": "0x1b3E91512C8B41a677730996E84201986810e7AF",
-      "startBlock": 3359570
+      "startBlock": 4075060
     }
   },
   "mainnet": {
