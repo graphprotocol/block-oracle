@@ -1,8 +1,8 @@
 {
-  "eventful": false,
+  "eventful": true,
   "permissionList": [
     {
-      "address": "0x9678700bc23bae0def67aff75e41ff4453e8df4a",
+      "address": "0x881355f34b1c4c8e02ed6b20d16d4bf2c35f5d07",
       "permissions": [
         { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "CorrectEpochsMessage" },
@@ -10,7 +10,7 @@
       ]
     },
     {
-      "address": "0x5ceeee16f30357d49c50bcd7f520ca6527cf388a",
+      "address": "0x8c6de8f8d562f3382417340a6994601ee08d3809",
       "permissions": [
         { "entry": "UpdateVersionsMessage" },
         { "entry": "RegisterNetworksMessage" },
@@ -18,5 +18,5 @@
       ]
     }
   ],
-  "epochManager": "0x03541c5cd35953cd447261122f93a5e7b812d697"
+  "epochManager": "0x5a843145c43d328b9bb7a4401d94918f131bb281"
 }

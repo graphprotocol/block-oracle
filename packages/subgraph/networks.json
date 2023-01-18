@@ -17,6 +17,12 @@
       "startBlock": 4075060
     }
   },
+  "arbitrum-one": {
+    "DataEdge": {
+      "address": "0x633bb9790d7c4c59991cebd377c0ed6501a35ebe",
+      "startBlock": 53564458
+    }
+  },
   "mainnet": {
     "DataEdge": {
       "address": "0xADE906194C923b28F03F48BC5D9D987AAE21fFab",
