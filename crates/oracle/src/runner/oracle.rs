@@ -205,8 +205,8 @@ impl Oracle {
         info!("Owner ETH Balance is {} gwei", balance);
 
         // overflow check
-        if balance.bits() as u32 > i64::BITS / 2 {
-            // number can't be represented as i64
+        if balance.bits() as u32 > i64::BITS - 1 {
+            // number can't be represented as positive i64
             METRICS.set_wallet_balance(i64::MAX);
         } else {
             METRICS.set_wallet_balance(balance.as_u64() as i64);
