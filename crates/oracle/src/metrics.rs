@@ -66,7 +66,7 @@ impl Metrics {
         )?;
 
         let wallet_balance = register_int_gauge_with_registry!(
-            "epoch_block_oracle_eth_balance",
+            "epoch_block_oracle_eth_balance_gwei",
             "Owner's ETH Balance",
             registry
         )?;
