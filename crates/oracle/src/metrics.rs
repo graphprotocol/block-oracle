@@ -115,7 +115,7 @@ impl Metrics {
         self.current_epoch
             .get_metric_with_label_values(&[label])
             .unwrap()
-            .set(current_epoch as i64);
+            .set(current_epoch);
     }
 
     pub fn set_last_sent_message(&self) {
