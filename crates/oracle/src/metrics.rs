@@ -66,7 +66,7 @@ impl Metrics {
         )?;
 
         let wallet_balance = register_int_gauge_with_registry!(
-            "epoch_block_oracle_eth_balance",
+            "epoch_block_oracle_eth_balance_gwei",
             "Owner's ETH Balance",
             registry
         )?;
@@ -115,7 +115,7 @@ impl Metrics {
         self.current_epoch
             .get_metric_with_label_values(&[label])
             .unwrap()
-            .set(current_epoch as i64);
+            .set(current_epoch);
     }
 
     pub fn set_last_sent_message(&self) {

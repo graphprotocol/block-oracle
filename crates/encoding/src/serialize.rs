@@ -97,7 +97,7 @@ fn serialize_u64(mut value: u64, bytes: &mut Vec<u8>) {
     // The number of bytes that are needed to encode `value`. It is
     // calculated by finding the next multiple of 7 after `num_bits_to_encode`.
     // Range bounds are tricky and must be handled separately.
-    let num_bytes = (num_bits_to_encode.max(1).min(63) - 1) / 7 + 1;
+    let num_bytes = (num_bits_to_encode.clamp(1, 63) - 1) / 7 + 1;
 
     debug_assert!(num_bytes >= 1);
     debug_assert!(num_bytes <= 9);
