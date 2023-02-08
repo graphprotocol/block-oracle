@@ -31,12 +31,14 @@ import { StoreCache } from "./store-cache";
 import { BIGINT_ZERO, BIGINT_ONE } from "./constants";
 
 export function handleSafeMultiSigTransaction(event: SafeMultiSigTransaction): void {
-  let execution = new MultisigExecution(event.transaction.hash.toHexString().concat('-').concat(event.logIndex.toString()))
+  let id = event.transaction.hash.toHexString().concat('-').concat(event.logIndex.toString())
+  let execution = new MultisigExecution(id)
   execution.multisigAddress = event.address.toHexString();
   execution.to = event.params.to.toHexString();
   execution.data = event.params.data.toHexString();
   execution.triggeringAddress = event.transaction.from.toHexString();
   execution.save()
+  log.warning("Created MultisigExecution with id: {}", [id])
 }
 
 export function handleLogCrossChainEpochOracle(event: Log): void {

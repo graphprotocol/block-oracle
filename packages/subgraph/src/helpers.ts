@@ -136,18 +136,27 @@ export function getMultisigFromEOAIfValid(
   cache: StoreCache,
   txHash: String,
   logIndex: BigInt,
-  submitter: String,
+  submitter: String
 ): String {
   let sub = submitter;
-  let previousExecution = MultisigExecution.load(txHash.concat('-').concat(logIndex.toString()))
-  if(previousExecution !== null) {
-    if(submitter == previousExecution.triggeringAddress) {
+  let id = txHash.concat("-").concat(logIndex.minus(BIGINT_ONE).toString());
+  log.warning("Trying to get multisig address. Current transaction hash: {}, LogIndex: {}. PreviousExecution supposed ID: {}", [txHash, logIndex.toString(), id]);
+  let previousExecution = MultisigExecution.load(id);
+  if (previousExecution != null) {
+    log.warning(
+      "Multisig execution detected. execution: {}, triggeringAddress: {}. submitter: {}",
+      [previousExecution.id, previousExecution.triggeringAddress, submitter]
+    );
+    if (submitter == previousExecution.triggeringAddress) {
       let permissionList = cache.getGlobalState().permissionList;
-      let multisigHasPermissions = permissionList.includes(previousExecution.multisigAddress)
+      let multisigHasPermissions = permissionList.includes(
+        previousExecution.multisigAddress
+      );
 
       sub = previousExecution.multisigAddress;
     }
   }
+  log.warning("Resulting submitter {}", [sub]);
   return sub;
 }
 
