@@ -1,9 +1,11 @@
 import { BigInt, Bytes, Address, log } from "@graphprotocol/graph-ts";
+import { Log } from "../generated/DataEdge/DataEdge";
 import {
   GlobalState,
   Epoch,
   NetworkEpochBlockNumber,
-  Network
+  Network,
+  MultisigExecution
 } from "../generated/schema";
 import { BytesReader } from "./decoding";
 import { EpochManager } from "../generated/DataEdge/EpochManager";
@@ -128,6 +130,25 @@ export function isSubmitterAllowed(
   //double check that this works or whether we need to load entity.
 
   return permissionList.includes(submitter);
+}
+
+export function getMultisigFromEOAIfValid(
+  cache: StoreCache,
+  txHash: String,
+  logIndex: BigInt,
+  submitter: String,
+): String {
+  let sub = submitter;
+  let previousExecution = MultisigExecution.load(txHash.concat('-').concat(logIndex.toString()))
+  if(previousExecution !== null) {
+    if(submitter == previousExecution.triggeringAddress) {
+      let permissionList = cache.getGlobalState().permissionList;
+      let multisigHasPermissions = permissionList.includes(previousExecution.multisigAddress)
+
+      sub = previousExecution.multisigAddress;
+    }
+  }
+  return sub;
 }
 
 export function doesSubmitterHavePermission(

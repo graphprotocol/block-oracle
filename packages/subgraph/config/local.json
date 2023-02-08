@@ -3,6 +3,7 @@
   "permissionList": [
     {
       "address": "0x90f8bf6a479f320ead074411a4b0e7944ea8c9c1",
+      "isMultisig": false,
       "permissions": [
         { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "CorrectEpochsMessage" },

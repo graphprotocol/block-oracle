@@ -1,10 +1,12 @@
 import { CrossChainEpochOracleCall, Log } from "../generated/DataEdge/DataEdge";
-import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
+import { SafeMultiSigTransaction } from "../generated/templates/GnosisSafe/GnosisSafe";
+import { Bytes, BigInt, log, ethereum } from "@graphprotocol/graph-ts";
 import {
   MessageBlock,
   Payload,
   GlobalState,
-  Network
+  Network,
+  MultisigExecution
 } from "../generated/schema";
 import {
   BytesReader,
@@ -22,20 +24,32 @@ import {
   nextEpochId,
   parseCalldata,
   isSubmitterAllowed,
-  doesSubmitterHavePermission
+  doesSubmitterHavePermission,
+  getMultisigFromEOAIfValid
 } from "./helpers";
 import { StoreCache } from "./store-cache";
 import { BIGINT_ZERO, BIGINT_ONE } from "./constants";
 
+export function handleSafeMultiSigTransaction(event: SafeMultiSigTransaction): void {
+  let execution = new MultisigExecution(event.transaction.hash.toHexString().concat('-').concat(event.logIndex.toString()))
+  execution.multisigAddress = event.address.toHexString();
+  execution.to = event.params.to.toHexString();
+  execution.data = event.params.data.toHexString();
+  execution.triggeringAddress = event.transaction.from.toHexString();
+  execution.save()
+}
+
 export function handleLogCrossChainEpochOracle(event: Log): void {
-  // this is only used in local development, and needs to strip the calldata to only
+  // this is used in deployments on networks that lack trace support, and needs to strip the calldata to only
   // get the actual payload data we care about, without the selector and argument descriptors
   let data = parseCalldata(event.params.data);
   processPayload(
     event.transaction.from.toHexString(),
     data,
     event.transaction.hash.toHexString(),
-    event.block.number
+    event.logIndex,
+    event.block.number,
+    true
   );
 }
 
@@ -46,7 +60,9 @@ export function handleCrossChainEpochOracle(
     call.from.toHexString(),
     call.inputs._payload,
     call.transaction.hash.toHexString(),
-    call.block.number
+    BIGINT_ZERO,
+    call.block.number,
+    false
   );
 }
 
@@ -54,7 +70,9 @@ export function processPayload(
   submitter: string,
   payloadBytes: Bytes,
   txHash: string,
-  blockNumber: BigInt
+  logIndex: BigInt,
+  blockNumber: BigInt,
+  eventful: boolean
 ): void {
   log.warning(
     "Processing payload. Submitter: {}, txHash: {}, blockNumber: {}",
@@ -67,7 +85,7 @@ export function processPayload(
   // Payload entity to persist (to provide context for validity of the payload)
   let payload = new Payload(txHash);
   payload.data = payloadBytes;
-  payload.submitter = submitter;
+  payload.submitter = eventful ? getMultisigFromEOAIfValid(cache, txHash, logIndex, submitter) : submitter;
   payload.valid = true;
   payload.createdAt = blockNumber;
 

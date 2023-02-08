@@ -100,6 +100,7 @@ type GlobalState @entity {
 
 type PermissionListEntry @entity {
   id: ID!
+  isMultisig: Boolean!
   permissions: [String!]!
 }
 
@@ -119,4 +120,17 @@ type NetworkEpochBlockNumber @entity {
   epoch: Epoch!
   "Entity used for calculations. Null if it's the first"
   previousBlockNumber: NetworkEpochBlockNumber
+}
+
+type MultisigExecution @entity {
+  "Transaction hash + log index. Will be accessed by payload submission to check in case of EOA for multisigs"
+  id: ID!
+
+  multisigAddress: String!
+
+  triggeringAddress: String!
+
+  to: String!
+
+  data: String!
 }
