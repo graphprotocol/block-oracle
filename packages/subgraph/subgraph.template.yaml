@@ -1,4 +1,4 @@
-specVersion: 0.0.2
+specVersion: 0.0.5
 schema:
   file: ./schema.graphql
 dataSources:
@@ -11,7 +11,7 @@ dataSources:
       startBlock: 12052156
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.6
+      apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
         - DataEdge
@@ -25,6 +25,7 @@ dataSources:
       eventHandlers:
         - event: Log(bytes)
           handler: handleLogCrossChainEpochOracle
+          receipt: true
       {{/eventful}}
       {{^eventful}}
       callHandlers:
@@ -32,24 +33,3 @@ dataSources:
           handler: handleCrossChainEpochOracle
       {{/eventful}}
       file: ./src/mapping.ts
-{{#eventful}}
-templates:
-  - name: GnosisSafe
-    kind: ethereum/contract
-    network: mainnet
-    source:
-      abi: GnosisSafe
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.6
-      language: wasm/assemblyscript
-      file: ./src/mapping.ts
-      entities:
-        - MultisigExecution
-      abis:
-        - name: GnosisSafe
-          file: ./abis/GnosisSafe.json
-      eventHandlers:
-        - event: SafeMultiSigTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes,bytes)
-          handler: handleSafeMultiSigTransaction
-{{/eventful}}

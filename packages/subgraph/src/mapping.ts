@@ -1,6 +1,6 @@
 import { CrossChainEpochOracleCall, Log } from "../generated/DataEdge/DataEdge";
 import { SafeMultiSigTransaction } from "../generated/templates/GnosisSafe/GnosisSafe";
-import { Bytes, BigInt, log, ethereum } from "@graphprotocol/graph-ts";
+import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
 import {
   MessageBlock,
   Payload,
@@ -25,33 +25,30 @@ import {
   parseCalldata,
   isSubmitterAllowed,
   doesSubmitterHavePermission,
-  getMultisigFromEOAIfValid
+  getSafeExecutionContext,
+  SafeExecutionContext
 } from "./helpers";
 import { StoreCache } from "./store-cache";
 import { BIGINT_ZERO, BIGINT_ONE } from "./constants";
-
-export function handleSafeMultiSigTransaction(event: SafeMultiSigTransaction): void {
-  let id = event.transaction.hash.toHexString().concat('-').concat(event.logIndex.toString())
-  let execution = new MultisigExecution(id)
-  execution.multisigAddress = event.address.toHexString();
-  execution.to = event.params.to.toHexString();
-  execution.data = event.params.data.toHexString();
-  execution.triggeringAddress = event.transaction.from.toHexString();
-  execution.save()
-  log.warning("Created MultisigExecution with id: {}", [id])
-}
 
 export function handleLogCrossChainEpochOracle(event: Log): void {
   // this is used in deployments on networks that lack trace support, and needs to strip the calldata to only
   // get the actual payload data we care about, without the selector and argument descriptors
   let data = parseCalldata(event.params.data);
+  let safeExecutionContext = getSafeExecutionContext(event);
+  if(safeExecutionContext != null) {
+    log.warning("SafeExecutionContext multisig address: {}, submitter: {}", [
+      safeExecutionContext.multisigAddress.toHexString(),
+      // safeExecutionContext.to.toHexString(),
+      // safeExecutionContext.data.toHexString(),
+      event.transaction.from.toHexString()
+    ])
+  }
   processPayload(
-    event.transaction.from.toHexString(),
+    safeExecutionContext != null ? safeExecutionContext.multisigAddress.toHexString() : event.transaction.from.toHexString(),
     data,
     event.transaction.hash.toHexString(),
-    event.logIndex,
-    event.block.number,
-    true
+    event.block.number
   );
 }
 
@@ -62,9 +59,7 @@ export function handleCrossChainEpochOracle(
     call.from.toHexString(),
     call.inputs._payload,
     call.transaction.hash.toHexString(),
-    BIGINT_ZERO,
-    call.block.number,
-    false
+    call.block.number
   );
 }
 
@@ -72,9 +67,7 @@ export function processPayload(
   submitter: string,
   payloadBytes: Bytes,
   txHash: string,
-  logIndex: BigInt,
-  blockNumber: BigInt,
-  eventful: boolean
+  blockNumber: BigInt
 ): void {
   log.warning(
     "Processing payload. Submitter: {}, txHash: {}, blockNumber: {}",
@@ -87,7 +80,7 @@ export function processPayload(
   // Payload entity to persist (to provide context for validity of the payload)
   let payload = new Payload(txHash);
   payload.data = payloadBytes;
-  payload.submitter = eventful ? getMultisigFromEOAIfValid(cache, txHash, logIndex, submitter) : submitter;
+  payload.submitter = submitter;
   payload.valid = true;
   payload.createdAt = blockNumber;
 
@@ -151,7 +144,7 @@ export function processMessageBlock(
     reader.length().toString()
   ]);
 
-  for (let i = 0; i < tags.length; i++) {
+  for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     let permissionRequired = MessageTag.toString(tags[i]);
     if (!doesSubmitterHavePermission(cache, submitter, permissionRequired)) {
       reader.fail(
@@ -160,9 +153,6 @@ export function processMessageBlock(
           .replace("{}", permissionRequired)
       );
     }
-  }
-
-  for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     processMessage(cache, messageBlock, i, tags[i], reader);
   }
   messageBlock.data = reader.diff(snapshot);

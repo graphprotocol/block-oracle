@@ -100,7 +100,6 @@ type GlobalState @entity {
 
 type PermissionListEntry @entity {
   id: ID!
-  isMultisig: Boolean!
   permissions: [String!]!
 }
 

@@ -1,4 +1,13 @@
-import { BigInt, Bytes, Address, log } from "@graphprotocol/graph-ts";
+import {
+  BigInt,
+  ByteArray,
+  Bytes,
+  Address,
+  log,
+  ethereum,
+  log,
+  crypto
+} from "@graphprotocol/graph-ts";
 import { Log } from "../generated/DataEdge/DataEdge";
 import {
   GlobalState,
@@ -36,6 +45,19 @@ export namespace MessageTag {
   export function isValid(tag: MessageTag): boolean {
     return tags.length > tag;
   }
+}
+
+let EVENT_NAME = "SafeMultiSigTransaction";
+let EVENT_SIGNATURE =
+  "SafeMultiSigTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes,bytes)";
+let EVENT_DATA_TYPES =
+  "(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes,bytes)";
+
+// For some reason it's erroring when trying to parse the calldata
+export class SafeExecutionContext {
+  multisigAddress: Bytes;
+  // to: Bytes;
+  // data: Bytes;
 }
 
 export function nextEpochId(state: GlobalState, reader: BytesReader): BigInt {
@@ -132,34 +154,6 @@ export function isSubmitterAllowed(
   return permissionList.includes(submitter);
 }
 
-export function getMultisigFromEOAIfValid(
-  cache: StoreCache,
-  txHash: String,
-  logIndex: BigInt,
-  submitter: String
-): String {
-  let sub = submitter;
-  let id = txHash.concat("-").concat(logIndex.minus(BIGINT_ONE).toString());
-  log.warning("Trying to get multisig address. Current transaction hash: {}, LogIndex: {}. PreviousExecution supposed ID: {}", [txHash, logIndex.toString(), id]);
-  let previousExecution = MultisigExecution.load(id);
-  if (previousExecution != null) {
-    log.warning(
-      "Multisig execution detected. execution: {}, triggeringAddress: {}. submitter: {}",
-      [previousExecution.id, previousExecution.triggeringAddress, submitter]
-    );
-    if (submitter == previousExecution.triggeringAddress) {
-      let permissionList = cache.getGlobalState().permissionList;
-      let multisigHasPermissions = permissionList.includes(
-        previousExecution.multisigAddress
-      );
-
-      sub = previousExecution.multisigAddress;
-    }
-  }
-  log.warning("Resulting submitter {}", [sub]);
-  return sub;
-}
-
 export function doesSubmitterHavePermission(
   cache: StoreCache,
   submitter: String,
@@ -242,4 +236,110 @@ export function wipeNetworkList(
     networks[i].lastUpdatedAt = messageId;
     networks[i].latestValidBlockNumber = null;
   }
+}
+
+// Loops through all logs in an event tx receipt
+// Returns the Log that matches the event signature and logIndex
+export function getEventFromReceipt(
+  event: ethereum.Event,
+  eventSignature: string,
+  logIndex: BigInt
+): ethereum.Log | null {
+  let receipt = event.receipt;
+  if (receipt === null) {
+    log.error("Could not get tx receipt!", []);
+    return null;
+  }
+
+  let desiredLog: ethereum.Log | null = null;
+
+  let logs = receipt.logs;
+  for (let i = 0; i < logs.length; i++) {
+    if (logs[i].logIndex == logIndex) {
+      let topics = logs[i].topics;
+
+      if (isEventLog(topics[0], eventSignature)) {
+        // maybe also check that the data contains the selector for the EBO 0xa1dce332
+        // but we require the parsing of the calldata to work for that
+        desiredLog = logs[i];
+      }
+    }
+  }
+
+  return desiredLog;
+}
+
+// Returns true if the topic corresponds to an event signature
+function isEventLog(topic: Bytes, targetEventSignature: string): boolean {
+  return topic == crypto.keccak256(Bytes.fromUTF8(targetEventSignature));
+}
+
+export function getSafeExecutionContext(
+  event: ethereum.Event
+): SafeExecutionContext | null {
+  let log = getEventFromReceipt(
+    event,
+    EVENT_SIGNATURE,
+    event.logIndex.minus(BIGINT_ONE)
+  ); // if it's a safe execution, we need to search the previous logIndex
+  if (log === null) return null;
+
+  return parseSafeExecutionContext(log);
+}
+
+export function parseSafeExecutionContext(
+  ethLog: ethereum.Log
+): SafeExecutionContext | null {
+  //let decodedData = ethereum.decode(EVENT_DATA_TYPES, ethLog.data);
+
+  //log.warning(`Trying to decode call data for ${EVENT_NAME}`, [])
+  log.warning(`Data raw: {}, Log.address: {}`, [ethLog.data.toHexString(), ethLog.address.toHexString()])
+  //let decodedTuple = decodedData.toTuple();
+  return {
+    multisigAddress: ethLog.address,
+    // to: Bytes.fromHexString(
+      //   ensureEvenLength(decodedTuple[0].toBigInt().toHexString())
+      // ),
+      // data: Bytes.fromHexString(
+        //   ensureEvenLength(decodedTuple[2].toBigInt().toHexString())
+        // )
+      };
+  // if (decodedData !== null) {
+  //   // If we make the parsing of the calldata to work we might want to reimplement this
+  // } else {
+  //   log.error(`Could not decode call data for ${EVENT_NAME}!`, []);
+  //   return null;
+  // }
+}
+
+// bytes helpers
+export function numberToBytes(num: u64): ByteArray {
+  return stripZeros(Bytes.fromU64(num).reverse());
+}
+
+export function bigIntToBytes(num: BigInt): Bytes {
+  return Bytes.fromUint8Array(stripZeros(Bytes.fromBigInt(num).reverse()));
+}
+
+export function stripZeros(bytes: Uint8Array): ByteArray {
+  let i = 0;
+  while (i < bytes.length && bytes[i] == 0) {
+    i++;
+  }
+  return Bytes.fromUint8Array(bytes.slice(i));
+}
+
+export function strip0xPrefix(input: string): string {
+  return input.startsWith("0x") ? input.slice(2) : input;
+}
+
+// Pads a hex string with zeros to 64 characters
+export function padZeros(input: string): string {
+  let data = strip0xPrefix(input);
+  return "0x".concat(data.padStart(64, "0"));
+}
+
+export function ensureEvenLength(input: string): string {
+  if (input.length % 2 == 0) return input;
+  return "0x0".concat(strip0xPrefix(input.toString()));
 }

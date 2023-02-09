@@ -55,14 +55,8 @@ export class StoreCache {
       for(let i = 0; i < INITIAL_PERMISSION_SET.keys().length; i++) {
         let key = INITIAL_PERMISSION_SET.keys()[i]
         let permissionEntry = new PermissionListEntry(key);
-        permissionEntry.isMultisig = (INITIAL_PERMISSION_SET.get(key)[0][0]) == "true" ? true : false;
-        permissionEntry.permissions = (INITIAL_PERMISSION_SET.get(key)[1]);
+        permissionEntry.permissions = INITIAL_PERMISSION_SET.get(key);
         permissionEntry.save();
-
-        if(permissionEntry.isMultisig) {
-          // track multisig with template
-          GnosisSafe.create(Address.fromString(key))
-        }
       }
       state = new GlobalState("0");
       state.networkCount = 0;
@@ -114,8 +108,7 @@ export class StoreCache {
     for(let i = 0; i < INITIAL_PERMISSION_SET.keys().length; i++) {
       let key = INITIAL_PERMISSION_SET.keys()[i]
       let permissionEntry = this.getPermissionListEntry(key);
-      permissionEntry.isMultisig = (INITIAL_PERMISSION_SET.get(key)[0][0]) == "true" ? true : false;
-      permissionEntry.permissions = (INITIAL_PERMISSION_SET.get(key)[1]);
+      permissionEntry.permissions = INITIAL_PERMISSION_SET.get(key);
     }
     state = this.state;
     state.networkCount = 0;
