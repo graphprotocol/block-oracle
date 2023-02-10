@@ -1,5 +1,4 @@
 import { BigInt, Address } from "@graphprotocol/graph-ts";
-import { GnosisSafe } from "../generated/templates";
 import { INITIAL_PERMISSION_SET } from "./constants";
 import {
   GlobalState,

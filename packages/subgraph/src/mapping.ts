@@ -1,5 +1,4 @@
 import { CrossChainEpochOracleCall, Log } from "../generated/DataEdge/DataEdge";
-import { SafeMultiSigTransaction } from "../generated/templates/GnosisSafe/GnosisSafe";
 import { Bytes, BigInt, log } from "@graphprotocol/graph-ts";
 import {
   MessageBlock,
