@@ -13,8 +13,7 @@ import {
   GlobalState,
   Epoch,
   NetworkEpochBlockNumber,
-  Network,
-  MultisigExecution
+  Network
 } from "../generated/schema";
 import { BytesReader } from "./decoding";
 import { EpochManager } from "../generated/DataEdge/EpochManager";

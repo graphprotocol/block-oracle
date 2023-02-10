@@ -4,8 +4,7 @@ import {
   MessageBlock,
   Payload,
   GlobalState,
-  Network,
-  MultisigExecution
+  Network
 } from "../generated/schema";
 import {
   BytesReader,
