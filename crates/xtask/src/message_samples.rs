@@ -8,7 +8,7 @@ const JSON_SAMPLES_DIRECTORY: &str = "crates/oracle/message-examples/";
 
 fn compile() -> anyhow::Result<()> {
     let sh = Shell::new()?;
-    for jsonnet_file in glob(&format!("{}/*.jsonnet", JSONNET_SAMPLES_DIRECTORY))? {
+    for jsonnet_file in glob(&format!("{JSONNET_SAMPLES_DIRECTORY}/*.jsonnet"))? {
         let jsonnet_path = jsonnet_file?;
         let json = cmd!(sh, "jsonnet {jsonnet_path}")
             .read()
@@ -32,7 +32,7 @@ pub fn encode(calldata: bool) -> anyhow::Result<()> {
     cmd!(sh, "cargo build --package block-oracle")
         .quiet()
         .run()?;
-    for json_file in glob(&format!("{}/*.json", JSON_SAMPLES_DIRECTORY))? {
+    for json_file in glob(&format!("{JSON_SAMPLES_DIRECTORY}/*.json"))? {
         let json_path = json_file?;
         let output = cmd!(
             sh,
@@ -41,7 +41,7 @@ pub fn encode(calldata: bool) -> anyhow::Result<()> {
         .read()?;
         let file_name = json_path.to_string_lossy();
         let sample_name = file_name.trim_end_matches(".json");
-        println!("[sample: {}]\n{}\n", sample_name, output);
+        println!("[sample: {sample_name}]\n{output}\n");
     }
     Ok(())
 }

@@ -95,7 +95,7 @@ async fn send_message(config: Config, payload: Vec<u8>) -> anyhow::Result<()> {
 async fn print_current_epoch(config: Config) -> anyhow::Result<()> {
     let contracts = init_contracts(config)?;
     let current_epoch = contracts.query_current_epoch().await?;
-    println!("{}", current_epoch);
+    println!("{current_epoch}");
     Ok(())
 }
 

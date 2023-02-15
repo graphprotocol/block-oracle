@@ -269,7 +269,7 @@ fn set_block_numbers_for_next_epoch(
 
     let compressed = compression_engine
         .compress(&[message])
-        .unwrap_or_else(|error| panic!("Encoding failed. Error: {}", error));
+        .unwrap_or_else(|error| panic!("Encoding failed. Error: {error}"));
     debug!(
         compressed = ?compressed,
         networks = ?compression_engine.network_deltas(),
