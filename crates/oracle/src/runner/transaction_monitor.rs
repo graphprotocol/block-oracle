@@ -105,7 +105,7 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         // Await and check if any of those transactions have a receipt
         while let Some(result) = futures.next().await {
             match result {
-                Ok(None) => { /* no confirmations */}
+                Ok(None) => { /* no confirmations */ }
                 Ok(Some(receipt)) => {
                     return Ok(Some(receipt));
                 }
