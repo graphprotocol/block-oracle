@@ -161,8 +161,7 @@ where
         let block_number = block_numbers[i];
         let block = block_opt.ok_or_else(|| {
             web3::Error::InvalidResponse(format!(
-                "Block {} not found during range scan",
-                block_number
+                "Block {block_number} not found during range scan"
             ))
         })?;
         txs.extend_from_slice(&block.transactions);
