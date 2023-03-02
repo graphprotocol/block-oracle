@@ -22,17 +22,26 @@ import {
   nextEpochId,
   parseCalldata,
   isSubmitterAllowed,
-  doesSubmitterHavePermission
+  doesSubmitterHavePermission,
+  getSafeExecutionContext,
+  SafeExecutionContext
 } from "./helpers";
 import { StoreCache } from "./store-cache";
 import { BIGINT_ZERO, BIGINT_ONE } from "./constants";
 
 export function handleLogCrossChainEpochOracle(event: Log): void {
-  // this is only used in local development, and needs to strip the calldata to only
+  // this is used in deployments on networks that lack trace support, and needs to strip the calldata to only
   // get the actual payload data we care about, without the selector and argument descriptors
   let data = parseCalldata(event.params.data);
+  let safeExecutionContext = getSafeExecutionContext(event);
+  if(safeExecutionContext != null) {
+    log.warning("SafeExecutionContext multisig address: {}, submitter: {}", [
+      safeExecutionContext.multisigAddress.toHexString(),
+      event.transaction.from.toHexString()
+    ])
+  }
   processPayload(
-    event.transaction.from.toHexString(),
+    safeExecutionContext != null ? safeExecutionContext.multisigAddress.toHexString() : event.transaction.from.toHexString(),
     data,
     event.transaction.hash.toHexString(),
     event.block.number
@@ -131,7 +140,7 @@ export function processMessageBlock(
     reader.length().toString()
   ]);
 
-  for (let i = 0; i < tags.length; i++) {
+  for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     let permissionRequired = MessageTag.toString(tags[i]);
     if (!doesSubmitterHavePermission(cache, submitter, permissionRequired)) {
       reader.fail(
@@ -140,9 +149,6 @@ export function processMessageBlock(
           .replace("{}", permissionRequired)
       );
     }
-  }
-
-  for (let i = 0; i < tags.length && reader.ok && reader.length() > 0; i++) {
     processMessage(cache, messageBlock, i, tags[i], reader);
   }
   messageBlock.data = reader.diff(snapshot);

@@ -1,4 +1,14 @@
-import { BigInt, Bytes, Address, log } from "@graphprotocol/graph-ts";
+import {
+  BigInt,
+  ByteArray,
+  Bytes,
+  Address,
+  log,
+  ethereum,
+  log,
+  crypto
+} from "@graphprotocol/graph-ts";
+import { Log } from "../generated/DataEdge/DataEdge";
 import {
   GlobalState,
   Epoch,
@@ -34,6 +44,17 @@ export namespace MessageTag {
   export function isValid(tag: MessageTag): boolean {
     return tags.length > tag;
   }
+}
+
+let EVENT_NAME = "SafeMultiSigTransaction";
+let EVENT_SIGNATURE =
+  "SafeMultiSigTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes,bytes)";
+let EVENT_DATA_TYPES =
+  "(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes,bytes)";
+
+// For some reason it's erroring when trying to parse the calldata
+export class SafeExecutionContext {
+  multisigAddress: Bytes;
 }
 
 export function nextEpochId(state: GlobalState, reader: BytesReader): BigInt {
@@ -212,4 +233,95 @@ export function wipeNetworkList(
     networks[i].lastUpdatedAt = messageId;
     networks[i].latestValidBlockNumber = null;
   }
+}
+
+// Loops through all logs in an event tx receipt
+// Returns the Log that matches the event signature and logIndex
+export function getEventFromReceipt(
+  event: ethereum.Event,
+  eventSignature: string,
+  logIndex: BigInt
+): ethereum.Log | null {
+  let receipt = event.receipt;
+  if (receipt === null) {
+    log.error("Could not get tx receipt!", []);
+    return null;
+  }
+
+  let desiredLog: ethereum.Log | null = null;
+
+  let logs = receipt.logs;
+  for (let i = 0; i < logs.length; i++) {
+    if (logs[i].logIndex == logIndex) {
+      let topics = logs[i].topics;
+
+      if (isEventLog(topics[0], eventSignature)) {
+        // maybe also check that the data contains the selector for the EBO 0xa1dce332
+        // but we require the parsing of the calldata to work for that
+        desiredLog = logs[i];
+      }
+    }
+  }
+
+  return desiredLog;
+}
+
+// Returns true if the topic corresponds to an event signature
+function isEventLog(topic: Bytes, targetEventSignature: string): boolean {
+  return topic == crypto.keccak256(Bytes.fromUTF8(targetEventSignature));
+}
+
+export function getSafeExecutionContext(
+  event: ethereum.Event
+): SafeExecutionContext | null {
+  let log = getEventFromReceipt(
+    event,
+    EVENT_SIGNATURE,
+    event.logIndex.minus(BIGINT_ONE)
+  ); // if it's a safe execution, we need to search the previous logIndex
+  if (log === null) return null;
+
+  return parseSafeExecutionContext(log);
+}
+
+export function parseSafeExecutionContext(
+  ethLog: ethereum.Log
+): SafeExecutionContext | null {
+  // Would be good to also parse the data to make sure the execution matches the
+  // expected execution, i.e. that the data is actually an EBO message
+  return {
+    multisigAddress: ethLog.address
+  };
+}
+
+// bytes helpers
+export function numberToBytes(num: u64): ByteArray {
+  return stripZeros(Bytes.fromU64(num).reverse());
+}
+
+export function bigIntToBytes(num: BigInt): Bytes {
+  return Bytes.fromUint8Array(stripZeros(Bytes.fromBigInt(num).reverse()));
+}
+
+export function stripZeros(bytes: Uint8Array): ByteArray {
+  let i = 0;
+  while (i < bytes.length && bytes[i] == 0) {
+    i++;
+  }
+  return Bytes.fromUint8Array(bytes.slice(i));
+}
+
+export function strip0xPrefix(input: string): string {
+  return input.startsWith("0x") ? input.slice(2) : input;
+}
+
+// Pads a hex string with zeros to 64 characters
+export function padZeros(input: string): string {
+  let data = strip0xPrefix(input);
+  return "0x".concat(data.padStart(64, "0"));
+}
+
+export function ensureEvenLength(input: string): string {
+  if (input.length % 2 == 0) return input;
+  return "0x0".concat(strip0xPrefix(input.toString()));
 }

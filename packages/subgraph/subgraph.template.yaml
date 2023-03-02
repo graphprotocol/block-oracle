@@ -1,17 +1,17 @@
-specVersion: 0.0.2
+specVersion: 0.0.5
 schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum
     name: DataEdge
-    network: ropsten
+    network: mainnet
     source:
       address: "0xae6ADd894F8a1BcAC10b153dc59Cab1da9656836"
       abi: DataEdge
       startBlock: 12052156
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.6
+      apiVersion: 0.0.7
       language: wasm/assemblyscript
       entities:
         - DataEdge
@@ -25,6 +25,7 @@ dataSources:
       eventHandlers:
         - event: Log(bytes)
           handler: handleLogCrossChainEpochOracle
+          receipt: true
       {{/eventful}}
       {{^eventful}}
       callHandlers:
