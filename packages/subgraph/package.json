@@ -1,5 +1,5 @@
 {
-  "name": "block-oracle",
+  "name": "@graphprotocol/block-oracle",
   "license": "MIT",
   "scripts": {
     "prepare": "./scripts/prepare.sh",
