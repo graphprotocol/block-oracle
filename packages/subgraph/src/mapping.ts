@@ -37,8 +37,6 @@ export function handleLogCrossChainEpochOracle(event: Log): void {
   if(safeExecutionContext != null) {
     log.warning("SafeExecutionContext multisig address: {}, submitter: {}", [
       safeExecutionContext.multisigAddress.toHexString(),
-      // safeExecutionContext.to.toHexString(),
-      // safeExecutionContext.data.toHexString(),
       event.transaction.from.toHexString()
     ])
   }

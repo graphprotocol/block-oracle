@@ -55,8 +55,6 @@ let EVENT_DATA_TYPES =
 // For some reason it's erroring when trying to parse the calldata
 export class SafeExecutionContext {
   multisigAddress: Bytes;
-  // to: Bytes;
-  // data: Bytes;
 }
 
 export function nextEpochId(state: GlobalState, reader: BytesReader): BigInt {
@@ -289,26 +287,11 @@ export function getSafeExecutionContext(
 export function parseSafeExecutionContext(
   ethLog: ethereum.Log
 ): SafeExecutionContext | null {
-  //let decodedData = ethereum.decode(EVENT_DATA_TYPES, ethLog.data);
-
-  //log.warning(`Trying to decode call data for ${EVENT_NAME}`, [])
-  log.warning(`Data raw: {}, Log.address: {}`, [ethLog.data.toHexString(), ethLog.address.toHexString()])
-  //let decodedTuple = decodedData.toTuple();
+  // Would be good to also parse the data to make sure the execution matches the
+  // expected execution, i.e. that the data is actually an EBO message
   return {
-    multisigAddress: ethLog.address,
-    // to: Bytes.fromHexString(
-      //   ensureEvenLength(decodedTuple[0].toBigInt().toHexString())
-      // ),
-      // data: Bytes.fromHexString(
-        //   ensureEvenLength(decodedTuple[2].toBigInt().toHexString())
-        // )
-      };
-  // if (decodedData !== null) {
-  //   // If we make the parsing of the calldata to work we might want to reimplement this
-  // } else {
-  //   log.error(`Could not decode call data for ${EVENT_NAME}!`, []);
-  //   return null;
-  // }
+    multisigAddress: ethLog.address
+  };
 }
 
 // bytes helpers

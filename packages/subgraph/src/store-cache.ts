@@ -1,4 +1,4 @@
-import { BigInt, Address } from "@graphprotocol/graph-ts";
+import { BigInt } from "@graphprotocol/graph-ts";
 import { INITIAL_PERMISSION_SET } from "./constants";
 import {
   GlobalState,
