@@ -7,7 +7,17 @@
         { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "CorrectEpochsMessage" },
         { "entry": "ResetStateMessage", "lastEntry": true }
-      ]
+      ],
+      "validThrough": "0"
+    },
+    {
+      "address": "0x89b7d1b3e323324044a2eb09fc0eab9c5217852c",
+      "permissions": [
+        { "entry": "SetBlockNumbersForEpochMessage" },
+        { "entry": "CorrectEpochsMessage" },
+        { "entry": "ResetStateMessage", "lastEntry": true }
+      ],
+      "validThrough": "0"
     },
     {
       "address": "0x48301fe520f72994d32ead72e2b6a8447873cf50",
@@ -16,7 +26,8 @@
         { "entry": "UpdateVersionsMessage" },
         { "entry": "RegisterNetworksMessage" },
         { "entry": "ChangePermissionsMessage", "lastEntry": true }
-      ]
+      ],
+      "validThrough": "0"
     }
   ],
   "epochManager": "0x64f990bf16552a693dcb043bb7bf3866c5e05ddb"

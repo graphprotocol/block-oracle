@@ -101,6 +101,7 @@ type GlobalState @entity {
 type PermissionListEntry @entity {
   id: ID!
   permissions: [String!]!
+  validThrough: BigInt!
 }
 
 type Epoch @entity {

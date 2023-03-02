@@ -4,7 +4,7 @@
   "scripts": {
     "prepare": "./scripts/prepare.sh",
     "codegen": "yarn && graph codegen",
-    "test": "yarn codegen && yarn prep:test && graph test",
+    "test": "yarn prep:test && yarn codegen && graph test",
     "build": "yarn && yarn prepare && graph build",
     "deploy": "yarn prep:prod && yarn codegen && graph build --network mainnet && graph deploy --node https://api.thegraph.com/deploy/ graphprotocol/mainnet-epoch-block-oracle",
     "deploy-l2": "yarn prep:prod-l2 && yarn codegen && graph build --network arbitrum-one && graph deploy --node https://api.thegraph.com/deploy/ juanmardefago/arbitrum-epoch-block-oracle",
