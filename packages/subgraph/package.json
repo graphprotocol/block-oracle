@@ -8,7 +8,7 @@
     "build": "yarn && yarn prepare && graph build",
     "deploy": "yarn && yarn prep:prod && yarn codegen && graph build --network mainnet && graph deploy --node https://api.thegraph.com/deploy/ graphprotocol/mainnet-epoch-block-oracle",
     "deploy-l2": "yarn && yarn prep:prod-l2 && yarn codegen && graph build --network arbitrum-one && graph deploy --node https://api.thegraph.com/deploy/ juanmardefago/arbitrum-epoch-block-oracle",
-    "deploy-staging": "yarn && yarn prep:staging && yarn codegen && graph build --network goerli && graph deploy --node https://api.thegraph.com/deploy/ juanmardefago/block-oracle",
+    "deploy-staging": "yarn && yarn prep:staging && yarn codegen && graph build --network goerli && graph deploy --node https://api.thegraph.com/deploy/ graphprotocol/goerli-epoch-block-oracle",
     "deploy-staging-l2": "yarn && yarn prep:staging-l2 && yarn codegen && graph build --network arbitrum-goerli && graph deploy --node https://api.thegraph.com/deploy/ juanmardefago/arb-goerli-epoch-block-oracle",
     "create-local": "graph create --node http://127.0.0.1:8020/ edgeandnode/block-oracle",
     "remove-local": "graph remove --node http://127.0.0.1:8020/ edgeandnode/block-oracle",
