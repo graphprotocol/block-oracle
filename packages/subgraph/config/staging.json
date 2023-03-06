@@ -11,7 +11,7 @@
         { "entry": "ChangePermissionsMessage" },
         { "entry": "ResetStateMessage", "lastEntry": true }
       ],
-      "validThrough": "0"
+      "validThrough": "8615700"
     },
     {
       "address": "0x26668fcec08f3e09ba83859739fc54e0db00aded",

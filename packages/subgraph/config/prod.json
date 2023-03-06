@@ -8,7 +8,7 @@
         { "entry": "CorrectEpochsMessage" },
         { "entry": "ResetStateMessage", "lastEntry": true }
       ],
-      "validThrough": "0"
+      "validThrough": "16778200"
     },
     {
       "address": "0x89b7d1b3e323324044a2eb09fc0eab9c5217852c",

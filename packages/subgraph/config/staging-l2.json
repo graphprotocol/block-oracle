@@ -11,7 +11,7 @@
         { "entry": "RegisterNetworksMessage" },
         { "entry": "ChangePermissionsMessage", "lastEntry": true }
       ],
-      "validThrough": "0"
+      "validThrough": "10289000"
     },
     {
       "address": "0x0b7b66d6ba9aed926116c0f7f3a5cf1880602038",
