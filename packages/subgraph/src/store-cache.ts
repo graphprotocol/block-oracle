@@ -54,7 +54,8 @@ export class StoreCache {
       for(let i = 0; i < INITIAL_PERMISSION_SET.keys().length; i++) {
         let key = INITIAL_PERMISSION_SET.keys()[i]
         let permissionEntry = new PermissionListEntry(key);
-        permissionEntry.permissions = INITIAL_PERMISSION_SET.get(key);
+        permissionEntry.validThrough = BigInt.fromString(INITIAL_PERMISSION_SET.get(key)[0][0]);
+        permissionEntry.permissions = INITIAL_PERMISSION_SET.get(key)[1];
         permissionEntry.save();
       }
       state = new GlobalState("0");
@@ -107,7 +108,8 @@ export class StoreCache {
     for(let i = 0; i < INITIAL_PERMISSION_SET.keys().length; i++) {
       let key = INITIAL_PERMISSION_SET.keys()[i]
       let permissionEntry = this.getPermissionListEntry(key);
-      permissionEntry.permissions = INITIAL_PERMISSION_SET.get(key);
+      permissionEntry.validThrough = BigInt.fromString(INITIAL_PERMISSION_SET.get(key)[0][0]);
+      permissionEntry.permissions = INITIAL_PERMISSION_SET.get(key)[1];
     }
     state = this.state;
     state.networkCount = 0;

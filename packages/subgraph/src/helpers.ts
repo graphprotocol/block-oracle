@@ -142,13 +142,22 @@ export function getActiveNetworks(cache: StoreCache): Array<Network> {
 
 export function isSubmitterAllowed(
   cache: StoreCache,
-  submitter: String
+  submitter: String,
+  blockNumber: BigInt
 ): boolean {
   let permissionList = cache.getGlobalState().permissionList;
+  let filteredPermissionList: Array<String> = []
+
+  for(let i = 0; i < permissionList.length; i++) {
+    let entity = cache.getPermissionListEntry(permissionList[i]);
+    if(entity.validThrough == BIGINT_ZERO || entity.validThrough > blockNumber) {
+      filteredPermissionList.push(permissionList[i])
+    }
+  }
 
   //double check that this works or whether we need to load entity.
 
-  return permissionList.includes(submitter);
+  return filteredPermissionList.includes(submitter);
 }
 
 export function doesSubmitterHavePermission(

@@ -10,14 +10,28 @@
         { "entry": "RegisterNetworksMessage" },
         { "entry": "ChangePermissionsMessage" },
         { "entry": "ResetStateMessage", "lastEntry": true }
-      ]
+      ],
+      "validThrough": "0"
     },
     {
       "address": "0x0000000000000000000000000000000000000010",
       "permissions": [
         { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "ResetStateMessage", "lastEntry": true }
-      ]
+      ],
+      "validThrough": "0"
+    },
+    {
+      "address": "0x0000000000000000000000000000000000000100",
+      "permissions": [
+        { "entry": "SetBlockNumbersForEpochMessage" },
+        { "entry": "CorrectEpochsMessage" },
+        { "entry": "UpdateVersionsMessage" },
+        { "entry": "RegisterNetworksMessage" },
+        { "entry": "ChangePermissionsMessage" },
+        { "entry": "ResetStateMessage", "lastEntry": true }
+      ],
+      "validThrough": "2"
     }
   ],
   "epochManager": "0x0000000000000000000000000000000000000000"

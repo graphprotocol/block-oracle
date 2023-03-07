@@ -83,7 +83,7 @@ export function processPayload(
   let reader = new BytesReader(payloadBytes);
   let blockIdx = 0;
 
-  if (!isSubmitterAllowed(cache, payload.submitter)) {
+  if (!isSubmitterAllowed(cache, payload.submitter, blockNumber)) {
     log.error(
       "Invalid submitter. Allowed addresses: {}. Submitter: {}. Avoiding payload",
       [cache.getGlobalState().permissionList.toString(), payload.submitter]
@@ -503,11 +503,11 @@ function executeChangePermissionsMessage(
   message.newPermissions = newPermissionList;
   message.data = reader.diff(snapshot);
 
-  if (!isSubmitterAllowed(cache, address)) {
-    let list = globalState.permissionList;
-    list.push(permissionEntry.id);
-    globalState.permissionList = list;
-  }
+
+  let list = globalState.permissionList;
+  list.push(permissionEntry.id);
+  globalState.permissionList = list;
+
   // might want to remove it from the "allow list" if the new permission list length is 0
   // Right now the address won't be able to execute anything on that case, but it can spam
 }
