@@ -26,7 +26,7 @@ Steps:
    ]
    #+end_src
 
-    wait for the Epoch Subgraph to index the recently sent message before attempting to
+    Note that the chain ID used in the message should be exactly the same as the one included in the configuration file. 
 
 4. The Block Oracle will only include the new indexed chain latest blocks in its =SetBlockNumbersForEpochMessage= when the Epoch Subgraph successfully indexes the relevant =RegisterNetworks= message.
 
