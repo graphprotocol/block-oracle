@@ -1,0 +1,33 @@
+#+TITLE: Adding a new Indexed Chain
+
+Steps:
+1. Update the Oracle's =config.toml= file and include the new indexed chain under the =indexed_chains= table:
+   #+begin_src toml
+   [indexed_chains]
+   "previous-chain-1-id" = "http://example-1.rpc"
+   "previous-chain-2-id" = "http://example-2.rpc"
+   "new-chain-id" = "http://new-example.rpc" # <-- new indexed chain
+   #+end_src
+
+   The entry is formatted such as the key is the Network Identifier and the value is the HTTP endpoint to the respective RPC provider.
+
+2. Restart the =block-oracle= binary for configuration to be reloaded.
+
+3. Send a =RegisterNetworks= message to the *DataEdge* contract that reflects the newly added chain. You can use the [[https://graphprotocol.github.io/block-oracle/][Block Oracle Encoder]] for this:
+   #+begin_src javascript
+   [
+       {
+           "add": [
+               "new-chain-id"
+           ],
+           "message": "RegisterNetworks",
+           "remove": []
+       }
+   ]
+   #+end_src
+
+    wait for the Epoch Subgraph to index the recently sent message before attempting to
+
+4. The Block Oracle will only include the new indexed chain latest blocks in its =SetBlockNumbersForEpochMessage= when the Epoch Subgraph successfully indexes the relevant =RegisterNetworks= message.
+
+5. After the Epoch Subgraph is up to date and the new indexed chain can be queried from it, the Block Oracle will include the latest block information for that chain on every =SetBlockNumbersForEpochMessage= message it sends to the *DataEdge* contract.
