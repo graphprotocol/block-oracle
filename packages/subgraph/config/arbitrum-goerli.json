@@ -23,6 +23,18 @@
         { "entry": "RegisterNetworksMessage" },
         { "entry": "ChangePermissionsMessage", "lastEntry": true }
       ],
+      "validThrough": "23200000"
+    },
+    {
+      "address": "0x1e7f07543b873f4c43c03e44b6ded4674079fecb",
+      "permissions": [
+        { "entry": "SetBlockNumbersForEpochMessage" },
+        { "entry": "CorrectEpochsMessage" },
+        { "entry": "ResetStateMessage" },
+        { "entry": "UpdateVersionsMessage" },
+        { "entry": "RegisterNetworksMessage" },
+        { "entry": "ChangePermissionsMessage", "lastEntry": true }
+      ],
       "validThrough": "0"
     },
     {
