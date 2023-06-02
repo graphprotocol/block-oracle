@@ -1,17 +1,26 @@
 {
-  "eventful": true,
+  "eventful": false,
   "permissionList": [
     {
-      "address": "0x881355f34b1c4c8e02ed6b20d16d4bf2c35f5d07",
+      "address": "0xeb4ad97a099defc85c900a60adfd2405c455b2c0",
       "permissions": [
         { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "CorrectEpochsMessage" },
         { "entry": "ResetStateMessage", "lastEntry": true }
       ],
-      "validThrough": "67713000"
+      "validThrough": "16778200"
     },
     {
-      "address": "0x3e4470ac38a67a81b5d855aaef8936d45afafa88",
+      "address": "0x89b7d1b3e323324044a2eb09fc0eab9c5217852c",
+      "permissions": [
+        { "entry": "SetBlockNumbersForEpochMessage" },
+        { "entry": "CorrectEpochsMessage" },
+        { "entry": "ResetStateMessage", "lastEntry": true }
+      ],
+      "validThrough": "17372000"
+    },
+    {
+      "address": "0x080a2def232eee37f49f45d68a81e8eea14c2e05",
       "permissions": [
         { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "CorrectEpochsMessage" },
@@ -20,8 +29,9 @@
       "validThrough": "0"
     },
     {
-      "address": "0x8c6de8f8d562f3382417340a6994601ee08d3809",
+      "address": "0x48301fe520f72994d32ead72e2b6a8447873cf50",
       "permissions": [
+        { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "UpdateVersionsMessage" },
         { "entry": "RegisterNetworksMessage" },
         { "entry": "ChangePermissionsMessage", "lastEntry": true }
@@ -29,5 +39,5 @@
       "validThrough": "0"
     }
   ],
-  "epochManager": "0x5a843145c43d328b9bb7a4401d94918f131bb281"
+  "epochManager": "0x64f990bf16552a693dcb043bb7bf3866c5e05ddb"
 }
