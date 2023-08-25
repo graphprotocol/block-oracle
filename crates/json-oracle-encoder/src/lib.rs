@@ -191,5 +191,5 @@ pub fn calldata(payload: Vec<u8>) -> Vec<u8> {
     let signature = short_signature("crossChainEpochOracle", &[ParamType::Bytes]);
     let payload = Token::Bytes(payload);
     let encoded = encode(&[payload]);
-    signature.into_iter().chain(encoded.into_iter()).collect()
+    signature.into_iter().chain(encoded).collect()
 }
