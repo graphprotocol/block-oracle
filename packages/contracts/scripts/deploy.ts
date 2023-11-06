@@ -1,5 +1,9 @@
 import '@nomiclabs/hardhat-ethers'
-import { ethers } from 'hardhat'
+import { ethers, network } from 'hardhat'
+
+import addresses from '../addresses.json'
+
+import { promises as fs } from 'fs'
 
 async function main() {
   const factory = await ethers.getContractFactory('DataEdge')
@@ -17,6 +21,14 @@ async function main() {
   // The contract is NOT deployed yet; we must wait until it is mined
   await contract.deployed()
   console.log(`Done!`)
+
+  // Update addresses.json
+  const chainId = (network.config.chainId as number).toString()
+  if (!addresses[chainId]) {
+    addresses[chainId] = {}
+  }
+  addresses[chainId]['DataEdge'] = contract.address
+  return fs.writeFile('addresses.json', JSON.stringify(addresses, null, 2))
 }
 
 main()

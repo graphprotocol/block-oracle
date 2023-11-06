@@ -36,6 +36,7 @@ const networkConfigs: NetworkConfig[] = [
   { network: 'ropsten', chainId: 3 },
   { network: 'rinkeby', chainId: 4 },
   { network: 'kovan', chainId: 42 },
+  { network: 'sepolia', chainId: 11155111 },
   {
     network: 'arbitrum-one',
     chainId: 42161,
@@ -45,6 +46,11 @@ const networkConfigs: NetworkConfig[] = [
     network: 'arbitrum-goerli',
     chainId: 421613,
     url: 'https://goerli-rollup.arbitrum.io/rpc',
+  },
+  {
+    network: 'arbitrum-sepolia',
+    chainId: 421614,
+    url: 'https://sepolia-rollup.arbitrum.io/rpcblock',
   },
 ]
 
@@ -129,9 +135,21 @@ const config: HardhatUserConfig = {
     apiKey: {
       mainnet: process.env.ETHERSCAN_API_KEY,
       goerli: process.env.ETHERSCAN_API_KEY,
+      sepolia: process.env.ETHERSCAN_API_KEY,
       arbitrumOne: process.env.ARBISCAN_API_KEY,
       arbitrumGoerli: process.env.ARBISCAN_API_KEY,
+      arbitrumSepolia: process.env.ARBISCAN_API_KEY,
     },
+    customChains: [
+      {
+        network: 'arbitrumSepolia',
+        chainId: 421614,
+        urls: {
+          apiURL: 'https://api-sepolia.arbiscan.io/api',
+          browserURL: 'https://sepolia.arbiscan.io',
+        },
+      },
+    ],
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS ? true : false,
