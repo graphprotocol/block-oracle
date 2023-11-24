@@ -24,7 +24,7 @@ At the beginning of a new epoch, the EBO broadcasts a transaction containing enc
 - **Subgraph Freshness:** The Epoch Subgraph is deemed "fresh" if it has processed all pertinent transactions aimed at the DataEdge contract. This is verified by the Oracle fetching the latest block from the Protocol Chain and comparing its number with the subgraph's current block, performing additional scans if the block numbers are within a specific range. That range is referenced as the "freshness threshold."
 - **Message:** Specific content transmitted from the EBO to the Data Edge contract. It indicates different types of state changes that the Epoch Subgraph should process.
 - **DataEdge:** This Ethereum contract is designed for gas efficiency and to facilitate data transfer to subgraphs. For a complete reference, consult [GIP-0025: DataEdge](https://forum.thegraph.com/t/gip-0025-dataedge/3161).
-- **EventfulDataEdge:** Serving exclusively in the development environment, the Eventful DataEdge operates similarly to the standard DataEdge. However, its fallback method triggers an event containing the literal payload. This adaptation was necessary due to Hardhat not supporting traces.
+- **EventfulDataEdge:** The Eventful DataEdge operates similarly to the standard DataEdge. However, its fallback method triggers an event containing the literal payload. This adaptation was necessary due to Hardhat not supporting traces, but it is also used in Arbitrum chains as those don't support traces either.
 
 ## Repository structure
 
