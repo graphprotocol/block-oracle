@@ -17,6 +17,18 @@
       "startBlock": 4075060
     }
   },
+  "sepolia": {
+    "DataEdge": {
+      "address": "0xEFC8D47673777b899f2FB597C6FC0E87ecce98Cb",
+      "startBlock": 4650429
+    }
+  },
+  "arbitrum-sepolia": {
+    "DataEdge": {
+      "address": "0x9b9402939133F27c6eba81a321dfBFa1feE6714E",
+      "startBlock": 865937
+    }
+  },
   "arbitrum-one": {
     "DataEdge": {
       "address": "0x633bb9790d7c4c59991cebd377c0ed6501a35ebe",
