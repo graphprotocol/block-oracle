@@ -1,5 +1,8 @@
+use crate::blockmeta::blockmeta_client::{AuthInterceptor, BlockmetaClient};
 use serde_with::DeserializeFromStr;
 use std::{fmt::Display, str::FromStr};
+use tonic::codegen::InterceptedService;
+use tonic::transport::{Channel, Uri};
 use web3::Web3;
 
 #[derive(Clone, Debug)]
@@ -20,6 +23,20 @@ where
             chain_id,
             web3: Web3::new(transport),
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BlockmetaProviderForChain<T> {
+    pub chain_id: Caip2ChainId,
+    pub client: BlockmetaClient<T>,
+}
+
+impl BlockmetaProviderForChain<InterceptedService<Channel, AuthInterceptor>> {
+    pub fn new(chain_id: Caip2ChainId, url: String, auth: impl AsRef<str>) -> Self {
+        let uri: Uri = url.parse().unwrap();
+        let client = BlockmetaClient::new_with_auth(uri, auth);
+        Self { chain_id, client }
     }
 }
 

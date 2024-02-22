@@ -1,13 +1,17 @@
 use crate::{
+    blockmeta::blockmeta_client::{get_latest_blockmeta_blocks, AuthInterceptor},
     contracts::Contracts,
     hex_string,
     jrpc_utils::{get_latest_block, get_latest_blocks, JrpcExpBackoff},
     metrics::METRICS,
     subgraph::{query_subgraph, SubgraphState},
-    Caip2ChainId, Config, Error, JrpcProviderForChain,
+    BlockmetaProviderForChain, Caip2ChainId, Config, Error, JrpcProviderForChain,
 };
+use alloy_primitives::BlockHash;
 use epoch_encoding::{BlockPtr, Encoder, Message, CURRENT_ENCODING_VERSION};
 use std::{cmp::Ordering, collections::BTreeMap};
+use tonic::codegen::InterceptedService;
+use tonic::transport::Channel;
 use tracing::{debug, error, info, warn};
 
 /// The main application in-memory state.
@@ -15,6 +19,8 @@ pub struct Oracle {
     config: Config,
     protocol_chain: JrpcProviderForChain<JrpcExpBackoff>,
     indexed_chains: Vec<JrpcProviderForChain<JrpcExpBackoff>>,
+    blockmeta_indexed_chains:
+        Vec<BlockmetaProviderForChain<InterceptedService<Channel, AuthInterceptor>>>,
     contracts: Contracts<JrpcExpBackoff>,
 }
 
@@ -22,6 +28,7 @@ impl Oracle {
     pub fn new(config: Config) -> Self {
         let protocol_chain = protocol_chain(&config);
         let indexed_chains = indexed_chains(&config);
+        let blockmeta_indexed_chains = blockmeta_indexed_chains(&config);
         let contracts = Contracts::new(
             protocol_chain.web3.clone(),
             config.data_edge_address,
@@ -34,6 +41,7 @@ impl Oracle {
             config,
             protocol_chain,
             indexed_chains,
+            blockmeta_indexed_chains,
             contracts,
         }
     }
@@ -146,8 +154,8 @@ impl Oracle {
         info!("Entering a new epoch.");
         info!("Collecting latest block information from all indexed chains.");
 
-        let latest_blocks_res = get_latest_blocks(&self.indexed_chains).await;
-        let latest_blocks = latest_blocks_res
+        let latest_jrpc_blocks_res = get_latest_blocks(&self.indexed_chains).await;
+        let latest_jrpc_blocks: BTreeMap<Caip2ChainId, BlockPtr> = latest_jrpc_blocks_res
             .iter()
             .filter_map(|(chain_id, res)| -> Option<(Caip2ChainId, BlockPtr)> {
                 match res {
@@ -171,6 +179,41 @@ impl Oracle {
             })
             .collect();
 
+        let latest_blockmeta_blocks_res =
+            get_latest_blockmeta_blocks(&self.blockmeta_indexed_chains).await;
+        let latest_blockmeta_blocks: BTreeMap<Caip2ChainId, BlockPtr> = latest_blockmeta_blocks_res
+            .iter()
+            .filter_map(|(chain_id, res)| -> Option<(Caip2ChainId, BlockPtr)> {
+                match res {
+                    Ok(block) => {
+                        METRICS.set_latest_block_number(
+                            chain_id.as_str(),
+                            "blockmeta",
+                            block.num as i64,
+                        );
+                        let hash: BlockHash = block.id.clone().parse().unwrap();
+                        let block_ptr = BlockPtr {
+                            number: block.num as u64,
+                            hash: hash.0,
+                        };
+                        Some((chain_id.clone(), block_ptr))
+                    }
+                    Err(e) => {
+                        warn!(
+                            chain_id = chain_id.as_str(),
+                            error = e.to_string().as_str(),
+                            "Failed to get latest block from chain. Skipping."
+                        );
+                        None
+                    }
+                }
+            })
+            .collect();
+
+        let latest_blocks: BTreeMap<Caip2ChainId, BlockPtr> = latest_jrpc_blocks
+            .into_iter()
+            .chain(latest_blockmeta_blocks.into_iter())
+            .collect();
         let payload = set_block_numbers_for_next_epoch(subgraph_state, latest_blocks);
         let transaction_receipt = self
             .contracts
@@ -310,6 +353,22 @@ fn indexed_chains(config: &Config) -> Vec<JrpcProviderForChain<JrpcExpBackoff>> 
                 config.retry_strategy_max_wait_time,
             );
             JrpcProviderForChain::new(chain.id.clone(), transport)
+        })
+        .collect()
+}
+
+fn blockmeta_indexed_chains(
+    config: &Config,
+) -> Vec<BlockmetaProviderForChain<InterceptedService<Channel, AuthInterceptor>>> {
+    config
+        .blockmeta_indexed_chains
+        .iter()
+        .map(|chain| {
+            BlockmetaProviderForChain::new(
+                chain.id.clone(),
+                chain.url.clone(),
+                config.blockmeta_auth_token.clone(),
+            )
         })
         .collect()
 }

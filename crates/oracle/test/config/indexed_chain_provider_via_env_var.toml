@@ -4,6 +4,7 @@ subgraph_url = "http://localhost:8080"
 bearer_token = "token"
 data_edge_address = "e78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab"
 epoch_manager_address = "e78a0f7e598cc8b0bb87894b0f60dd2a88d6a8ab"
+blockmeta_auth_token = "token"
 
 [protocol_chain]
 name = "eip155:1"
@@ -12,3 +13,6 @@ polling_interval_in_seconds = 5
 
 [indexed_chains]
 "eip155:77" = "$FOOBAR_EIP155:77"
+
+[blockmeta_indexed_chains]
+"bip122:77" = "$FOOBAR_bip122:77"

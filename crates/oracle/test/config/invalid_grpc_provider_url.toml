@@ -11,5 +11,7 @@ name = "eip155:1"               # the CAIP2 network identifier for this chain
 jrpc = "http://127.0.0.1:8545/" # The URL to the JSON RPC for this network. Using Ganache in this example.
 
 [indexed_chains]
-"eip155:77" = "foobar"                               # POA Network Sokol
 "eip155:99" = "https://core-archive.blockscout.com/" # POA Network Core
+
+[blockmeta_indexed_chains]
+"bip122:000000000019d6689c085ae165831e93" = "foobar"

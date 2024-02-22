@@ -6,6 +6,7 @@ log_level = "trace"
 subgraph_url = "https://api.thegraph.com/subgraphs/name/graphprotocol/mainnet-epoch-block-oracle"
 bearer_token = "TODO"
 protocol_chain_polling_interval_in_seconds = 30
+blockmeta_auth_token = "$BLOCKMETA_AUTH_TOKEN"
 
 [protocol_chain]
 name = "eip155:1"
@@ -16,3 +17,5 @@ polling_interval_in_seconds = 30
 "eip155:1"      = "$ETHEREUM_MAINNET"
 "eip155:5"      = "$ETHEREUM_GOERLI"
 "eip155:100"    = "$GNOSIS_MAINNET"
+
+[blockmeta_indexed_chains]
