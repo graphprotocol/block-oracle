@@ -341,9 +341,12 @@ mod tests {
     }
 
     #[test]
-    fn set_jrpc_provider_via_env_var() {
+    fn set_provider_via_env_var() {
         let jrpc_url = "https://sokol-archive.blockscout.com/";
         std::env::set_var("FOOBAR_EIP155:77", jrpc_url);
+
+        let url = "https://sokol-archive.blockscout.com/";
+        std::env::set_var("FOOBAR_bip122:77", url);
 
         let config = Config::parse(config_file_path("indexed_chain_provider_via_env_var.toml"));
 
@@ -351,14 +354,6 @@ mod tests {
             indexed_chain(&config, "eip155:77").jrpc_url.as_str(),
             jrpc_url
         );
-    }
-
-    #[test]
-    fn set_blockmeta_provider_via_env_var() {
-        let url = "https://sokol-archive.blockscout.com/";
-        std::env::set_var("FOOBAR_bip122:77", url);
-
-        let config = Config::parse(config_file_path("indexed_chain_provider_via_env_var.toml"));
 
         assert_eq!(
             blockmeta_indexed_chain(&config, "bip122:77").url.as_str(),
