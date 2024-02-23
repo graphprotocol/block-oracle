@@ -193,7 +193,7 @@ impl Oracle {
                         );
                         let hash: BlockHash = block.id.clone().parse().unwrap();
                         let block_ptr = BlockPtr {
-                            number: block.num as u64,
+                            number: block.num,
                             hash: hash.0,
                         };
                         Some((chain_id.clone(), block_ptr))

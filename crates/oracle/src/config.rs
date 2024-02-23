@@ -134,7 +134,7 @@ impl Config {
                 .collect::<Vec<IndexedChain>>(),
             blockmeta_indexed_chains: config_file
                 .blockmeta_indexed_chains
-                .unwrap_or_else(|| HashMap::new())
+                .unwrap_or_default()
                 .into_iter()
                 .map(|(id, provider)| BlockmetaIndexedChain {
                     id,
