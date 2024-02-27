@@ -191,12 +191,24 @@ impl Oracle {
                             "blockmeta",
                             block.num as i64,
                         );
-                        let hash: BlockHash = block.id.clone().parse().unwrap();
-                        let block_ptr = BlockPtr {
-                            number: block.num,
-                            hash: hash.0,
-                        };
-                        Some((chain_id.clone(), block_ptr))
+
+                        match block.id.clone().parse::<BlockHash>() {
+                            Ok(hash) => {
+                                let block_ptr = BlockPtr {
+                                    number: block.num,
+                                    hash: hash.0,
+                                };
+                                Some((chain_id.clone(), block_ptr))
+                            }
+                            Err(e) => {
+                                warn!(
+                                    chain_id = chain_id.as_str(),
+                                    error = e.to_string().as_str(),
+                                    "Failed to parse block hash. Skipping."
+                                );
+                                None
+                            }
+                        }
                     }
                     Err(e) => {
                         warn!(
