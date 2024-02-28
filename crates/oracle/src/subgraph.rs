@@ -84,7 +84,7 @@ pub async fn query_subgraph(
         .map_err(SubgraphQueryError::BadData)?;
     let last_payload: Option<Payload> = data
         .payloads
-        .get(0)
+        .first()
         .map(|p| p.try_into())
         .transpose()
         .map_err(SubgraphQueryError::BadData)?;

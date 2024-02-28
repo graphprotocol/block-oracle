@@ -12,9 +12,13 @@ use std::path::PathBuf;
 use web3::transports::Http;
 
 pub use config::Config;
-pub use models::{Caip2ChainId, JrpcProviderForChain};
+pub use models::{BlockmetaProviderForChain, Caip2ChainId, JrpcProviderForChain};
 pub use runner::*;
 pub use subgraph::{query_subgraph, SubgraphQueryError};
+
+pub mod blockmeta {
+    pub mod blockmeta_client;
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

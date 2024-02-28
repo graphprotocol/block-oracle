@@ -27,6 +27,12 @@ pub struct IndexedChain {
 }
 
 #[derive(Clone, Debug)]
+pub struct BlockmetaIndexedChain {
+    pub id: Caip2ChainId,
+    pub url: String,
+}
+
+#[derive(Clone, Debug)]
 pub struct ProtocolChain {
     pub id: Caip2ChainId,
     pub jrpc_url: Url,
@@ -85,11 +91,13 @@ pub struct Config {
     pub bearer_token: String,
     pub owner_address: H160,
     pub indexed_chains: Vec<IndexedChain>,
+    pub blockmeta_indexed_chains: Vec<BlockmetaIndexedChain>,
     pub freshness_threshold: u64,
     pub protocol_chain: ProtocolChain,
     pub retry_strategy_max_wait_time: Duration,
     pub metrics_port: u16,
     pub transaction_monitoring_options: TransactionMonitoringOptions,
+    pub blockmeta_auth_token: String,
 }
 
 impl Config {
@@ -124,6 +132,15 @@ impl Config {
                     jrpc_url: provider.0,
                 })
                 .collect::<Vec<IndexedChain>>(),
+            blockmeta_indexed_chains: config_file
+                .blockmeta_indexed_chains
+                .unwrap_or_default()
+                .into_iter()
+                .map(|(id, provider)| BlockmetaIndexedChain {
+                    id,
+                    url: provider.0,
+                })
+                .collect::<Vec<BlockmetaIndexedChain>>(),
             protocol_chain: ProtocolChain {
                 id: config_file.protocol_chain.name,
                 jrpc_url: config_file.protocol_chain.jrpc.0,
@@ -133,6 +150,7 @@ impl Config {
             },
             metrics_port: config_file.metrics_port,
             transaction_monitoring_options: config_file.transaction_monitoring_options,
+            blockmeta_auth_token: config_file.blockmeta_auth_token.0,
         }
     }
 }
@@ -158,10 +176,12 @@ struct ConfigFile {
     log_level: FromStrWrapper<LevelFilter>,
     protocol_chain: SerdeProtocolChain,
     indexed_chains: HashMap<Caip2ChainId, EitherLiteralOrEnvVar<Url>>,
+    blockmeta_indexed_chains: Option<HashMap<Caip2ChainId, EitherLiteralOrEnvVar<String>>>,
     #[serde(default = "serde_defaults::metrics_port")]
     metrics_port: u16,
     #[serde(default, rename = "transaction_monitoring")]
     transaction_monitoring_options: TransactionMonitoringOptions,
+    blockmeta_auth_token: EitherLiteralOrEnvVar<String>,
 }
 
 impl ConfigFile {
@@ -290,6 +310,15 @@ mod tests {
             .clone()
     }
 
+    fn blockmeta_indexed_chain(config: &Config, id: &str) -> BlockmetaIndexedChain {
+        config
+            .blockmeta_indexed_chains
+            .iter()
+            .find(|x| x.id.as_str() == id)
+            .unwrap()
+            .clone()
+    }
+
     fn config_file_path(filename: &str) -> String {
         format!("{}/test/config/{}", env!("CARGO_MANIFEST_DIR"), filename)
     }
@@ -301,20 +330,34 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
+    fn invalid_blockmeta_provider_url() {
+        Config::parse(config_file_path("invalid_blockmeta_provider_url.toml"));
+    }
+
+    #[test]
     fn example_config() {
         Config::parse(config_file_path("config.sample.toml"));
     }
 
     #[test]
-    fn set_jrpc_provider_via_env_var() {
+    fn set_provider_via_env_var() {
         let jrpc_url = "https://sokol-archive.blockscout.com/";
         std::env::set_var("FOOBAR_EIP155:77", jrpc_url);
+
+        let url = "https://sokol-archive.blockscout.com/";
+        std::env::set_var("FOOBAR_bip122:77", url);
 
         let config = Config::parse(config_file_path("indexed_chain_provider_via_env_var.toml"));
 
         assert_eq!(
             indexed_chain(&config, "eip155:77").jrpc_url.as_str(),
             jrpc_url
+        );
+
+        assert_eq!(
+            blockmeta_indexed_chain(&config, "bip122:77").url.as_str(),
+            url
         );
     }
 }

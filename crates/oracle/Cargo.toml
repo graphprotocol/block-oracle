@@ -3,6 +3,10 @@ name = "block-oracle"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+# Enable to run protobuf messages code generation at compile time (requires  protoc, etc.).
+proto-gen = []
+
 [dependencies]
 anyhow = "1.0.57"
 async-trait = "0.1.53"
@@ -26,7 +30,7 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1"
 serde_with = "1.1.12"
 thiserror = "1.0.30"
-tokio = { version = "1", features = ["rt", "macros", "sync"] }
+tokio = { version = "1.36.0", features = ["rt", "macros", "sync"] }
 toml = "0.5.8"
 tracing = "0.1.34"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
@@ -34,8 +38,15 @@ url = { version = "2.2.2", features = ["serde"] }
 web3 = { version = "0.18.0", features = ["signing"] }
 warp = "0.3"
 either = "1.8.0"
+tonic = { version = "0.11.0", features = ["tls", "tls-roots"] }
+prost = "0.12.3"
+prost-types = "0.12.3"
+alloy-primitives = { version = "0.6.3", features = ["serde"] }
 
 [dev-dependencies]
 hyper = { version = "0.14", features = ["full"] }
 rand = "0.8"
 serde_json = "1"
+
+[build-dependencies]
+tonic-build = "0.11.0"
