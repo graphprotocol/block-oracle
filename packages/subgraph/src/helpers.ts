@@ -26,7 +26,8 @@ export enum MessageTag {
   UpdateVersionsMessage,
   RegisterNetworksMessage,
   ChangePermissionsMessage,
-  ResetStateMessage
+  ResetStateMessage,
+  RegisterNetworksAndAliasesMessage
 }
 
 export namespace MessageTag {
@@ -36,7 +37,8 @@ export namespace MessageTag {
     "UpdateVersionsMessage",
     "RegisterNetworksMessage",
     "ChangePermissionsMessage",
-    "ResetStateMessage"
+    "ResetStateMessage",
+    "RegisterNetworksAndAliasesMessage"
   ];
   export function toString(tag: MessageTag): string {
     return tags[tag];

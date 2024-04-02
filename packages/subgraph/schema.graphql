@@ -70,9 +70,18 @@ type RegisterNetworksMessage implements Message @entity {
   addCount: BigInt!
 }
 
+type RegisterNetworksAndAliasesMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes
+  removeCount: BigInt!
+  addCount: BigInt!
+}
+
 type Network @entity {
   id: ID! # chainID now
   #chainID: String!
+  alias: String!
   addedAt: Message!
   lastUpdatedAt: Message!
   removedAt: Message
