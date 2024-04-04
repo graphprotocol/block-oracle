@@ -452,7 +452,7 @@ function executeRegisterNetworksMessage(
 
     if (!cache.isNetworkAlreadyRegistered(chainId)) {
       let network = cache.getNetwork(chainId);
-      network.alias = PRELOADED_ALIASES.get(network.id).toString()
+      network.alias = PRELOADED_ALIASES.keys().includes(network.id) ? PRELOADED_ALIASES.get(network.id).toString() : ""
       network.addedAt = message.id;
       network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
       networks.push(network);
