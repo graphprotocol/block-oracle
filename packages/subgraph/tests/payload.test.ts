@@ -686,3 +686,70 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> (RegisterNetworks, SetB
   assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "acceleration", "6");
   assert.fieldEquals("NetworkEpochBlockNumber", "2-C", "delta", "9");
 });
+
+// [[
+// 	{
+// 		"add": [
+// 			["eip155:20000000", "juanmanet"]
+// 		],
+// 		"message": "RegisterNetworksAndAliases",
+// 		"remove": []
+// 	},
+// 	{
+// 		"accelerations": [
+// 		15
+// 		],
+// 		"merkleRoot": "0x66ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc49",
+// 		"message": "SetBlockNumbersForNextEpoch"
+// 	}
+// ]
+// ]
+
+test("(RegisterNetworksAndAliases)", () => {
+  let payloadBytes = Bytes.fromHexString("0x0601031f6569703135353a3230303030303030136a75616e6d616e6574") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000";
+  let txHash = "0x00";
+
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE); // Network registration with aliases
+
+  assert.entityCount("Epoch", 0);
+  assert.entityCount("Network", 1);
+  assert.entityCount("NetworkEpochBlockNumber", 0);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 1);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+
+  assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
+  assert.fieldEquals("Network", "eip155:20000000", "alias", "juanmanet");
+  assert.fieldEquals("Network", "eip155:20000000", "id", "eip155:20000000");
+
+  // processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE); // Acceleration
+
+  // assert.entityCount("Epoch", 1);
+  // assert.entityCount("Network", 1);
+  // assert.entityCount("NetworkEpochBlockNumber", 1);
+
+  // // Check message composition and entities created based on it
+  // assert.entityCount("Payload", 2);
+  // assert.entityCount("MessageBlock", 2);
+  // assert.entityCount("SetBlockNumbersForEpochMessage", 1);
+  // assert.entityCount("RegisterNetworksMessage", 1);
+  // assert.entityCount("CorrectEpochsMessage", 0);
+  // assert.entityCount("UpdateVersionsMessage", 0);
+
+  // assert.fieldEquals("Network", "A", "id", "A");
+  // assert.fieldEquals("Epoch", "1", "id", "1");
+  // assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "id", "1-A");
+  // assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "15");
+  // assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "15");
+  // assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
+  // assert.fieldEquals("Network", "A", "state", "0");
+  // assert.fieldEquals("Network", "A", "arrayIndex", "0");
+  // let networkA = Network.load("A")!;
+  // assert.assertNull(networkA.nextArrayElement);
+});

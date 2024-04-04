@@ -155,6 +155,19 @@ impl Encoder {
                     new_owner_address: *new_owner_address,
                 });
             }
+            Message::RegisterNetworksAndAliases { remove, add } => {
+                for index in remove {
+                    self.remove_network(*index);
+                }
+                for (id, _) in add {
+                    self.add_network(id);
+                }
+
+                self.compressed.push(CompressedMessage::RegisterNetworksAndAliases {
+                    remove: remove.clone(),
+                    add: add.clone(),
+                });
+            }
         };
         Ok(())
     }

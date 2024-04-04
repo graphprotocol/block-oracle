@@ -44,6 +44,9 @@ fn serialize_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
         CompressedMessage::ChangeOwnership { new_owner_address } => {
             bytes.extend_from_slice(new_owner_address);
         }
+        CompressedMessage::RegisterNetworksAndAliases { add, remove } => {
+            serialize_register_networks_and_aliases(add, remove, bytes)
+        }
     }
 }
 
@@ -75,6 +78,20 @@ fn serialize_register_networks(add: &[String], remove: &[NetworkIndex], bytes: &
     serialize_u64(add.len() as u64, bytes);
     for add in add {
         serialize_str(add, bytes);
+    }
+}
+
+fn serialize_register_networks_and_aliases(add: &[(String, String)], remove: &[NetworkIndex], bytes: &mut Vec<u8>) {
+    serialize_u64(remove.len() as u64, bytes);
+    for id in remove {
+        // TODO: Compression - could delta encode series here. Probably not worth it.
+        serialize_u64(*id, bytes);
+    }
+
+    serialize_u64(add.len() as u64, bytes);
+    for (add0, add1) in add {
+        serialize_str(add0, bytes);
+        serialize_str(add1, bytes);
     }
 }
 
@@ -119,6 +136,7 @@ fn message_tag(m: &CompressedMessage) -> u8 {
         CompressedMessage::RegisterNetworks { .. } => 3,
         CompressedMessage::ChangeOwnership { .. } => 4,
         CompressedMessage::Reset => 5,
+        CompressedMessage::RegisterNetworksAndAliases { .. } => 6,
     }
 }
 

@@ -45,6 +45,12 @@ pub enum Message {
         new_owner_address: [u8; 20],
     },
     Reset,
+    RegisterNetworksAndAliases {
+        // Remove is by index
+        remove: Vec<NetworkIndex>,
+        // Add is by CAIP2 id and Alias
+        add: Vec<(String, String)>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,6 +70,10 @@ pub enum CompressedMessage {
         new_owner_address: [u8; 20],
     },
     Reset,
+    RegisterNetworksAndAliases {
+        remove: Vec<u64>,
+        add: Vec<(String, String)>,
+    },
 }
 
 impl CompressedMessage {
