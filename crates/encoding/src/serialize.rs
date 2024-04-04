@@ -81,7 +81,11 @@ fn serialize_register_networks(add: &[String], remove: &[NetworkIndex], bytes: &
     }
 }
 
-fn serialize_register_networks_and_aliases(add: &[(String, String)], remove: &[NetworkIndex], bytes: &mut Vec<u8>) {
+fn serialize_register_networks_and_aliases(
+    add: &[(String, String)],
+    remove: &[NetworkIndex],
+    bytes: &mut Vec<u8>,
+) {
     serialize_u64(remove.len() as u64, bytes);
     for id in remove {
         // TODO: Compression - could delta encode series here. Probably not worth it.

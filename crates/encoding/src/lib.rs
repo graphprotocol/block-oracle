@@ -163,10 +163,11 @@ impl Encoder {
                     self.add_network(id);
                 }
 
-                self.compressed.push(CompressedMessage::RegisterNetworksAndAliases {
-                    remove: remove.clone(),
-                    add: add.clone(),
-                });
+                self.compressed
+                    .push(CompressedMessage::RegisterNetworksAndAliases {
+                        remove: remove.clone(),
+                        add: add.clone(),
+                    });
             }
         };
         Ok(())
