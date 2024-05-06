@@ -77,6 +77,9 @@ fn messages_to_encoded_message_blocks(
                 Message::RegisterNetworks { remove, add } => {
                     ee::CompressedMessage::RegisterNetworks { remove, add }
                 }
+                Message::RegisterNetworksAndAliases { remove, add } => {
+                    ee::CompressedMessage::RegisterNetworksAndAliases { remove, add }
+                }
                 Message::ChangeOwnership { new_owner_address } => {
                     ee::CompressedMessage::ChangeOwnership {
                         new_owner_address: new_owner_address
@@ -150,6 +153,10 @@ pub enum Message {
         #[serde(deserialize_with = "deserialize_hex")]
         new_owner_address: Vec<u8>,
     },
+    RegisterNetworksAndAliases {
+        remove: Vec<u64>,
+        add: Vec<(String, String)>,
+    },
 }
 
 impl Message {
@@ -161,6 +168,7 @@ impl Message {
             Message::UpdateVersion { .. } => "UpdateVersion",
             Message::Reset => "Reset",
             Message::ChangeOwnership { .. } => "ChangeOwnership",
+            Message::RegisterNetworksAndAliases { .. } => "RegisterNetworksAndAliases",
         }
     }
 }

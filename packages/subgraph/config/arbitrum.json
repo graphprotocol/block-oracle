@@ -33,6 +33,7 @@
       "permissions": [
         { "entry": "UpdateVersionsMessage" },
         { "entry": "RegisterNetworksMessage" },
+        { "entry": "RegisterNetworksAndAliasesMessage" },
         { "entry": "ChangePermissionsMessage", "lastEntry": true }
       ],
       "validThrough": "0"

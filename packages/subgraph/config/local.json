@@ -8,6 +8,7 @@
         { "entry": "CorrectEpochsMessage" },
         { "entry": "UpdateVersionsMessage" },
         { "entry": "RegisterNetworksMessage" },
+        { "entry": "RegisterNetworksAndAliasesMessage" },
         { "entry": "ChangePermissionsMessage" },
         { "entry": "ResetStateMessage", "lastEntry": true }
       ],

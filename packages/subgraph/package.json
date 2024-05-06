@@ -25,8 +25,8 @@
     "prep:arbitrum-sepolia": "mustache ./config/arbitrum-sepolia.json subgraph.template.yaml > subgraph.yaml && mustache ./config/arbitrum-sepolia.json src/constants.template.ts > src/constants.ts"
   },
   "devDependencies": {
-    "@graphprotocol/graph-cli": "^0.52.0",
-    "@graphprotocol/graph-ts": "^0.31.0",
+    "@graphprotocol/graph-cli": "^0.69.1",
+    "@graphprotocol/graph-ts": "^0.34.0",
     "matchstick-as": "^0.5.0",
     "mustache": "^4.0.1"
   }

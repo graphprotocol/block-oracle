@@ -27,7 +27,7 @@ import {
   SafeExecutionContext
 } from "./helpers";
 import { StoreCache } from "./store-cache";
-import { BIGINT_ZERO, BIGINT_ONE } from "./constants";
+import { BIGINT_ZERO, BIGINT_ONE, PRELOADED_ALIASES } from "./constants";
 
 export function handleLogCrossChainEpochOracle(event: Log): void {
   // this is used in deployments on networks that lack trace support, and needs to strip the calldata to only
@@ -189,6 +189,8 @@ export function processMessage(
     executeChangePermissionsMessage(cache, snapshot, reader, id, messageBlock);
   } else if (tag == MessageTag.ResetStateMessage) {
     executeResetStateMessage(cache, snapshot, reader, id, messageBlock);
+  } else if (tag == MessageTag.RegisterNetworksAndAliasesMessage) {
+    executeRegisterNetworksAndAliasesMessage(cache, snapshot, reader, id, messageBlock);
   } else {
     reader.fail(
       "Unknown message tag '{}'. This is most likely a bug!".replace(
@@ -450,8 +452,116 @@ function executeRegisterNetworksMessage(
 
     if (!cache.isNetworkAlreadyRegistered(chainId)) {
       let network = cache.getNetwork(chainId);
+      network.alias = PRELOADED_ALIASES.keys().includes(network.id) ? PRELOADED_ALIASES.get(network.id).toString() : ""
       network.addedAt = message.id;
       network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
+      networks.push(network);
+    } else {
+      reader.fail("Network {} is already registered.".replace("{}", chainId));
+      return;
+    }
+  }
+
+  globalState.activeNetworkCount += numInsertions;
+  globalState.activeNetworkCount -= numRemovals;
+  globalState.networkCount += numInsertions;
+
+  commitNetworkChanges(removedNetworks, networks, globalState, message.id);
+
+  message.removeCount = BigInt.fromU64(numRemovals);
+  message.addCount = BigInt.fromU64(numInsertions);
+  message.block = messageBlock.id;
+  message.data = reader.diff(snapshot);
+}
+
+function executeRegisterNetworksAndAliasesMessage(
+  cache: StoreCache,
+  snapshot: BytesReader,
+  reader: BytesReader,
+  id: String,
+  messageBlock: MessageBlock
+): void {
+  let globalState = cache.getGlobalState();
+  let message = cache.getRegisterNetworksMessage(id);
+  let networks = getActiveNetworks(cache);
+  let networksMapped = networks.map<Array<Network>>(element => [element]);
+  let removedNetworks: Array<Network> = [];
+  let idsToRemove: Array<i32> = [];
+
+  // Get the number of networks to remove.
+  let numRemovals = decodeU64(reader) as i32;
+  if (!reader.ok) {
+    return;
+  }
+
+  // now get all the removed network ids and apply the changes to the pre-loaded list
+  for (let i = 0; i < numRemovals; i++) {
+    let networkId = decodeU64(reader) as i32;
+    // Besides checking that the decoding was successful, we must perform a
+    // bounds check over the newly provided network ID.
+    if (networkId >= networks.length) {
+      reader.fail(
+        "Tried deleting a network ID that is out of bounds. NetworkID decoded: {}. Network list length: {}."
+          .replace("{}", networkId.toString())
+          .replace("{}", networks.length.toString())
+      );
+    }
+    if (!reader.ok) {
+      return;
+    }
+
+    idsToRemove.push(networkId);
+  }
+  log.warning("ids to remove {}", [
+    idsToRemove
+      .map<String>(element => element.toString())
+      .toString()
+  ]);
+
+  for (let i = 0; i < idsToRemove.length; i++) {
+    let network = networksMapped[idsToRemove[i]][0];
+    removedNetworks.push(network);
+    networksMapped[idsToRemove[i]] = [];
+  }
+  log.warning("networks mapped {}", [
+    networksMapped
+      .map<String>(element => (element.length > 0 ? element[0].id : ""))
+      .toString()
+  ]);
+  networksMapped = networksMapped.filter(element => element.length > 0);
+  log.warning("networks mapped filtered {}", [
+    networksMapped
+      .map<String>(element => (element.length > 0 ? element[0].id : ""))
+      .toString()
+  ]);
+
+  networks = networksMapped.flat();
+
+  let numInsertions = decodeU64(reader) as i32;
+  if (!reader.ok) {
+    return;
+  }
+
+  // now get all the add network strings
+  for (let i = 0; i < numInsertions; i++) {
+    // Get CAIP2 chain ID
+    let chainId = decodeString(reader);
+    if (!reader.ok) {
+      return;
+    }
+
+    if (!cache.isNetworkAlreadyRegistered(chainId)) {
+      let network = cache.getNetwork(chainId);
+      network.addedAt = message.id;
+      network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
+      
+      // Get manifest alias for that CAIP2 id
+      let alias = decodeString(reader);
+      if (!reader.ok) {
+        return;
+      }
+
+      network.alias = alias;
       networks.push(network);
     } else {
       reader.fail("Network {} is already registered.".replace("{}", chainId));

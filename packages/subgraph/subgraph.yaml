@@ -6,9 +6,9 @@ dataSources:
     name: DataEdge
     network: mainnet
     source:
+      address: "0xae6ADd894F8a1BcAC10b153dc59Cab1da9656836"
       abi: DataEdge
-      address: "0xADE906194C923b28F03F48BC5D9D987AAE21fFab"
-      startBlock: 15233152
+      startBlock: 12052156
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -21,7 +21,8 @@ dataSources:
           file: ./abis/DataEdgeFull.json
         - name: EpochManager
           file: ./abis/EpochManager.json
-      callHandlers:
-        - function: crossChainEpochOracle(bytes)
-          handler: handleCrossChainEpochOracle
+      eventHandlers:
+        - event: Log(bytes)
+          handler: handleLogCrossChainEpochOracle
+          receipt: true
       file: ./src/mapping.ts
