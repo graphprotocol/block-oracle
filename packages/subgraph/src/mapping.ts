@@ -40,10 +40,12 @@ export function handleLogCrossChainEpochOracle(event: Log): void {
       event.transaction.from.toHexString()
     ])
   }
+  // Support for Multisend type of transactions ONLY for EventfulDataEdge impl
+  let payloadId = [event.transaction.hash.toHexString(), event.logIndex.toString()].join("-")
   processPayload(
     safeExecutionContext != null ? safeExecutionContext.multisigAddress.toHexString() : event.transaction.from.toHexString(),
     data,
-    event.transaction.hash.toHexString(),
+    payloadId,
     event.block.number
   );
 }
@@ -62,19 +64,19 @@ export function handleCrossChainEpochOracle(
 export function processPayload(
   submitter: string,
   payloadBytes: Bytes,
-  txHash: string,
+  payloadId: string,
   blockNumber: BigInt
 ): void {
   log.warning(
-    "Processing payload. Submitter: {}, txHash: {}, blockNumber: {}",
-    [submitter, txHash, blockNumber.toString()]
+    "Processing payload. Submitter: {}, payloadId: {}, blockNumber: {}",
+    [submitter, payloadId, blockNumber.toString()]
   );
   // Start the StoreCache
   let cache = new StoreCache();
 
   // This is the only thing not handled through the store cache since we want all
   // Payload entity to persist (to provide context for validity of the payload)
-  let payload = new Payload(txHash);
+  let payload = new Payload(payloadId);
   payload.data = payloadBytes;
   payload.submitter = submitter;
   payload.valid = true;
@@ -99,7 +101,7 @@ export function processPayload(
     ]);
 
     // Handle message block
-    let messageBlock = cache.getMessageBlock([txHash, i].join("-"));
+    let messageBlock = cache.getMessageBlock([payloadId, i].join("-"));
     messageBlock.payload = payload.id;
     processMessageBlock(cache, messageBlock, reader, payload.submitter);
     if (!reader.ok) {
@@ -117,8 +119,8 @@ export function processPayload(
   payload.save();
   cache.commitChanges();
   log.warning(
-    "Processed payload. Submitter: {}, txHash: {}, blockNumber: {}",
-    [submitter, txHash, blockNumber.toString()]
+    "Processed payload. Submitter: {}, payloadId: {}, blockNumber: {}",
+    [submitter, payloadId, blockNumber.toString()]
   );
 }
 
@@ -439,6 +441,7 @@ function executeRegisterNetworksMessage(
   networks = networksMapped.flat();
 
   let numInsertions = decodeU64(reader) as i32;
+  let numReinsertions = 0;
   if (!reader.ok) {
     return;
   }
@@ -453,8 +456,13 @@ function executeRegisterNetworksMessage(
     if (!cache.isNetworkAlreadyRegistered(chainId)) {
       let network = cache.getNetwork(chainId);
       network.alias = PRELOADED_ALIASES.keys().includes(network.id) ? PRELOADED_ALIASES.get(network.id).toString() : ""
-      network.addedAt = message.id;
-      network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
+      if(network.removedAt == null) {
+        network.addedAt = message.id;
+      } else {
+        numReinsertions += 1;
+        network.lastUpdatedAt = message.id;
+        network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
+      }
       networks.push(network);
     } else {
       reader.fail("Network {} is already registered.".replace("{}", chainId));
@@ -465,6 +473,7 @@ function executeRegisterNetworksMessage(
   globalState.activeNetworkCount += numInsertions;
   globalState.activeNetworkCount -= numRemovals;
   globalState.networkCount += numInsertions;
+  globalState.networkCount -= numReinsertions;
 
   commitNetworkChanges(removedNetworks, networks, globalState, message.id);
 
@@ -538,6 +547,7 @@ function executeRegisterNetworksAndAliasesMessage(
   networks = networksMapped.flat();
 
   let numInsertions = decodeU64(reader) as i32;
+  let numReinsertions = 0;
   if (!reader.ok) {
     return;
   }
@@ -552,9 +562,13 @@ function executeRegisterNetworksAndAliasesMessage(
 
     if (!cache.isNetworkAlreadyRegistered(chainId)) {
       let network = cache.getNetwork(chainId);
-      network.addedAt = message.id;
-      network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
-      
+      if(network.removedAt == null) {
+        network.addedAt = message.id;
+      } else {
+        numReinsertions += 1;
+        network.lastUpdatedAt = message.id;
+        network.removedAt = null; // unsetting to make sure that if the network existed before, it's no longer flagged as removed
+      }
       // Get manifest alias for that CAIP2 id
       let alias = decodeString(reader);
       if (!reader.ok) {
@@ -572,6 +586,7 @@ function executeRegisterNetworksAndAliasesMessage(
   globalState.activeNetworkCount += numInsertions;
   globalState.activeNetworkCount -= numRemovals;
   globalState.networkCount += numInsertions;
+  globalState.networkCount -= numReinsertions;
 
   commitNetworkChanges(removedNetworks, networks, globalState, message.id);
 

@@ -53,6 +53,7 @@ let EVENT_SIGNATURE =
   "SafeMultiSigTransaction(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes,bytes)";
 let EVENT_DATA_TYPES =
   "(address,uint256,bytes,uint8,uint256,uint256,uint256,address,address,bytes,bytes)";
+let LOG_EVENT_SIGNATURE = "Log(bytes)"
 
 // For some reason it's erroring when trying to parse the calldata
 export class SafeExecutionContext {
@@ -270,6 +271,9 @@ export function getEventFromReceipt(
         // maybe also check that the data contains the selector for the EBO 0xa1dce332
         // but we require the parsing of the calldata to work for that
         desiredLog = logs[i];
+      } else if(isEventLog(topics[0], LOG_EVENT_SIGNATURE)) {
+        // try with a previous value for multisend cases
+        return getEventFromReceipt(event, eventSignature, logIndex.minus(BIGINT_ONE))
       }
     }
   }
