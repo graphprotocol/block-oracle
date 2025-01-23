@@ -41,12 +41,13 @@ fn serialize_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
         CompressedMessage::CorrectEpochs { .. } => {
             todo!()
         }
-        CompressedMessage::ChangeOwnership { new_owner_address } => {
-            bytes.extend_from_slice(new_owner_address);
-        }
         CompressedMessage::RegisterNetworksAndAliases { add, remove } => {
             serialize_register_networks_and_aliases(add, remove, bytes)
         }
+        CompressedMessage::ChangePermissions {
+            address,
+            permissions,
+        } => serialize_change_permissions(address, permissions, bytes),
     }
 }
 
@@ -99,6 +100,14 @@ fn serialize_register_networks_and_aliases(
     }
 }
 
+fn serialize_change_permissions(address: &[u8], permissions: &[String], bytes: &mut Vec<u8>) {
+    bytes.extend_from_slice(address);
+    serialize_u64(permissions.len() as u64, bytes);
+    for permission in permissions {
+        serialize_str(permission, bytes);
+    }
+}
+
 fn serialize_str(value: &str, bytes: &mut Vec<u8>) {
     serialize_u64(value.len() as u64, bytes);
     bytes.extend_from_slice(value.as_bytes());
@@ -138,7 +147,7 @@ fn message_tag(m: &CompressedMessage) -> u8 {
         CompressedMessage::CorrectEpochs { .. } => 1,
         CompressedMessage::UpdateVersion { .. } => 2,
         CompressedMessage::RegisterNetworks { .. } => 3,
-        CompressedMessage::ChangeOwnership { .. } => 4,
+        CompressedMessage::ChangePermissions { .. } => 4,
         CompressedMessage::Reset => 5,
         CompressedMessage::RegisterNetworksAndAliases { .. } => 6,
     }

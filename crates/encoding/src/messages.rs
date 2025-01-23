@@ -41,15 +41,16 @@ pub enum Message {
     UpdateVersion {
         version_number: u64,
     },
-    ChangeOwnership {
-        new_owner_address: [u8; 20],
-    },
     Reset,
     RegisterNetworksAndAliases {
         // Remove is by index
         remove: Vec<NetworkIndex>,
         // Add is by CAIP2 id and Alias
         add: Vec<(String, String)>,
+    },
+    ChangePermissions {
+        address: [u8; 20],
+        permissions: Vec<String>,
     },
 }
 
@@ -66,13 +67,14 @@ pub enum CompressedMessage {
     UpdateVersion {
         version_number: u64,
     },
-    ChangeOwnership {
-        new_owner_address: [u8; 20],
-    },
     Reset,
     RegisterNetworksAndAliases {
         remove: Vec<u64>,
         add: Vec<(String, String)>,
+    },
+    ChangePermissions {
+        address: [u8; 20],
+        permissions: Vec<String>,
     },
 }
 

@@ -150,11 +150,6 @@ impl Encoder {
                 self.networks.clear();
                 self.compressed.push(CompressedMessage::Reset);
             }
-            Message::ChangeOwnership { new_owner_address } => {
-                self.compressed.push(CompressedMessage::ChangeOwnership {
-                    new_owner_address: *new_owner_address,
-                });
-            }
             Message::RegisterNetworksAndAliases { remove, add } => {
                 for index in remove {
                     self.remove_network(*index);
@@ -168,6 +163,15 @@ impl Encoder {
                         remove: remove.clone(),
                         add: add.clone(),
                     });
+            }
+            Message::ChangePermissions {
+                address,
+                permissions,
+            } => {
+                self.compressed.push(CompressedMessage::ChangePermissions {
+                    address: address.clone(),
+                    permissions: permissions.clone(),
+                });
             }
         };
         Ok(())
@@ -450,5 +454,35 @@ mod tests {
         // We did update block numbers, this time around.
         assert_ne!(networks_before, encoder.networks);
         assert_ne!(encoder.networks.last().unwrap().1.block_delta, 0);
+    }
+
+    #[test]
+    fn change_permissions_message() {
+        let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, vec![]).unwrap();
+
+        let test_permissions = vec![
+            "RegisterNetworksAndAliasesMessage".to_string(),
+            "CorrectEpochsMessage".to_string(),
+        ];
+
+        let compressed = encoder
+            .compress(&[Message::ChangePermissions {
+                address: [1u8; 20],
+                permissions: test_permissions.clone(),
+            }])
+            .unwrap();
+
+        assert_eq!(compressed.len(), 1);
+
+        match &compressed[0] {
+            CompressedMessage::ChangePermissions {
+                address,
+                permissions,
+            } => {
+                assert_eq!(*address, [1u8; 20]);
+                assert_eq!(*permissions, test_permissions);
+            }
+            _ => panic!("Expected ChangePermissions message"),
+        }
     }
 }
