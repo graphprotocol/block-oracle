@@ -52,6 +52,7 @@ type ChangePermissionsMessage implements Message @entity {
   block: MessageBlock!
   data: Bytes
   address: String!
+  validThrough: BigInt!
   oldPermissions: [String!]!
   newPermissions: [String!]!
 }
