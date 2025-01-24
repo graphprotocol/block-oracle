@@ -55,6 +55,21 @@ pub enum Message {
     },
 }
 
+impl Message {
+    pub fn str_to_u64(str: &str) -> u64{
+        match str {
+            "SetBlockNumbersForNextEpochMessage" => 0u64,
+            "CorrectEpochsMessage" => 1,
+            "UpdateVersionMessage" => 2,
+            "RegisterNetworksMessage" => 3,
+            "ChangePermissionsMessage" => 4,
+            "ResetMessage" => 5,
+            "RegisterNetworksAndAliasesMessage" => 6,
+            _ => 7
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum CompressedMessage {
     SetBlockNumbersForNextEpoch(CompressedSetBlockNumbersForNextEpoch),
@@ -76,7 +91,7 @@ pub enum CompressedMessage {
     ChangePermissions {
         address: [u8; 20],
         valid_through: u64,
-        permissions: Vec<String>,
+        permissions: Vec<u64>,
     },
 }
 

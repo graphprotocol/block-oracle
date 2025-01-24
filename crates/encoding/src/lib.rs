@@ -172,7 +172,7 @@ impl Encoder {
                 self.compressed.push(CompressedMessage::ChangePermissions {
                     address: address.clone(),
                     valid_through: valid_through.clone(),
-                    permissions: permissions.clone(),
+                    permissions: permissions.into_iter().map(|x| Message::str_to_u64(x.as_str())).collect(),
                 });
             }
         };
@@ -467,6 +467,8 @@ mod tests {
             "CorrectEpochsMessage".to_string(),
         ];
 
+        let result_permissions = vec![6,1];
+
         let compressed = encoder
             .compress(&[Message::ChangePermissions {
                 address: [1u8; 20],
@@ -485,7 +487,7 @@ mod tests {
             } => {
                 assert_eq!(*address, [1u8; 20]);
                 assert_eq!(*valid_through, 123u64);
-                assert_eq!(*permissions, test_permissions);
+                assert_eq!(*permissions, result_permissions);
             }
             _ => panic!("Expected ChangePermissions message"),
         }
