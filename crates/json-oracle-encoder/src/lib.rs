@@ -82,11 +82,13 @@ fn messages_to_encoded_message_blocks(
                 }
                 Message::ChangePermissions {
                     address,
+                    valid_through,
                     permissions,
                 } => ee::CompressedMessage::ChangePermissions {
                     address: address
                         .try_into()
                         .map_err(|_| anyhow!("Bad address length; must be 20 bytes"))?,
+                    valid_through,
                     permissions,
                 },
                 Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::Empty {
@@ -157,6 +159,7 @@ pub enum Message {
     ChangePermissions {
         #[serde(deserialize_with = "deserialize_hex")]
         address: Vec<u8>,
+        valid_through: u64,
         permissions: Vec<String>,
     },
 }
