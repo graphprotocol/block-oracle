@@ -608,7 +608,7 @@ function executeChangePermissionsMessage(
   let address = reader.advance(20).toHexString(); // address should always be 20 bytes
 
   // Get valid_through
-  let validThrough = decodeU64(reader) as i32;
+  let validThrough = decodeU64(reader);
   if (!reader.ok) {
     return;
   }
@@ -620,7 +620,7 @@ function executeChangePermissionsMessage(
   }
 
   let permissionEntry = cache.getPermissionListEntry(address);
-  permissionEntry.validThrough = BigInt.fromI32(validThrough)
+  permissionEntry.validThrough = BigInt.fromU64(validThrough)
   let oldPermissionList = permissionEntry.permissions;
   let newPermissionList = new Array<String>();
 
@@ -631,7 +631,7 @@ function executeChangePermissionsMessage(
 
   message.block = messageBlock.id;
   message.address = address;
-  message.validThrough = validThrough;
+  message.validThrough = BigInt.fromU64(validThrough);
   message.oldPermissions = oldPermissionList;
   message.newPermissions = newPermissionList;
   message.data = reader.diff(snapshot);
