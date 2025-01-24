@@ -50,6 +50,7 @@ pub enum Message {
     },
     ChangePermissions {
         address: [u8; 20],
+        valid_through: u64,
         permissions: Vec<String>,
     },
 }
@@ -74,6 +75,7 @@ pub enum CompressedMessage {
     },
     ChangePermissions {
         address: [u8; 20],
+        valid_through: u64,
         permissions: Vec<String>,
     },
 }

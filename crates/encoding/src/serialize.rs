@@ -46,8 +46,9 @@ fn serialize_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
         }
         CompressedMessage::ChangePermissions {
             address,
+            valid_through,
             permissions,
-        } => serialize_change_permissions(address, permissions, bytes),
+        } => serialize_change_permissions(address, *valid_through, permissions, bytes),
     }
 }
 
@@ -100,8 +101,14 @@ fn serialize_register_networks_and_aliases(
     }
 }
 
-fn serialize_change_permissions(address: &[u8], permissions: &[String], bytes: &mut Vec<u8>) {
+fn serialize_change_permissions(
+    address: &[u8],
+    valid_through: u64,
+    permissions: &[String],
+    bytes: &mut Vec<u8>,
+) {
     bytes.extend_from_slice(address);
+    serialize_u64(valid_through, bytes);
     serialize_u64(permissions.len() as u64, bytes);
     for permission in permissions {
         serialize_str(permission, bytes);
