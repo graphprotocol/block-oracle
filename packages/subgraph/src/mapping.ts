@@ -626,8 +626,13 @@ function executeChangePermissionsMessage(
 
   for (let i = 0; i < permissionsListLength; i++) {
     let permission = decodeU64(reader) as i32;
-    newPermissionList.push(MessageTag.toString(permission));
+    if(MessageTag.isValid(permission)) {
+      newPermissionList.push(MessageTag.toString(permission));
+    } else {
+      reader.fail(`Permission to add is invalid. Permission index: ${permission.toString()}`)
+    }
   }
+  permissionEntry.permissions = newPermissionList;
 
   message.block = messageBlock.id;
   message.address = address;

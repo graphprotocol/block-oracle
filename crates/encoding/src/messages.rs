@@ -63,7 +63,7 @@ impl Message {
             "UpdateVersionMessage" => 2,
             "RegisterNetworksMessage" => 3,
             "ChangePermissionsMessage" => 4,
-            "ResetMessage" => 5,
+            "ResetStateMessage" => 5,
             "RegisterNetworksAndAliasesMessage" => 6,
             _ => 7
         }

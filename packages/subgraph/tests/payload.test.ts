@@ -86,6 +86,67 @@ test("Wrong Submitter", () => {
   assert.assertTrue(!globalState.permissionList.includes(submitter));
 });
 
+test("ChangePermissions for new permissions", () => {
+  let payloadBytes = Bytes.fromHexString("0x041234567890123456789012345678901234567890f7030d") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000";
+  let txHash = "0x00";
+
+  assert.notInStore("PermissionListEntry", "0x1234567890123456789012345678901234567890");
+  
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
+  
+  assert.entityCount("Epoch", 0);
+  
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 1);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 0);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 1);
+  assert.fieldEquals("PermissionListEntry", "0x1234567890123456789012345678901234567890", "id", "0x1234567890123456789012345678901234567890");
+  assert.fieldEquals("PermissionListEntry", "0x1234567890123456789012345678901234567890", "permissions", "[RegisterNetworksAndAliasesMessage]");
+});
+
+
+test("ChangePermissions for new permissions and then updated permissions", () => {
+  let payloadBytes = Bytes.fromHexString("0x041234567890123456789012345678901234567890f7030d") as Bytes;
+  let payloadBytes2 = Bytes.fromHexString("0x041234567890123456789012345678901234567890f705090b") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000";
+  let txHash = "0x00";
+  let txHash2 = "0x01";
+
+  assert.notInStore("PermissionListEntry", "0x1234567890123456789012345678901234567890");
+  
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
+  
+  assert.entityCount("Epoch", 0);
+  
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 1);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 0);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 1);
+  assert.fieldEquals("PermissionListEntry", "0x1234567890123456789012345678901234567890", "id", "0x1234567890123456789012345678901234567890");
+  assert.fieldEquals("PermissionListEntry", "0x1234567890123456789012345678901234567890", "permissions", "[RegisterNetworksAndAliasesMessage]");
+
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE);
+  assert.entityCount("Payload", 2);
+  assert.entityCount("MessageBlock", 2);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 0);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 2);
+  assert.fieldEquals("PermissionListEntry", "0x1234567890123456789012345678901234567890", "id", "0x1234567890123456789012345678901234567890");
+  assert.fieldEquals("PermissionListEntry", "0x1234567890123456789012345678901234567890", "permissions", "[ChangePermissionsMessage, ResetStateMessage]");
+
+});
+
 test("Submitter invalid after block height", () => {
   let payloadBytes = Bytes.fromHexString(
     "0x030103034166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc493d"
