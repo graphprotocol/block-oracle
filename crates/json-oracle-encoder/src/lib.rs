@@ -89,7 +89,10 @@ fn messages_to_encoded_message_blocks(
                         .try_into()
                         .map_err(|_| anyhow!("Bad address length; must be 20 bytes"))?,
                     valid_through,
-                    permissions: permissions.into_iter().map(|x| ee::Message::str_to_u64(x.as_str())).collect(),
+                    permissions: permissions
+                        .into_iter()
+                        .map(|x| ee::Message::str_to_u64(x.as_str()))
+                        .collect(),
                 },
                 Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::Empty {
                     count,

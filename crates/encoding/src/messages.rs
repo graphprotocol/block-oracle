@@ -56,7 +56,7 @@ pub enum Message {
 }
 
 impl Message {
-    pub fn str_to_u64(str: &str) -> u64{
+    pub fn str_to_u64(str: &str) -> u64 {
         match str {
             "SetBlockNumbersForNextEpochMessage" => 0u64,
             "CorrectEpochsMessage" => 1,
@@ -65,7 +65,7 @@ impl Message {
             "ChangePermissionsMessage" => 4,
             "ResetStateMessage" => 5,
             "RegisterNetworksAndAliasesMessage" => 6,
-            _ => 7
+            _ => 7,
         }
     }
 }
