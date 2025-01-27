@@ -144,15 +144,19 @@ test("ChangePermissions for new permissions and then updated permissions", () =>
   assert.entityCount("ChangePermissionsMessage", 2);
   assert.fieldEquals("PermissionListEntry", "0x1234567890123456789012345678901234567890", "id", "0x1234567890123456789012345678901234567890");
   assert.fieldEquals("PermissionListEntry", "0x1234567890123456789012345678901234567890", "permissions", "[ChangePermissionsMessage, ResetStateMessage]");
-
 });
 
-test("Submitter invalid after block height", () => {
+test("Submitter invalid after removal of permissions", () => {
   let payloadBytes = Bytes.fromHexString(
     "0x030103034166ebb0afd80c906e2b0564e921c3feefa9a5ecb71e98e3c7b7e661515e87dc493d"
   ) as Bytes;
+  let payloadBytes2 = Bytes.fromHexString(
+    "0x0400000000000000000000000000000000000001000101"
+  ) as Bytes;
   let submitter = "0x0000000000000000000000000000000000000100";
   let txHash = "0x00";
+  let txHash2 = "0x01";
+  let txHash3 = "0x02";
 
   // First transaction goes through
   processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
@@ -168,6 +172,7 @@ test("Submitter invalid after block height", () => {
   assert.entityCount("RegisterNetworksMessage", 1);
   assert.entityCount("CorrectEpochsMessage", 0);
   assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 0);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
   assert.fieldEquals("Network", "A", "id", "A");
@@ -177,20 +182,33 @@ test("Submitter invalid after block height", () => {
   assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "15");
   assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
 
-  // Second one (on epoch 2) shouldn't go through
-  mockEpochNumber(2);
-  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
+  processPayload(submitter, payloadBytes2, txHash2, BIGINT_ONE);
 
   assert.entityCount("Epoch", 1);
   assert.entityCount("Network", 1);
   assert.entityCount("NetworkEpochBlockNumber", 1);
 
-  assert.entityCount("Payload", 1);
-  assert.entityCount("MessageBlock", 1);
+  assert.entityCount("Payload", 2);
+  assert.entityCount("MessageBlock", 2);
   assert.entityCount("SetBlockNumbersForEpochMessage", 1);
   assert.entityCount("RegisterNetworksMessage", 1);
   assert.entityCount("CorrectEpochsMessage", 0);
   assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 1);
+
+  processPayload(submitter, payloadBytes, txHash3, BIGINT_ONE);
+
+  assert.entityCount("Epoch", 1);
+  assert.entityCount("Network", 1);
+  assert.entityCount("NetworkEpochBlockNumber", 1);
+
+  assert.entityCount("Payload", 2);
+  assert.entityCount("MessageBlock", 2);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 1);
+  assert.entityCount("RegisterNetworksMessage", 1);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 1);
 
   assert.fieldEquals("GlobalState", "0", "activeNetworkCount", "1");
   assert.fieldEquals("Network", "A", "id", "A");
@@ -199,11 +217,33 @@ test("Submitter invalid after block height", () => {
   assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "acceleration", "15");
   assert.fieldEquals("NetworkEpochBlockNumber", "1-A", "delta", "15");
   assert.fieldEquals("GlobalState", "0", "networkArrayHead", "A");
-
-
 });
 
 test("Wrong Permissions (No register network permission)", () => {
+  let payloadBytes = Bytes.fromHexString("0x0301030341") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000010";
+  let txHash = "0x00";
+
+  processPayload(submitter, payloadBytes, txHash, BIGINT_ONE);
+
+  assert.entityCount("Epoch", 0);
+
+  // Check message composition and entities created based on it
+  assert.entityCount("Payload", 1);
+  assert.entityCount("MessageBlock", 0);
+  assert.entityCount("SetBlockNumbersForEpochMessage", 0);
+  assert.entityCount("RegisterNetworksMessage", 0);
+  assert.entityCount("CorrectEpochsMessage", 0);
+  assert.entityCount("UpdateVersionsMessage", 0);
+  assert.entityCount("ChangePermissionsMessage", 0);
+
+  let globalState = GlobalState.load("0")!
+  assert.assertTrue(globalState.permissionList.includes(submitter));
+  let permissionEntry = PermissionListEntry.load(submitter)!
+  assert.assertTrue(!permissionEntry.permissions.includes("RegisterNetworksMessage"));
+});
+
+test("Wrong Permissions (No register network permission) with changePermissions", () => {
   let payloadBytes = Bytes.fromHexString("0x0301030341") as Bytes;
   let submitter = "0x0000000000000000000000000000000000000010";
   let txHash = "0x00";
