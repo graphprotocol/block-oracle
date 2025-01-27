@@ -4,7 +4,7 @@
   "scripts": {
     "prepare": "./scripts/prepare.sh",
     "codegen": "yarn && graph codegen",
-    "test": "yarn && yarn prep:test && yarn codegen && graph test",
+    "test": "yarn && yarn prep:test && yarn codegen && graph test -d",
     "build": "yarn && yarn prepare && graph build",
     "deploy-mainnet": "yarn && yarn prep:mainnet && yarn codegen && graph build --network mainnet && graph deploy --studio graph-ebo-ethereum",
     "deploy-arbitrum": "yarn && yarn prep:arbitrum && yarn codegen && graph build --network arbitrum-one && graph deploy --studio graph-ebo-arbitrum",
