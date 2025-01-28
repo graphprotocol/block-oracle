@@ -25,3 +25,6 @@ features = ["derive"]
 [dependencies.url]
 version = "2"
 features = ["serde"]
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(trick_rust_analyzer_into_highlighting_interpolated_bits)'] }

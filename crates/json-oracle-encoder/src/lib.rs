@@ -80,13 +80,20 @@ fn messages_to_encoded_message_blocks(
                 Message::RegisterNetworksAndAliases { remove, add } => {
                     ee::CompressedMessage::RegisterNetworksAndAliases { remove, add }
                 }
-                Message::ChangeOwnership { new_owner_address } => {
-                    ee::CompressedMessage::ChangeOwnership {
-                        new_owner_address: new_owner_address
-                            .try_into()
-                            .map_err(|_| anyhow!("Bad owner address length; must be 20 bytes"))?,
-                    }
-                }
+                Message::ChangePermissions {
+                    address,
+                    valid_through,
+                    permissions,
+                } => ee::CompressedMessage::ChangePermissions {
+                    address: address
+                        .try_into()
+                        .map_err(|_| anyhow!("Bad address length; must be 20 bytes"))?,
+                    valid_through,
+                    permissions: permissions
+                        .into_iter()
+                        .map(|x| ee::Message::str_to_u64(x.as_str()))
+                        .collect(),
+                },
                 Message::SetBlockNumbersForNextEpoch(SetBlockNumbersForNextEpoch::Empty {
                     count,
                 }) => ee::CompressedMessage::SetBlockNumbersForNextEpoch(
@@ -148,14 +155,15 @@ pub enum Message {
         version_number: u64,
     },
     Reset,
-    #[serde(rename_all = "camelCase")]
-    ChangeOwnership {
-        #[serde(deserialize_with = "deserialize_hex")]
-        new_owner_address: Vec<u8>,
-    },
     RegisterNetworksAndAliases {
         remove: Vec<u64>,
         add: Vec<(String, String)>,
+    },
+    ChangePermissions {
+        #[serde(deserialize_with = "deserialize_hex")]
+        address: Vec<u8>,
+        valid_through: u64,
+        permissions: Vec<String>,
     },
 }
 
@@ -167,8 +175,8 @@ impl Message {
             Message::RegisterNetworks { .. } => "RegisterNetworks",
             Message::UpdateVersion { .. } => "UpdateVersion",
             Message::Reset => "Reset",
-            Message::ChangeOwnership { .. } => "ChangeOwnership",
             Message::RegisterNetworksAndAliases { .. } => "RegisterNetworksAndAliases",
+            Message::ChangePermissions { .. } => "ChangePermissions",
         }
     }
 }

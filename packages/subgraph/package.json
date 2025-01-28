@@ -4,12 +4,12 @@
   "scripts": {
     "prepare": "./scripts/prepare.sh",
     "codegen": "yarn && graph codegen",
-    "test": "yarn && yarn prep:test && yarn codegen && graph test",
+    "test": "yarn && yarn prep:test && yarn codegen && graph test -d",
     "build": "yarn && yarn prepare && graph build",
-    "deploy-mainnet": "yarn && yarn prep:mainnet && yarn codegen && graph build --network mainnet && graph deploy --studio graph-ebo-ethereum",
-    "deploy-arbitrum": "yarn && yarn prep:arbitrum && yarn codegen && graph build --network arbitrum-one && graph deploy --studio graph-ebo-arbitrum",
-    "deploy-sepolia": "yarn && yarn prep:sepolia && yarn codegen && graph build --network sepolia && graph deploy --studio graph-ebo-sepolia",
-    "deploy-arbitrum-sepolia": "yarn && yarn prep:arbitrum-sepolia && yarn codegen && graph build --network arbitrum-sepolia && graph deploy --studio graph-ebo-arbitrum-sepolia",
+    "deploy-mainnet": "yarn && yarn prep:mainnet && yarn codegen && graph build --network mainnet && graph deploy graph-ebo-ethereum",
+    "deploy-arbitrum": "yarn && yarn prep:arbitrum && yarn codegen && graph build --network arbitrum-one && graph deploy graph-ebo-arbitrum",
+    "deploy-sepolia": "yarn && yarn prep:sepolia && yarn codegen && graph build --network sepolia && graph deploy graph-ebo-sepolia",
+    "deploy-arbitrum-sepolia": "yarn && yarn prep:arbitrum-sepolia && yarn codegen && graph build --network arbitrum-sepolia && graph deploy graph-ebo-arbitrum-sepolia",
     "create-local": "graph create --node http://127.0.0.1:8020/ edgeandnode/block-oracle",
     "remove-local": "graph remove --node http://127.0.0.1:8020/ edgeandnode/block-oracle",
     "deploy-local": "yarn codegen && graph deploy --node http://127.0.0.1:8020/ --ipfs http://localhost:${IPFS_PORT} edgeandnode/block-oracle --version-label 0.1.0",
@@ -21,8 +21,8 @@
     "prep:arbitrum-sepolia": "mustache ./config/arbitrum-sepolia.json subgraph.template.yaml > subgraph.yaml && mustache ./config/arbitrum-sepolia.json src/constants.template.ts > src/constants.ts"
   },
   "devDependencies": {
-    "@graphprotocol/graph-cli": "^0.69.1",
-    "@graphprotocol/graph-ts": "^0.34.0",
+    "@graphprotocol/graph-cli": "^0.94.0",
+    "@graphprotocol/graph-ts": "^0.37.0",
     "matchstick-as": "^0.5.0",
     "mustache": "^4.0.1"
   }

@@ -150,11 +150,6 @@ impl Encoder {
                 self.networks.clear();
                 self.compressed.push(CompressedMessage::Reset);
             }
-            Message::ChangeOwnership { new_owner_address } => {
-                self.compressed.push(CompressedMessage::ChangeOwnership {
-                    new_owner_address: *new_owner_address,
-                });
-            }
             Message::RegisterNetworksAndAliases { remove, add } => {
                 for index in remove {
                     self.remove_network(*index);
@@ -168,6 +163,20 @@ impl Encoder {
                         remove: remove.clone(),
                         add: add.clone(),
                     });
+            }
+            Message::ChangePermissions {
+                address,
+                valid_through,
+                permissions,
+            } => {
+                self.compressed.push(CompressedMessage::ChangePermissions {
+                    address: *address,
+                    valid_through: *valid_through,
+                    permissions: permissions
+                        .iter()
+                        .map(|x| Message::str_to_u64(x.as_str()))
+                        .collect(),
+                });
             }
         };
         Ok(())
@@ -450,5 +459,40 @@ mod tests {
         // We did update block numbers, this time around.
         assert_ne!(networks_before, encoder.networks);
         assert_ne!(encoder.networks.last().unwrap().1.block_delta, 0);
+    }
+
+    #[test]
+    fn change_permissions_message() {
+        let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, vec![]).unwrap();
+
+        let test_permissions = vec![
+            "RegisterNetworksAndAliasesMessage".to_string(),
+            "CorrectEpochsMessage".to_string(),
+        ];
+
+        let result_permissions = vec![6, 1];
+
+        let compressed = encoder
+            .compress(&[Message::ChangePermissions {
+                address: [1u8; 20],
+                valid_through: 123u64,
+                permissions: test_permissions.clone(),
+            }])
+            .unwrap();
+
+        assert_eq!(compressed.len(), 1);
+
+        match &compressed[0] {
+            CompressedMessage::ChangePermissions {
+                address,
+                valid_through,
+                permissions,
+            } => {
+                assert_eq!(*address, [1u8; 20]);
+                assert_eq!(*valid_through, 123u64);
+                assert_eq!(*permissions, result_permissions);
+            }
+            _ => panic!("Expected ChangePermissions message"),
+        }
     }
 }

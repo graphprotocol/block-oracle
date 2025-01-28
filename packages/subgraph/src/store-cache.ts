@@ -94,11 +94,13 @@ export class StoreCache {
 
   getPermissionListEntry(id: String): PermissionListEntry {
     if (this.permissionListEntries.safeGet(id) == null) {
-      let permissionListyEntry = PermissionListEntry.load(id);
-      if (permissionListyEntry == null) {
-        permissionListyEntry = new PermissionListEntry(id);
+      let permissionListEntry = PermissionListEntry.load(id);
+      if (permissionListEntry == null) {
+        permissionListEntry = new PermissionListEntry(id);
+        permissionListEntry.permissions = [];
+        permissionListEntry.validThrough = BigInt.fromI32(0);
       }
-      this.permissionListEntries.set(id, permissionListyEntry);
+      this.permissionListEntries.set(id, permissionListEntry);
     }
     return this.permissionListEntries.safeGet(id)!;
   }

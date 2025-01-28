@@ -607,6 +607,12 @@ function executeChangePermissionsMessage(
   let message = cache.getChangePermissionsMessage(id);
   let address = reader.advance(20).toHexString(); // address should always be 20 bytes
 
+  // Get valid_through
+  let validThrough = decodeU64(reader);
+  if (!reader.ok) {
+    return;
+  }
+
   // Get the length of the new premissions list
   let permissionsListLength = decodeU64(reader) as i32;
   if (!reader.ok) {
@@ -614,27 +620,36 @@ function executeChangePermissionsMessage(
   }
 
   let permissionEntry = cache.getPermissionListEntry(address);
+  permissionEntry.validThrough = BigInt.fromU64(validThrough)
   let oldPermissionList = permissionEntry.permissions;
   let newPermissionList = new Array<String>();
 
   for (let i = 0; i < permissionsListLength; i++) {
     let permission = decodeU64(reader) as i32;
-    newPermissionList.push(MessageTag.toString(permission));
+    if(MessageTag.isValid(permission)) {
+      newPermissionList.push(MessageTag.toString(permission));
+    } else {
+      reader.fail(`Permission to add is invalid. Permission index: ${permission.toString()}`)
+    }
   }
+  permissionEntry.permissions = newPermissionList;
 
   message.block = messageBlock.id;
   message.address = address;
+  message.validThrough = BigInt.fromU64(validThrough);
   message.oldPermissions = oldPermissionList;
   message.newPermissions = newPermissionList;
   message.data = reader.diff(snapshot);
 
 
   let list = globalState.permissionList;
-  list.push(permissionEntry.id);
+  if(!list.includes(permissionEntry.id)) {
+    list.push(permissionEntry.id);
+  } else if (permissionsListLength == 0) {
+    // this will remove the now empty permission entry from the list, preventing spam
+    list.splice(list.indexOf(permissionEntry.id), 1)
+  }
   globalState.permissionList = list;
-
-  // might want to remove it from the "allow list" if the new permission list length is 0
-  // Right now the address won't be able to execute anything on that case, but it can spam
 }
 
 function executeResetStateMessage(

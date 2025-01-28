@@ -41,9 +41,6 @@ pub enum Message {
     UpdateVersion {
         version_number: u64,
     },
-    ChangeOwnership {
-        new_owner_address: [u8; 20],
-    },
     Reset,
     RegisterNetworksAndAliases {
         // Remove is by index
@@ -51,6 +48,26 @@ pub enum Message {
         // Add is by CAIP2 id and Alias
         add: Vec<(String, String)>,
     },
+    ChangePermissions {
+        address: [u8; 20],
+        valid_through: u64,
+        permissions: Vec<String>,
+    },
+}
+
+impl Message {
+    pub fn str_to_u64(str: &str) -> u64 {
+        match str {
+            "SetBlockNumbersForNextEpochMessage" => 0u64,
+            "CorrectEpochsMessage" => 1,
+            "UpdateVersionMessage" => 2,
+            "RegisterNetworksMessage" => 3,
+            "ChangePermissionsMessage" => 4,
+            "ResetStateMessage" => 5,
+            "RegisterNetworksAndAliasesMessage" => 6,
+            _ => 7,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -66,13 +83,15 @@ pub enum CompressedMessage {
     UpdateVersion {
         version_number: u64,
     },
-    ChangeOwnership {
-        new_owner_address: [u8; 20],
-    },
     Reset,
     RegisterNetworksAndAliases {
         remove: Vec<u64>,
         add: Vec<(String, String)>,
+    },
+    ChangePermissions {
+        address: [u8; 20],
+        valid_through: u64,
+        permissions: Vec<u64>,
     },
 }
 
