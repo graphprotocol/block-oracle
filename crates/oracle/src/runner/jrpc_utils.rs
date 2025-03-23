@@ -8,6 +8,7 @@ use futures::{
     FutureExt,
 };
 use jsonrpc_core::{Call, Value};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::ops::RangeInclusive;
@@ -43,9 +44,12 @@ impl<T> JrpcExpBackoff<T> {
 
 impl JrpcExpBackoff {
     pub fn http(jrpc_url: Url, network: Caip2ChainId, max_wait: Duration) -> Self {
-        // Unwrap: URLs were already parsed and are valid.
-        let client = Http::new(jrpc_url.as_str()).expect("failed to create HTTP transport");
-        Self::new(client, network, max_wait)
+        let client = Client::builder()
+            .timeout(Duration::from_secs(60))
+            .build()
+            .unwrap();
+        let transport = Http::with_client(client, jrpc_url);
+        Self::new(transport, network, max_wait)
     }
 }
 

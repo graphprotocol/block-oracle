@@ -8,7 +8,9 @@ pub mod subgraph;
 use clap::Parser;
 use contracts::Contracts;
 use json_oracle_encoder::{print_encoded_json_messages, OutputKind};
+use reqwest::Client;
 use std::path::PathBuf;
+use std::time::Duration;
 use web3::transports::Http;
 
 pub use config::Config;
@@ -104,7 +106,11 @@ async fn print_current_epoch(config: Config) -> anyhow::Result<()> {
 }
 
 fn init_contracts(config: Config) -> anyhow::Result<Contracts<Http>> {
-    let transport = Http::new(config.protocol_chain.jrpc_url.as_str())?;
+    let client = Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()
+        .unwrap();
+    let transport = Http::with_client(client, config.protocol_chain.jrpc_url);
     let protocol_chain = JrpcProviderForChain::new(config.protocol_chain.id, transport);
     Contracts::new(
         protocol_chain.web3,
