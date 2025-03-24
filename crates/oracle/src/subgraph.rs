@@ -5,6 +5,7 @@ use anyhow::ensure;
 use graphql_client::{GraphQLQuery, Response};
 use itertools::Itertools;
 use reqwest::Url;
+use std::time::Duration;
 use tracing::{error, info, warn};
 
 #[derive(Debug, thiserror::Error)]
@@ -41,6 +42,7 @@ pub async fn query_subgraph(
     info!("Fetching latest subgraph state");
 
     let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
         .user_agent("block-oracle")
         .build()
         .unwrap();
