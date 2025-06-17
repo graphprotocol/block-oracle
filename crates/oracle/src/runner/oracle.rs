@@ -87,7 +87,9 @@ impl Oracle {
             Err(other) => return Err(other),
         };
 
-        let protocol_chain_current_block = match get_latest_block(self.protocol_chain.web3.clone()).await {
+        let protocol_chain_current_block = match get_latest_block(self.protocol_chain.web3.clone())
+            .await
+        {
             Ok(block) => block,
             Err(e) => {
                 METRICS.track_jrpc_protocol_chain_failure(self.config.protocol_chain.id.as_str());
@@ -162,24 +164,18 @@ impl Oracle {
         let mut latest_jrpc_blocks = BTreeMap::new();
         latest_jrpc_blocks_res
             .into_iter()
-            .try_for_each(|(chain_id, res)| {
-                match res {
-                    Ok(block) => {
-                        METRICS.set_latest_block_number(
-                            chain_id.as_str(),
-                            "jrpc",
-                            block.number as i64,
-                        );
-                        latest_jrpc_blocks.insert(chain_id.clone(), block);
-                        Ok(())
-                    }
-                    Err(e) => {
-                        METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
-                        return Err(Error::BadJrpcIndexedChain {
-                            chain_id: chain_id.clone(),
-                            error: web3::Error::InvalidResponse(e.to_string()),
-                        });
-                    }
+            .try_for_each(|(chain_id, res)| match res {
+                Ok(block) => {
+                    METRICS.set_latest_block_number(chain_id.as_str(), "jrpc", block.number as i64);
+                    latest_jrpc_blocks.insert(chain_id.clone(), block);
+                    Ok(())
+                }
+                Err(e) => {
+                    METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
+                    return Err(Error::BadJrpcIndexedChain {
+                        chain_id: chain_id.clone(),
+                        error: web3::Error::InvalidResponse(e.to_string()),
+                    });
                 }
             })?;
 
@@ -188,40 +184,38 @@ impl Oracle {
         let mut latest_blockmeta_blocks = BTreeMap::new();
         latest_blockmeta_blocks_res
             .into_iter()
-            .try_for_each(|(chain_id, res)| {
-                match res {
-                    Ok(block) => {
-                        METRICS.set_latest_block_number(
-                            chain_id.as_str(),
-                            "blockmeta",
-                            block.num as i64,
-                        );
+            .try_for_each(|(chain_id, res)| match res {
+                Ok(block) => {
+                    METRICS.set_latest_block_number(
+                        chain_id.as_str(),
+                        "blockmeta",
+                        block.num as i64,
+                    );
 
-                        match block.id.clone().parse::<BlockHash>() {
-                            Ok(hash) => {
-                                let block_ptr = BlockPtr {
-                                    number: block.num,
-                                    hash: hash.0,
-                                };
-                                latest_blockmeta_blocks.insert(chain_id.clone(), block_ptr);
-                                Ok(())
-                            }
-                            Err(e) => {
-                                METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
-                                return Err(Error::BadJrpcIndexedChain {
-                                    chain_id: chain_id.clone(),
-                                    error: web3::Error::InvalidResponse(e.to_string()),
-                                });
-                            }
+                    match block.id.clone().parse::<BlockHash>() {
+                        Ok(hash) => {
+                            let block_ptr = BlockPtr {
+                                number: block.num,
+                                hash: hash.0,
+                            };
+                            latest_blockmeta_blocks.insert(chain_id.clone(), block_ptr);
+                            Ok(())
+                        }
+                        Err(e) => {
+                            METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
+                            return Err(Error::BadJrpcIndexedChain {
+                                chain_id: chain_id.clone(),
+                                error: web3::Error::InvalidResponse(e.to_string()),
+                            });
                         }
                     }
-                    Err(e) => {
-                        METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
-                        return Err(Error::BadJrpcIndexedChain {
-                            chain_id: chain_id.clone(),
-                            error: web3::Error::InvalidResponse(e.to_string()),
-                        });
-                    }
+                }
+                Err(e) => {
+                    METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
+                    return Err(Error::BadJrpcIndexedChain {
+                        chain_id: chain_id.clone(),
+                        error: web3::Error::InvalidResponse(e.to_string()),
+                    });
                 }
             })?;
 
