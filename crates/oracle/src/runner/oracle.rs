@@ -87,9 +87,13 @@ impl Oracle {
             Err(other) => return Err(other),
         };
 
-        let protocol_chain_current_block = get_latest_block(self.protocol_chain.web3.clone())
-            .await
-            .map_err(Error::BadJrpcProtocolChain)?;
+        let protocol_chain_current_block = match get_latest_block(self.protocol_chain.web3.clone()).await {
+            Ok(block) => block,
+            Err(e) => {
+                METRICS.track_jrpc_protocol_chain_failure(self.config.protocol_chain.id.as_str());
+                return Err(Error::BadJrpcProtocolChain(e));
+            }
+        };
         debug!(
             number = protocol_chain_current_block.number,
             hash = hex::encode(protocol_chain_current_block.hash).as_str(),
@@ -155,9 +159,10 @@ impl Oracle {
         info!("Collecting latest block information from all indexed chains.");
 
         let latest_jrpc_blocks_res = get_latest_blocks(&self.indexed_chains).await;
-        let latest_jrpc_blocks: BTreeMap<Caip2ChainId, BlockPtr> = latest_jrpc_blocks_res
-            .iter()
-            .filter_map(|(chain_id, res)| -> Option<(Caip2ChainId, BlockPtr)> {
+        let mut latest_jrpc_blocks = BTreeMap::new();
+        latest_jrpc_blocks_res
+            .into_iter()
+            .try_for_each(|(chain_id, res)| {
                 match res {
                     Ok(block) => {
                         METRICS.set_latest_block_number(
@@ -165,25 +170,25 @@ impl Oracle {
                             "jrpc",
                             block.number as i64,
                         );
-                        Some((chain_id.clone(), *block))
+                        latest_jrpc_blocks.insert(chain_id.clone(), block);
+                        Ok(())
                     }
                     Err(e) => {
-                        warn!(
-                            chain_id = chain_id.as_str(),
-                            error = e.to_string().as_str(),
-                            "Failed to get latest block from chain. Skipping."
-                        );
-                        None
+                        METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
+                        return Err(Error::BadJrpcIndexedChain {
+                            chain_id: chain_id.clone(),
+                            error: web3::Error::InvalidResponse(e.to_string()),
+                        });
                     }
                 }
-            })
-            .collect();
+            })?;
 
         let latest_blockmeta_blocks_res =
             get_latest_blockmeta_blocks(&self.blockmeta_indexed_chains).await;
-        let latest_blockmeta_blocks: BTreeMap<Caip2ChainId, BlockPtr> = latest_blockmeta_blocks_res
-            .iter()
-            .filter_map(|(chain_id, res)| -> Option<(Caip2ChainId, BlockPtr)> {
+        let mut latest_blockmeta_blocks = BTreeMap::new();
+        latest_blockmeta_blocks_res
+            .into_iter()
+            .try_for_each(|(chain_id, res)| {
                 match res {
                     Ok(block) => {
                         METRICS.set_latest_block_number(
@@ -198,29 +203,27 @@ impl Oracle {
                                     number: block.num,
                                     hash: hash.0,
                                 };
-                                Some((chain_id.clone(), block_ptr))
+                                latest_blockmeta_blocks.insert(chain_id.clone(), block_ptr);
+                                Ok(())
                             }
                             Err(e) => {
-                                warn!(
-                                    chain_id = chain_id.as_str(),
-                                    error = e.to_string().as_str(),
-                                    "Failed to parse block hash. Skipping."
-                                );
-                                None
+                                METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
+                                return Err(Error::BadJrpcIndexedChain {
+                                    chain_id: chain_id.clone(),
+                                    error: web3::Error::InvalidResponse(e.to_string()),
+                                });
                             }
                         }
                     }
                     Err(e) => {
-                        warn!(
-                            chain_id = chain_id.as_str(),
-                            error = e.to_string().as_str(),
-                            "Failed to get latest block from chain. Skipping."
-                        );
-                        None
+                        METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
+                        return Err(Error::BadJrpcIndexedChain {
+                            chain_id: chain_id.clone(),
+                            error: web3::Error::InvalidResponse(e.to_string()),
+                        });
                     }
                 }
-            })
-            .collect();
+            })?;
 
         let latest_blocks: BTreeMap<Caip2ChainId, BlockPtr> = latest_jrpc_blocks
             .into_iter()
@@ -395,13 +398,13 @@ mod freshness {
     /// targeting the DataEdge contract.
     ///
     /// To assert that, the Block Oracle will need to get the latest block from a JSON RPC provider
-    /// and compare its number with the subgraph’s current block.
+    /// and compare its number with the subgraph's current block.
     ///
     /// If they are way too different, then the subgraph is not fresh, and we should gracefully
     /// handle that error.
     ///
     /// Otherwise, if block numbers are under a certain threshold apart, we could scan the blocks
-    /// in between and ensure they’re not relevant to the DataEdge contract.
+    /// in between and ensure they're not relevant to the DataEdge contract.
     pub async fn subgraph_is_fresh<T>(
         subgraph_latest_block: U64,
         current_block: U64,
