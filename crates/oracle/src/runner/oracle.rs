@@ -172,10 +172,10 @@ impl Oracle {
                 }
                 Err(e) => {
                     METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
-                    return Err(Error::BadJrpcIndexedChain {
+                    Err(Error::BadJrpcIndexedChain {
                         chain_id: chain_id.clone(),
                         error: web3::Error::InvalidResponse(e.to_string()),
-                    });
+                    })
                 }
             })?;
 
@@ -203,19 +203,19 @@ impl Oracle {
                         }
                         Err(e) => {
                             METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
-                            return Err(Error::BadJrpcIndexedChain {
+                            Err(Error::BadJrpcIndexedChain {
                                 chain_id: chain_id.clone(),
                                 error: web3::Error::InvalidResponse(e.to_string()),
-                            });
+                            })
                         }
                     }
                 }
                 Err(e) => {
                     METRICS.track_jrpc_indexed_chain_failure(chain_id.as_str());
-                    return Err(Error::BadJrpcIndexedChain {
+                    Err(Error::BadJrpcIndexedChain {
                         chain_id: chain_id.clone(),
                         error: web3::Error::InvalidResponse(e.to_string()),
-                    });
+                    })
                 }
             })?;
 
