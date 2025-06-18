@@ -18,6 +18,8 @@ pub struct Metrics {
     registry: Registry,
     jrpc_request_duration_seconds: HistogramVec,
     jrpc_failure: IntCounterVec,
+    jrpc_protocol_chain_failure: IntCounterVec,
+    jrpc_indexed_chain_failure: IntCounterVec,
     current_epoch: IntGaugeVec,
     last_sent_message: Gauge,
     latest_block_number: IntGaugeVec,
@@ -41,6 +43,20 @@ impl Metrics {
         let jrpc_failure = register_int_counter_vec_with_registry!(
             "epoch_block_oracle_jrpc_failure_total",
             "JSON RPC Request Failure",
+            &["network"],
+            registry
+        )?;
+
+        let jrpc_protocol_chain_failure = register_int_counter_vec_with_registry!(
+            "epoch_block_oracle_jrpc_protocol_chain_failure_total",
+            "JSON RPC Protocol Chain Request Failure",
+            &["network"],
+            registry
+        )?;
+
+        let jrpc_indexed_chain_failure = register_int_counter_vec_with_registry!(
+            "epoch_block_oracle_jrpc_indexed_chain_failure_total",
+            "JSON RPC Indexed Chain Request Failure",
             &["network"],
             registry
         )?;
@@ -93,6 +109,8 @@ impl Metrics {
             registry,
             jrpc_request_duration_seconds,
             jrpc_failure,
+            jrpc_protocol_chain_failure,
+            jrpc_indexed_chain_failure,
             current_epoch,
             last_sent_message,
             latest_block_number,
@@ -158,6 +176,20 @@ impl Metrics {
 
     pub fn track_jrpc_failure(&self, network: &str) {
         self.jrpc_failure
+            .get_metric_with_label_values(&[network])
+            .unwrap()
+            .inc();
+    }
+
+    pub fn track_jrpc_protocol_chain_failure(&self, network: &str) {
+        self.jrpc_protocol_chain_failure
+            .get_metric_with_label_values(&[network])
+            .unwrap()
+            .inc();
+    }
+
+    pub fn track_jrpc_indexed_chain_failure(&self, network: &str) {
+        self.jrpc_indexed_chain_failure
             .get_metric_with_label_values(&[network])
             .unwrap()
             .inc();
