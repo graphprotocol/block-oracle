@@ -357,6 +357,28 @@ The `k8s/compose/` directory contains a complete local development environment:
 - Include co-authorship for AI-assisted development
 - Never force push unless absolutely necessary (use `--force-with-lease`)
 
+### Blockchain Provider Types
+
+**JSON-RPC Providers (EVM Chains)**
+- Used for Ethereum, Arbitrum, Polygon, and other EVM-compatible chains
+- Standard `eth_getBlockByNumber` and `eth_chainId` methods
+- Configuration in `indexed_chains` section of config.toml
+- Returns `BlockPtr` with `number: u64` and `hash: [u8; 32]`
+
+**Blockmeta GRPC Providers (Non-EVM Chains)**  
+- Used for Bitcoin and other non-EVM chains that don't support JSON-RPC
+- GRPC-based API for fetching block metadata
+- Configuration in `blockmeta_indexed_chains` section of config.toml
+- Requires authentication token (`blockmeta_auth_token`)
+- Returns block data that gets converted to `BlockPtr` format
+- Implementation in `crates/oracle/src/blockmeta/`
+
+**Mixed Provider Support**
+- Oracle can simultaneously use both provider types
+- Block data from both sources gets merged in `handle_new_epoch()`
+- Final `latest_blocks: BTreeMap<Caip2ChainId, BlockPtr>` contains data from all providers
+- Merkle root computation works identically for both provider types
+
 ### Common Pitfalls and Solutions
 
 **1. VarInt Encoding Issues**
@@ -374,4 +396,9 @@ The `k8s/compose/` directory contains a complete local development environment:
 **4. Import Visibility Issues**
 - Problem: `function is private` when importing from other crates
 - Solution: Check the crate's public API in lib.rs, use public functions only
+
+**5. Blockmeta Provider Configuration**
+- Problem: Missing or incorrect blockmeta configuration
+- Solution: Ensure `blockmeta_auth_token` is set and URLs are correct in config
+- Check that chain IDs match between `blockmeta_indexed_chains` and expected networks
 

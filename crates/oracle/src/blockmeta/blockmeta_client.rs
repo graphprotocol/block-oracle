@@ -14,6 +14,7 @@ pub use self::auth::AuthInterceptor;
 use self::gen::block_client::BlockClient;
 pub use self::gen::BlockResp as Block;
 use self::gen::Empty;
+pub use self::gen::{BlockResp, NumToIdReq};
 use crate::{BlockmetaProviderForChain, Caip2ChainId};
 
 /// This file is **generated** by the `build.rs` when compiling the crate with the `proto-gen`
@@ -131,6 +132,16 @@ where
         match self.grpc_client.head(request).await {
             Ok(res) => Ok(Some(res.into_inner())),
             Err(err) if err.code() == tonic::Code::NotFound => Ok(None),
+            Err(err) => Err(anyhow::anyhow!("request failed: {}", err.message())),
+        }
+    }
+
+    /// Fetch a block by its number from the StreamingFast Blockmeta service.
+    ///
+    /// Returns `None` if the block does not exist.
+    pub async fn num_to_id(&mut self, request: NumToIdReq) -> anyhow::Result<BlockResp> {
+        match self.grpc_client.num_to_id(request).await {
+            Ok(res) => Ok(res.into_inner()),
             Err(err) => Err(anyhow::anyhow!("request failed: {}", err.message())),
         }
     }

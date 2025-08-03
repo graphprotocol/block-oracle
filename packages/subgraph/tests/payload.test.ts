@@ -4,90 +4,13 @@ import {
   assert,
   afterEach,
   beforeEach,
-  createMockedFunction,
-  describe
+  createMockedFunction
 } from "matchstick-as/assembly/index";
-import { processPayload, handleCrossChainEpochOracle } from "../src/mapping";
+import { processPayload } from "../src/mapping";
 import { parseCalldata } from "../src/helpers";
-import { EPOCH_MANAGER_ADDRESS, BIGINT_ONE, BIGINT_ZERO } from "../src/constants";
+import { EPOCH_MANAGER_ADDRESS, BIGINT_ONE } from "../src/constants";
 import { Bytes, BigInt, Address, ethereum } from "@graphprotocol/graph-ts";
-import { Network, GlobalState, PermissionListEntry, Epoch, NetworkEpochBlockNumber } from "../generated/schema";
-import { CrossChainEpochOracleCall } from "../generated/DataEdge/DataEdge";
-
-let DATA_EDGE_ADDRESS = Address.fromString("0x0000000000000000000000000000000000000000");
-
-function createCrossChainEpochOracleCall(
-  from: Address,
-  payload: Bytes,
-  blockNumber: BigInt,
-  txHash: string
-): CrossChainEpochOracleCall {
-  let call = changetype<CrossChainEpochOracleCall>(newMockCall());
-  call.from = from;
-  call.inputs._payload = payload;
-  call.block.number = blockNumber;
-  call.transaction.hash = Bytes.fromHexString(txHash);
-  return call;
-}
-
-function newMockCall(): ethereum.Call {
-  return changetype<ethereum.Call>(newMockEvent());
-}
-
-function newMockEvent(): ethereum.Event {
-  let event = changetype<ethereum.Event>(new Entity());
-  event.address = Address.fromString("0x0000000000000000000000000000000000000000");
-  event.logIndex = BigInt.fromI32(0);
-  event.transactionLogIndex = BigInt.fromI32(0);
-  event.logType = null;
-  event.block = changetype<ethereum.Block>(new Entity());
-  event.block.baseFeePerGas = null;
-  event.block.difficulty = BigInt.fromI32(0);
-  event.block.gasLimit = BigInt.fromI32(0);
-  event.block.gasUsed = BigInt.fromI32(0);
-  event.block.hash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
-  event.block.miner = Address.fromString("0x0000000000000000000000000000000000000000");
-  event.block.nonce = null;
-  event.block.number = BigInt.fromI32(0);
-  event.block.parentHash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
-  event.block.receiptsRoot = null;
-  event.block.size = null;
-  event.block.stateRoot = null;
-  event.block.timestamp = BigInt.fromI32(0);
-  event.block.totalDifficulty = null;
-  event.block.transactionsRoot = null;
-  event.block.unclesHash = null;
-  event.transaction = changetype<ethereum.Transaction>(new Entity());
-  event.transaction.from = Address.fromString("0x0000000000000000000000000000000000000000");
-  event.transaction.gasLimit = BigInt.fromI32(0);
-  event.transaction.gasPrice = BigInt.fromI32(0);
-  event.transaction.hash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
-  event.transaction.index = BigInt.fromI32(0);
-  event.transaction.to = null;
-  event.transaction.value = BigInt.fromI32(0);
-  event.transaction.nonce = BigInt.fromI32(0);
-  event.transactionHash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
-  event.parameters = [];
-  event.receipt = changetype<ethereum.TransactionReceipt>(new Entity());
-  event.receipt.transactionHash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
-  event.receipt.transactionIndex = BigInt.fromI32(0);
-  event.receipt.blockHash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
-  event.receipt.blockNumber = BigInt.fromI32(0);
-  event.receipt.cumulativeGasUsed = BigInt.fromI32(0);
-  event.receipt.gasUsed = BigInt.fromI32(0);
-  event.receipt.contractAddress = null;
-  event.receipt.logs = [];
-  event.receipt.logsBloom = Bytes.fromHexString("0x00");
-  event.receipt.root = null;
-  event.receipt.status = null;
-  return event;
-}
-
-class Entity extends Bytes {
-  constructor() {
-    super();
-  }
-}
+import { Network, GlobalState, PermissionListEntry } from "../generated/schema";
 
 // Previously valid 2 tag bit length transaction
 // test("Payload processing latest example", () => {

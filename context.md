@@ -30,9 +30,10 @@
 5. **Keep merkle root instead of just block hash** - ensures complete verifiability even if original data was garbage
 
 ### Technical Gotchas
-- Network IDs in subgraph are strings ("0", "1"), not u64
+- Network IDs in subgraph are CAIP-2 chain ID strings (e.g., "eip155:42161"), not numeric
 - StoreCache needs explicit save() calls
 - Merkle root computation needs ALL networks' data, not just the corrected one
+- Mixed provider support: Oracle handles both JSON-RPC (EVM) and Blockmeta (non-EVM) simultaneously
 
 ### What's in TODO.md
 - Complete implementation plan for CorrectLastEpoch
@@ -49,24 +50,27 @@
 
 ### Current Progress (Latest Update)
 
-**Status: 95% Complete** 🎯
+**Status: 97% Complete** 🎯
 
 ### ✅ Completed Items
 1. **Rust Implementation** - Message definition, serialization, and comprehensive tests
 2. **JSON Encoder** - Full support with validation and error handling
-3. **Subgraph Schema** - Complete with CorrectLastEpochMessage and LastEpochCorrection entities
+3. **Subgraph Schema** - Simplified single-entity design (removed LastEpochCorrection complexity)
 4. **Subgraph Handler** - Fully implemented with proper validation and error handling
 5. **CAIP-2 Migration** - Changed from numeric network IDs to chain ID strings (e.g., "eip155:42161")
 6. **Permission System** - Updated production and test configs to allow CorrectLastEpoch
 7. **Comprehensive Testing** - All subgraph tests passing with proper edge case coverage
-8. **Repository Cleanup** - Fixed .gitignore, removed constants.ts from tracking
-9. **Code Quality** - All Rust code formatted, linted, and tested
+8. **Schema Optimization** - Merged entities for better performance, optimized epochBlockNumberId
+9. **Repository Cleanup** - Fixed .gitignore, removed constants.ts from tracking
+10. **Code Quality** - All Rust code formatted, linted, and tested
 
 ### 🔄 Currently Working On
-1. **CLI Command** - Adding `correct-last-epoch` subcommand to block-oracle binary (90% complete)
+1. **CLI Command** - Core logic implementation (structure complete, needs integration code)
 
 ### 🎯 Key Changes from Original Plan
-- **Simplified CLI**: Direct parameter input rather than automatic querying/computation
+- **Corrected CLI Requirements**: CLI should auto-compute merkle roots, not take them as input
+- **Schema Simplification**: Merged LastEpochCorrection into CorrectLastEpochMessage for better performance
+- **Mixed Provider Support**: CLI will support both JSON-RPC (EVM) and Blockmeta (non-EVM) chains
 - **Fixed Network Validation**: Using `cache.isNetworkAlreadyRegistered()` for proper validation
 - **VarInt Encoding**: Using Rust encoder for all tests to avoid manual encoding errors
 - **Constants Management**: Discovered constants.ts is generated from templates, not committed
@@ -78,25 +82,47 @@
 4. **Configuration Management**: Permission system uses mustache templates from config files
 5. **VarInt Encoding**: Manual encoding error-prone, always use Rust encoder
 6. **Git Tracking**: Generated files (constants.ts) should not be committed
+7. **Schema Design**: Single entities perform better than complex relationships for simple use cases
+8. **Function Optimization**: Accept native types (BigInt) instead of strings to avoid conversions
 
 ## Next Steps When Resuming
-1. **Finish CLI Command** - Complete the `correct_last_epoch` function implementation
-2. **Test CLI Command** - Build and test the new command
-3. **Documentation** - Update CLAUDE.md with final usage instructions
+1. **Implement CLI Core Logic** - The only remaining work is the actual integration code
+2. **Test CLI Command** - Build and test the complete implementation
+3. **Final Documentation** - Update CLAUDE.md with usage examples
 
 ### Current CLI Implementation Status
-- ✅ Added CorrectLastEpoch variant to Clap enum with proper arguments (updated for correct UX)
-- ✅ Added match case in main() function
+- ✅ Added CorrectLastEpoch variant to Clap enum with proper arguments
+- ✅ Added match case in main() function  
 - ✅ CLI structure complete with dry-run, confirmation prompts, and optional block number
 - ✅ User interface implemented with clear messaging and emojis
-- 🔄 Core logic implementation needed:
+- 🔄 **FINAL TASK**: Core logic implementation needed:
   - ⏳ Subgraph integration for querying latest epoch data
-  - ⏳ Multi-network RPC client setup for fetching block hashes
-  - ⏳ Merkle root computation using epoch-encoding algorithms
+  - ⏳ Multi-network RPC client setup (both JSON-RPC and Blockmeta providers)
+  - ⏳ Block hash fetching from multiple provider types
+  - ⏳ Merkle root computation using epoch-encoding algorithms  
   - ⏳ Message creation and blockchain submission
 
-**Important Discovery:** The original TODO.md had more sophisticated CLI requirements than initially implemented. The CLI should automatically compute merkle roots by:
-1. Querying subgraph for latest epoch block numbers across all networks
-2. Using RPCs to fetch corresponding block hashes 
-3. Computing merkle root using the same algorithm as normal oracle operation
-4. Only requiring the user to specify which network to correct and optionally the block number
+### Key Implementation Requirements for CLI
+The CLI should automatically compute merkle roots by:
+1. **Query subgraph** for latest epoch block numbers across ALL networks
+2. **Initialize RPC clients** for both JSON-RPC (EVM) and Blockmeta (non-EVM) providers
+3. **Fetch block hashes** for all networks using current epoch block numbers (except the one being corrected)
+4. **Use provided/latest block** for the network being corrected
+5. **Compute merkle root** using the same algorithm as normal oracle operation (`epoch_encoding::merkle::merkle_root`)
+6. **Create and submit message** using existing patterns from the main oracle
+
+### Complete Implementation Reference Available
+TODO.md contains comprehensive code examples and patterns from the existing oracle for:
+- Subgraph querying (`query_subgraph()` with GraphQL)
+- RPC client setup (`JrpcProviderForChain` and `BlockmetaProviderForChain`)
+- Block fetching (`get_latest_block()`, `num_to_id()`)
+- Merkle root computation (`MerkleLeaf` with `network.array_index`)
+- Message creation (JSON encoder or Message enum)
+- Transaction submission (`contracts.submit_call()`)
+
+## Current Repository State
+- **Branch**: `pcv/feat-correct-epoch` 
+- **Last Commit**: Schema simplification and epochBlockNumberId optimization
+- **All Tests**: Passing (subgraph tests verified manually)
+- **Build Status**: Clean builds for both Rust oracle and AssemblyScript subgraph
+- **Ready For**: CLI core logic implementation (final 3% of work)
