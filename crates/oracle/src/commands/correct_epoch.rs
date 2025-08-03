@@ -317,6 +317,11 @@ pub async fn correct_last_epoch(
     println!("   Encoded payload ({} bytes):", payload.len());
     println!("   0x{}", hex::encode(&payload));
 
+    println!();
+    println!("   Transaction details:");
+    println!("   From: {}", config.owner_address);
+    println!("   To (DataEdge): {}", config.data_edge_address);
+
     if dry_run {
         println!();
         println!("🏃 Dry run complete. No transaction submitted.");
