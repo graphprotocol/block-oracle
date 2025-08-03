@@ -178,6 +178,17 @@ impl Encoder {
                         .collect(),
                 });
             }
+            Message::CorrectLastEpoch {
+                network_id,
+                block_number,
+                merkle_root,
+            } => {
+                self.compressed.push(CompressedMessage::CorrectLastEpoch {
+                    network_id: *network_id,
+                    block_number: *block_number,
+                    merkle_root: *merkle_root,
+                });
+            }
         };
         Ok(())
     }

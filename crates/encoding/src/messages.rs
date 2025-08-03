@@ -53,6 +53,11 @@ pub enum Message {
         valid_through: u64,
         permissions: Vec<String>,
     },
+    CorrectLastEpoch {
+        network_id: NetworkIndex,
+        block_number: u64,
+        merkle_root: Bytes32,
+    },
 }
 
 impl Message {
@@ -65,7 +70,8 @@ impl Message {
             "ChangePermissionsMessage" => 4,
             "ResetStateMessage" => 5,
             "RegisterNetworksAndAliasesMessage" => 6,
-            _ => 7,
+            "CorrectLastEpochMessage" => 7,
+            _ => 8,
         }
     }
 }
@@ -92,6 +98,11 @@ pub enum CompressedMessage {
         address: [u8; 20],
         valid_through: u64,
         permissions: Vec<u64>,
+    },
+    CorrectLastEpoch {
+        network_id: NetworkIndex,
+        block_number: u64,
+        merkle_root: Bytes32,
     },
 }
 

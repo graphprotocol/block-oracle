@@ -110,6 +110,17 @@ fn messages_to_encoded_message_blocks(
                         accelerations,
                     },
                 ),
+                Message::CorrectLastEpoch {
+                    network_id,
+                    block_number,
+                    merkle_root,
+                } => ee::CompressedMessage::CorrectLastEpoch {
+                    network_id,
+                    block_number,
+                    merkle_root: merkle_root.try_into().map_err(|_| {
+                        anyhow!("Bad JSON: The Merkle root must have exactly 32 bytes.")
+                    })?,
+                },
             };
             message_types.push(message_type);
             compressed_contents.push(ready_to_encode);
@@ -165,6 +176,13 @@ pub enum Message {
         valid_through: u64,
         permissions: Vec<String>,
     },
+    #[serde(rename_all = "camelCase")]
+    CorrectLastEpoch {
+        network_id: u64,
+        block_number: u64,
+        #[serde(deserialize_with = "deserialize_hex")]
+        merkle_root: Vec<u8>,
+    },
 }
 
 impl Message {
@@ -177,6 +195,7 @@ impl Message {
             Message::Reset => "Reset",
             Message::RegisterNetworksAndAliases { .. } => "RegisterNetworksAndAliases",
             Message::ChangePermissions { .. } => "ChangePermissions",
+            Message::CorrectLastEpoch { .. } => "CorrectLastEpoch",
         }
     }
 }

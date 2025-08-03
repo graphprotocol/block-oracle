@@ -49,6 +49,11 @@ fn serialize_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
             valid_through,
             permissions,
         } => serialize_change_permissions(address, *valid_through, permissions, bytes),
+        CompressedMessage::CorrectLastEpoch {
+            network_id,
+            block_number,
+            merkle_root,
+        } => serialize_correct_last_epoch(*network_id, *block_number, merkle_root, bytes),
     }
 }
 
@@ -115,6 +120,17 @@ fn serialize_change_permissions(
     }
 }
 
+fn serialize_correct_last_epoch(
+    network_id: NetworkIndex,
+    block_number: u64,
+    merkle_root: &Bytes32,
+    bytes: &mut Vec<u8>,
+) {
+    serialize_u64(network_id, bytes);
+    serialize_u64(block_number, bytes);
+    bytes.extend_from_slice(merkle_root);
+}
+
 fn serialize_str(value: &str, bytes: &mut Vec<u8>) {
     serialize_u64(value.len() as u64, bytes);
     bytes.extend_from_slice(value.as_bytes());
@@ -157,6 +173,7 @@ fn message_tag(m: &CompressedMessage) -> u8 {
         CompressedMessage::ChangePermissions { .. } => 4,
         CompressedMessage::Reset => 5,
         CompressedMessage::RegisterNetworksAndAliases { .. } => 6,
+        CompressedMessage::CorrectLastEpoch { .. } => 7,
     }
 }
 
