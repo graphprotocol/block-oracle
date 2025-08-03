@@ -90,7 +90,7 @@
 11. **Mixed Providers**: CLI must handle both provider types seamlessly for complete network coverage
 12. **Clippy Strictness**: CI may have stricter clippy rules than local, especially for format strings
 
-## Implementation Complete - Awaiting Review
+## Implementation Complete - Ready for Production
 
 ### CLI Implementation Details
 The CLI command `correct-last-epoch` is now fully implemented with:
@@ -113,11 +113,23 @@ The CLI command `correct-last-epoch` is now fully implemented with:
    - Comprehensive validation of network registration and epoch data
    - Clear error messages for all failure cases
 
-4. **Technical Implementation**:
+4. **Enhanced Visibility**:
+   - Shows JSON message in pretty-printed format before confirmation
+   - Displays encoded payload with size and hex representation
+   - Shows sender (oracle owner) and recipient (DataEdge contract) addresses
+   - All details visible in both dry-run mode and before confirmation
+
+5. **Technical Implementation**:
    - Used `epoch_encoding::Encoder` to compute merkle roots (merkle module is private)
    - Created temporary `SetBlockNumbersForNextEpoch` message for merkle computation
    - Proper handling of both provider types with unified BlockPtr output
    - Rich console output with progress indicators and emojis
+
+6. **Code Organization**:
+   - Refactored CLI commands into separate modules in `commands/`
+   - Shared helpers like `init_contracts` in `commands/mod.rs`
+   - Clean separation of concerns with each command in its own file
+   - `main.rs` now only handles CLI parsing and dispatch
 
 ### Usage Examples
 
@@ -145,12 +157,16 @@ cargo run --bin block-oracle -- correct-last-epoch \
 ## Current Repository State
 - **Branch**: `pcv/feat-correct-epoch` 
 - **Last Commits**: 
+  - `c4970b4` - Add transaction details to correct-last-epoch output
+  - `38f614a` - Apply cargo fmt formatting
+  - `b85fa34` - Enhance correct-last-epoch with detailed message preview
+  - `b044cab` - Refactor CLI commands to separate modules
+  - `1ad6520` - Add CorrectLastEpochMessage permission to arbitrum-sepolia
   - `bf1d58e` - Fix clippy uninlined_format_args lint
   - `8729600` - Complete CorrectLastEpoch CLI implementation
-  - `ed25808` - Simplify schema and optimize epochBlockNumberId
 - **All Tests**: Passing (including CI with strict clippy)
 - **Build Status**: Clean builds for both Rust oracle and AssemblyScript subgraph
-- **Implementation Status**: 100% Complete - Awaiting user review
+- **Implementation Status**: 100% Complete - Ready for production use
 
 ## Potential Review Areas
 

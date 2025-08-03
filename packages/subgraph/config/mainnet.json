@@ -24,7 +24,8 @@
       "permissions": [
         { "entry": "SetBlockNumbersForEpochMessage" },
         { "entry": "CorrectEpochsMessage" },
-        { "entry": "ResetStateMessage", "lastEntry": true }
+        { "entry": "ResetStateMessage" },
+        { "entry": "CorrectLastEpochMessage", "lastEntry": true }
       ],
       "validThrough": "0"
     },
