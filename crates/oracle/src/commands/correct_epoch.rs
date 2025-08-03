@@ -301,17 +301,17 @@ pub async fn correct_last_epoch(
     // Step 8: Create the CorrectLastEpoch message and show details
     println!();
     println!("📝 Message Details:");
-    
+
     let json_message = serde_json::json!([{
         "message": "CorrectLastEpoch",
         "chainId": chain_id,
         "blockNumber": corrected_block_number,
         "merkleRoot": format!("0x{}", hex::encode(computed_merkle_root))
     }]);
-    
+
     println!("   JSON message:");
     println!("   {}", serde_json::to_string_pretty(&json_message)?);
-    
+
     let payload = messages_to_payload(json_message.clone())?;
     println!();
     println!("   Encoded payload ({} bytes):", payload.len());
