@@ -398,36 +398,40 @@ function executeCorrectLastEpochMessage(
   let network = cache.getNetwork(chainId);
   
   // 4. Find NetworkEpochBlockNumber for latest epoch
-  let epochBlockId = epochBlockNumberId(latestEpochId!, network.id);
+  let epochBlockId = epochBlockNumberId(BigInt.fromString(latestEpochId!), network.id);
   if (!cache.hasNetworkEpochBlockNumber(epochBlockId)) {
     reader.fail("No block number found for network in latest epoch");
     return;
   }
   let epochBlock = cache.getNetworkEpochBlockNumber(epochBlockId);
   
-  // 5. Store previous values for audit trail
-  let correction = cache.getLastEpochCorrection(id + "-" + network.id);
-  correction.message = id;
-  correction.network = network.id;
-  correction.epochNumber = BigInt.fromString(latestEpochId!);
-  correction.previousBlockNumber = epochBlock.blockNumber;
-  correction.newBlockNumber = newBlockNumber;
+  // 5. Create message entity with all correction data
+  let message = cache.getCorrectLastEpochMessage(id);
+  message.block = messageBlock.id;
+  message.newMerkleRoot = merkleRoot;
+  message.data = reader.diff(snapshot);
   
-  // 6. Calculate previous and new acceleration/delta
-  correction.previousAcceleration = epochBlock.acceleration;
-  correction.previousDelta = epochBlock.delta;
+  // 6. Store network and epoch information
+  message.network = network.id;
+  message.epochNumber = BigInt.fromString(latestEpochId!);
   
-  // Calculate new delta (difference from previous epoch)
+  // 7. Store previous values for audit trail
+  message.previousBlockNumber = epochBlock.blockNumber;
+  message.previousAcceleration = epochBlock.acceleration;
+  message.previousDelta = epochBlock.delta;
+  message.newBlockNumber = newBlockNumber;
+  
+  // 8. Calculate new acceleration/delta
   let prevEpochNumber = BigInt.fromString(latestEpochId!).minus(BIGINT_ONE);
   if (prevEpochNumber.gt(BIGINT_ZERO)) {
-    let prevEpochBlockId = epochBlockNumberId(prevEpochNumber.toString(), network.id);
+    let prevEpochBlockId = epochBlockNumberId(prevEpochNumber, network.id);
     let prevEpochBlock = cache.getNetworkEpochBlockNumber(prevEpochBlockId);
     if (prevEpochBlock) {
       let newDelta = newBlockNumber.minus(prevEpochBlock.blockNumber);
       let newAcceleration = newDelta.minus(prevEpochBlock.delta);
       
-      correction.newDelta = newDelta;
-      correction.newAcceleration = newAcceleration;
+      message.newDelta = newDelta;
+      message.newAcceleration = newAcceleration;
       
       // Update the epoch block with new values
       epochBlock.blockNumber = newBlockNumber;
@@ -435,8 +439,8 @@ function executeCorrectLastEpochMessage(
       epochBlock.acceleration = newAcceleration;
     } else {
       // First epoch for this network
-      correction.newDelta = newBlockNumber;
-      correction.newAcceleration = newBlockNumber;
+      message.newDelta = newBlockNumber;
+      message.newAcceleration = newBlockNumber;
       
       epochBlock.blockNumber = newBlockNumber;
       epochBlock.delta = newBlockNumber;
@@ -444,21 +448,15 @@ function executeCorrectLastEpochMessage(
     }
   } else {
     // This is epoch 1, no previous epoch
-    correction.newDelta = newBlockNumber;
-    correction.newAcceleration = newBlockNumber;
+    message.newDelta = newBlockNumber;
+    message.newAcceleration = newBlockNumber;
     
     epochBlock.blockNumber = newBlockNumber;
     epochBlock.delta = newBlockNumber;
     epochBlock.acceleration = newBlockNumber;
   }
   
-  // 7. Update merkle root on THIS message (not the original)
-  let message = cache.getCorrectLastEpochMessage(id);
-  message.block = messageBlock.id;
-  message.newMerkleRoot = merkleRoot;
-  message.data = reader.diff(snapshot);
-  
-  // 8. Update network's latest valid block number
+  // 9. Update network's latest valid block number
   network.latestValidBlockNumber = epochBlock.id;
 }
 

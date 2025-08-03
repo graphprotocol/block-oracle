@@ -83,22 +83,19 @@ type CorrectLastEpochMessage implements Message @entity {
   id: ID!
   block: MessageBlock!
   data: Bytes
+  # Message fields
   newMerkleRoot: Bytes!
-  corrections: [LastEpochCorrection!]! @derivedFrom(field: "message")
-}
-
-type LastEpochCorrection @entity {
-  id: ID!
-  message: CorrectLastEpochMessage!
+  # Single network correction (since one network per message)
   network: Network!
-  epochNumber: BigInt!          # For reference
-  newBlockNumber: BigInt!        # The corrected block number
-  previousBlockNumber: BigInt!   # For audit trail
-  # Computed values that will be updated
-  newAcceleration: BigInt!
+  epochNumber: BigInt!
+  # Audit trail - before correction
+  previousBlockNumber: BigInt!
   previousAcceleration: BigInt!
-  newDelta: BigInt!
   previousDelta: BigInt!
+  # Audit trail - after correction  
+  newBlockNumber: BigInt!
+  newAcceleration: BigInt!
+  newDelta: BigInt!
 }
 
 type Network @entity {

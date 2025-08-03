@@ -969,25 +969,22 @@ test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> CorrectLastEpoch", () =
 
   // Verify correction was applied
   assert.entityCount("CorrectLastEpochMessage", 1);
-  assert.entityCount("LastEpochCorrection", 1);
   
-  // Check the correction message
+  // Check the correction message (all audit data is now in the single entity)
   assert.fieldEquals(
     "CorrectLastEpochMessage",
     "0x03-0-0",
     "newMerkleRoot",
     "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
   );
-
-  // Check the correction record
-  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "network", "A1");
-  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "epochNumber", "1");
-  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "previousBlockNumber", "15");
-  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "newBlockNumber", "20");
-  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "previousAcceleration", "15");
-  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "previousDelta", "15");
-  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "newAcceleration", "20");
-  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "newDelta", "20");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x03-0-0", "network", "A1");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x03-0-0", "epochNumber", "1");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x03-0-0", "previousBlockNumber", "15");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x03-0-0", "newBlockNumber", "20");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x03-0-0", "previousAcceleration", "15");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x03-0-0", "previousDelta", "15");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x03-0-0", "newAcceleration", "20");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x03-0-0", "newDelta", "20");
 
   // Verify the NetworkEpochBlockNumber was updated
   assert.fieldEquals("NetworkEpochBlockNumber", "1-A1", "blockNumber", "20");
@@ -1012,7 +1009,6 @@ test("CorrectLastEpoch with no epochs should fail", () => {
   
   // No correction entities should be created
   assert.entityCount("CorrectLastEpochMessage", 0);
-  assert.entityCount("LastEpochCorrection", 0);
 });
 
 test("CorrectLastEpoch with invalid network should fail", () => {
@@ -1079,13 +1075,13 @@ test("CorrectLastEpoch with multiple epochs calculates delta correctly", () => {
   ) as Bytes;
   processPayload(submitter, correctLastEpochBytes, "0x04", BIGINT_ONE);
 
-  // Check the correction record
-  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "previousBlockNumber", "25");
-  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "newBlockNumber", "30");
-  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "previousDelta", "15");
-  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "newDelta", "20"); // 30 - 10 = 20
-  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "previousAcceleration", "5");
-  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "newAcceleration", "10"); // 20 - 10 = 10
+  // Check the correction record (now in CorrectLastEpochMessage)
+  assert.fieldEquals("CorrectLastEpochMessage", "0x04-0-0", "previousBlockNumber", "25");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x04-0-0", "newBlockNumber", "30");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x04-0-0", "previousDelta", "15");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x04-0-0", "newDelta", "20"); // 30 - 10 = 20
+  assert.fieldEquals("CorrectLastEpochMessage", "0x04-0-0", "previousAcceleration", "5");
+  assert.fieldEquals("CorrectLastEpochMessage", "0x04-0-0", "newAcceleration", "10"); // 20 - 10 = 10
 
   // Verify the NetworkEpochBlockNumber was updated correctly
   assert.fieldEquals("NetworkEpochBlockNumber", "2-A1", "blockNumber", "30");
