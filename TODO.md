@@ -9,147 +9,47 @@ Need to implement the CorrectLastEpoch message type to fix incorrect block numbe
 - Subgraph handler: Empty function with just `// TODO.`
 - JSON encoder: Empty struct with `// TODO.`
 
-## Implementation Plan
+## Implementation Progress
 
-### 1. Define Message Structure
+### ✅ 1. Define Message Structure - COMPLETED
 
-The CorrectLastEpoch message will:
-- Always correct the latest epoch (no epoch_number parameter needed)
-- Correct exactly ONE network per message (send multiple messages for multiple networks)
-- Include new merkle root for verification
+The CorrectLastEpoch message:
+- Always corrects the latest epoch (no epoch_number parameter needed)
+- Corrects exactly ONE network per message (send multiple messages for multiple networks)
+- Includes new merkle root for verification
 
-```rust
-// In crates/encoding/src/messages.rs
-// Add to Message enum:
-CorrectLastEpoch {
-    network_id: NetworkIndex,    // Which network to correct
-    block_number: u64,           // The correct block number
-    merkle_root: Bytes32,        // New merkle root for the entire epoch
-}
+Implemented in `crates/encoding/src/messages.rs`:
+- Added `CorrectLastEpoch` variant with `network_id`, `block_number`, `merkle_root`
+- Message type 7 assigned, default updated to 8
 
-// Update message type mapping:
-"CorrectLastEpochMessage" => 7,
-_ => 8  // Update default case
-```
+### ✅ 2. Update Rust Implementation - COMPLETED
 
-### 2. Update Rust Implementation
+#### 2.1 Encoding crate - DONE
+- Added `CorrectLastEpoch` to Message and CompressedMessage enums
+- Updated `str_to_u64` mapping
+- Implemented `serialize_correct_last_epoch` in serialize.rs
+- Added comprehensive unit tests
 
-#### 2.1 Update encoding crate
-- [ ] Add `CorrectLastEpoch` variant to `Message` enum in `crates/encoding/src/messages.rs`
-- [ ] Add message type string mapping in `str_to_u64`
-- [ ] Implement serialization in `crates/encoding/src/serialize.rs`:
-  ```rust
-  fn serialize_correct_last_epoch(
-      network_id: NetworkIndex,
-      block_number: u64,
-      merkle_root: &Bytes32,
-      bytes: &mut Vec<u8>
-  ) {
-      serialize_u64(network_id, bytes);
-      serialize_u64(block_number, bytes);
-      bytes.extend_from_slice(merkle_root);
-  }
-  ```
-- [ ] Add tests for encoding/decoding
+#### 2.2 JSON encoder - DONE
+- Added JSON structure with camelCase fields
+- Implemented conversion from JSON to encoding format
+- Created example JSON file: `06-correct-last-epoch.json`
+- Added tests for valid/invalid JSON parsing
 
-#### 2.2 Update JSON encoder
-- [ ] Add JSON structure in `crates/json-oracle-encoder/src/lib.rs`:
-  ```rust
-  #[serde(rename_all = "camelCase")]
-  CorrectLastEpoch {
-      network_id: u64,
-      block_number: u64,
-      merkle_root: String,  // Hex-encoded
-  }
-  ```
-- [ ] Implement conversion from JSON to encoding format
-- [ ] Add example JSON file in message-examples/
+### ✅ 3. Update Subgraph Implementation - COMPLETED
 
-### 3. Update Subgraph Implementation
+#### 3.1 Schema Updates - DONE
+- Added `CorrectLastEpochMessage` entity with `newMerkleRoot` field
+- Added `LastEpochCorrection` entity for audit trail
+- Includes previous/new values for block number, acceleration, and delta
 
-#### 3.1 Update Schema
-- [ ] Add message entity and correction tracking:
-  ```graphql
-  type CorrectLastEpochMessage implements Message @entity {
-    id: ID!
-    block: MessageBlock!
-    data: Bytes
-    newMerkleRoot: Bytes!
-    corrections: [LastEpochCorrection!]!
-  }
-  
-  type LastEpochCorrection @entity {
-    id: ID!
-    message: CorrectLastEpochMessage!
-    network: Network!
-    epochNumber: BigInt!          # For reference
-    newBlockNumber: BigInt!        # The corrected block number
-    previousBlockNumber: BigInt!   # For audit trail
-    # Computed values that will be updated
-    newAcceleration: BigInt!
-    previousAcceleration: BigInt!
-    newDelta: BigInt!
-    previousDelta: BigInt!
-  }
-  ```
-
-#### 3.2 Implement Handler Logic
-- [ ] Add case in `executeMessage` for `CORRECT_LAST_EPOCH_MESSAGE`
-- [ ] Implement `executeCorrectLastEpochMessage`:
-  ```typescript
-  function executeCorrectLastEpochMessage(
-    cache: StoreCache,
-    snapshot: BytesReader,
-    reader: BytesReader,
-    id: String,
-    messageBlock: MessageBlock
-  ): void {
-    // 1. Get latest epoch from globalState
-    let globalState = cache.getGlobalState();
-    let latestEpochId = globalState.latestValidEpoch;
-    if (!latestEpochId) {
-      reader.fail("No epochs exist to correct");
-      return;
-    }
-    
-    // 2. Parse message (much simpler now!)
-    let networkId = decodeU64(reader);
-    let newBlockNumber = BigInt.fromU64(decodeU64(reader));
-    let merkleRoot = reader.advance(32);
-    
-    // 3. Find and validate network (convert u64 to string)
-    let networkIdStr = networkId.toString();
-    let network = cache.getNetwork(networkIdStr);
-    if (!network || network.removedAt != null) {
-      reader.fail("Invalid or removed network");
-      return;
-    }
-    
-    // 4. Find NetworkEpochBlockNumber for latest epoch
-    let epochBlockId = epochBlockNumberId(latestEpochId, network.id);
-    let epochBlock = cache.getNetworkEpochBlockNumber(epochBlockId);
-    
-    // 5. Store previous values and update
-    let correction = cache.getLastEpochCorrection(id + "-" + network.id);
-    correction.message = id;
-    correction.network = network.id;
-    correction.epochNumber = latestEpochId;
-    correction.previousBlockNumber = epochBlock.blockNumber;
-    correction.newBlockNumber = newBlockNumber;
-    
-    // 6. Recalculate acceleration and delta
-    // ... (calculate based on previous epoch)
-    
-    // 7. Update merkle root on THIS message (not the original)
-    let message = cache.getCorrectLastEpochMessage(id);
-    message.newMerkleRoot = merkleRoot;
-    
-    // 8. Save all entities to store
-    cache.save();
-  }
-  ```
-- [ ] Add helper functions for recalculating acceleration/delta
-- [ ] Ensure StoreCache includes CorrectLastEpochMessage entities
+#### 3.2 Handler Implementation - DONE
+- Added `CorrectLastEpochMessage` to MessageTag enum (value 7)
+- Implemented `executeCorrectLastEpochMessage` handler
+- Added getters to StoreCache for new entities
+- Fixed `epochBlockNumberId` to accept string parameter
+- Handler validates epoch exists, parses message, updates values
+- Properly handles AssemblyScript nullable types with `!` operator
 
 ### 4. Create Manual Correction Tool
 

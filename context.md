@@ -47,10 +47,26 @@
 - The immediate problem: wrong block posted for current epoch
 - Original incorrect block data might be garbage/unobtainable
 
-### Next Steps When Resuming
-1. Start with Rust message definition (crates/encoding/src/messages.rs)
-2. Implement serialization
-3. Add JSON encoder support
-4. Implement subgraph handler
-5. Create CLI command
-6. Test locally before deploying fix
+### Progress Update
+
+### Completed Items
+1. ✅ Rust message definition and serialization
+2. ✅ JSON encoder support with tests
+3. ✅ Subgraph schema and handler implementation
+4. ✅ Unit tests for encoding/decoding
+
+### Lessons Learned
+- AssemblyScript doesn't have TypeScript's type narrowing - need explicit `!` operator
+- `epochBlockNumberId` needed string parameter, not BigInt
+- Yarn state files (.yarn/install-state.gz) should be gitignored
+
+## Next Steps When Resuming
+1. Create CLI command for CorrectLastEpoch
+2. Test locally before deploying fix
+
+The CLI command (last remaining task) needs to:
+- Query subgraph for latest epoch
+- Get current block for specified network (or use provided block)
+- Fetch blocks for ALL networks to compute new merkle root
+- Show dry-run summary before sending
+- Prompt for confirmation unless --yes flag
