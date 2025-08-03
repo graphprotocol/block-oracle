@@ -11,6 +11,7 @@ target/
 # Ignore node stuff
 node_modules/
 yarn-error.log
+.yarn/install-state.gz
 
 # Ignore build stuff
 cache/

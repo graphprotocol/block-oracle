@@ -12,7 +12,9 @@ import {
   ChangePermissionsMessage,
   ResetStateMessage,
   MessageBlock,
-  PermissionListEntry
+  PermissionListEntry,
+  CorrectLastEpochMessage,
+  LastEpochCorrection
 } from "../generated/schema";
 
 export class SafeMap<K, V> extends Map<K, V> {
@@ -47,6 +49,8 @@ export class StoreCache {
   changePermissionsMessages: SafeMap<String, ChangePermissionsMessage>;
   resetStateMessages: SafeMap<String, ResetStateMessage>;
   messageBlocks: SafeMap<String, MessageBlock>;
+  correctLastEpochMessages: SafeMap<String, CorrectLastEpochMessage>;
+  lastEpochCorrections: SafeMap<String, LastEpochCorrection>;
 
   constructor() {
     let state = GlobalState.load("0");
@@ -86,6 +90,8 @@ export class StoreCache {
     this.resetStateMessages = new SafeMap<String, ResetStateMessage>();
     this.messageBlocks = new SafeMap<String, MessageBlock>();
     this.permissionListEntries = new SafeMap<String, PermissionListEntry>();
+    this.correctLastEpochMessages = new SafeMap<String, CorrectLastEpochMessage>();
+    this.lastEpochCorrections = new SafeMap<String, LastEpochCorrection>();
   }
 
   getGlobalState(): GlobalState {
@@ -249,6 +255,28 @@ export class StoreCache {
     return this.messageBlocks.safeGet(id)!;
   }
 
+  getCorrectLastEpochMessage(id: String): CorrectLastEpochMessage {
+    if (this.correctLastEpochMessages.safeGet(id) == null) {
+      let message = CorrectLastEpochMessage.load(id);
+      if (message == null) {
+        message = new CorrectLastEpochMessage(id);
+      }
+      this.correctLastEpochMessages.set(id, message);
+    }
+    return this.correctLastEpochMessages.safeGet(id)!;
+  }
+
+  getLastEpochCorrection(id: String): LastEpochCorrection {
+    if (this.lastEpochCorrections.safeGet(id) == null) {
+      let correction = LastEpochCorrection.load(id);
+      if (correction == null) {
+        correction = new LastEpochCorrection(id);
+      }
+      this.lastEpochCorrections.set(id, correction);
+    }
+    return this.lastEpochCorrections.safeGet(id)!;
+  }
+
   commitChanges(): void {
     this.state.save();
 
@@ -306,6 +334,16 @@ export class StoreCache {
     let permissionListEntries = this.permissionListEntries.values();
     for (let i = 0; i < permissionListEntries.length; i++) {
       permissionListEntries[i].save();
+    }
+
+    let correctLastEpochMessages = this.correctLastEpochMessages.values();
+    for (let i = 0; i < correctLastEpochMessages.length; i++) {
+      correctLastEpochMessages[i].save();
+    }
+
+    let lastEpochCorrections = this.lastEpochCorrections.values();
+    for (let i = 0; i < lastEpochCorrections.length; i++) {
+      lastEpochCorrections[i].save();
     }
 
     //this.networks.values().forEach(elem => elem.save());
