@@ -221,4 +221,39 @@ mod tests {
             assert_eq!(&buf_i64[..], &buf_u64[..]);
         }
     }
+
+    #[test]
+    fn test_correct_last_epoch_serialization() {
+        use crate::messages::{Bytes32, CompressedMessage};
+
+        let network_id = 42u64;
+        let block_number = 1234567890u64;
+        let merkle_root: Bytes32 = [0xAB; 32];
+
+        let message = CompressedMessage::CorrectLastEpoch {
+            network_id,
+            block_number,
+            merkle_root,
+        };
+
+        // Test message tag
+        assert_eq!(message_tag(&message), 7);
+
+        // Test serialization
+        let mut bytes = Vec::new();
+        serialize_messages(&[message], &mut bytes);
+
+        // First byte should be the preamble with tag 7
+        assert_eq!(bytes[0] & 0x0F, 7);
+
+        // The rest should contain:
+        // - network_id (variable length encoded)
+        // - block_number (variable length encoded)  
+        // - merkle_root (32 bytes)
+        assert!(bytes.len() > 33); // At least preamble + 2 encoded u64s + 32 byte merkle root
+        
+        // Verify merkle root is at the end
+        let merkle_start = bytes.len() - 32;
+        assert_eq!(&bytes[merkle_start..], &merkle_root);
+    }
 }

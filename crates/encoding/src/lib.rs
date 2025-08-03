@@ -506,4 +506,45 @@ mod tests {
             _ => panic!("Expected ChangePermissions message"),
         }
     }
+
+    #[test]
+    fn correct_last_epoch_message() {
+        let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, vec![]).unwrap();
+
+        let test_merkle_root = [42u8; 32];
+        let test_network_id = 1u64;
+        let test_block_number = 12345678u64;
+
+        let compressed = encoder
+            .compress(&[Message::CorrectLastEpoch {
+                network_id: test_network_id,
+                block_number: test_block_number,
+                merkle_root: test_merkle_root,
+            }])
+            .unwrap();
+
+        assert_eq!(compressed.len(), 1);
+
+        match &compressed[0] {
+            CompressedMessage::CorrectLastEpoch {
+                network_id,
+                block_number,
+                merkle_root,
+            } => {
+                assert_eq!(*network_id, test_network_id);
+                assert_eq!(*block_number, test_block_number);
+                assert_eq!(*merkle_root, test_merkle_root);
+            }
+            _ => panic!("Expected CorrectLastEpoch message"),
+        }
+
+        // Test encoding
+        let encoded = encoder.encode(&compressed);
+        assert!(!encoded.is_empty());
+        
+        // Verify the message tag is correct (should be 7)
+        let preamble = encoded[0];
+        let tag = preamble & 0x0F; // Extract the first tag
+        assert_eq!(tag, 7);
+    }
 }
