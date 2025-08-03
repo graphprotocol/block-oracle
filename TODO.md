@@ -28,7 +28,8 @@ CorrectLastEpoch {
 }
 
 // Update message type mapping:
-"CorrectLastEpochMessage" => 7  // Or next available number
+"CorrectLastEpochMessage" => 7,
+_ => 8  // Update default case
 ```
 
 ### 2. Update Rust Implementation
@@ -116,8 +117,9 @@ CorrectLastEpoch {
     let newBlockNumber = BigInt.fromU64(decodeU64(reader));
     let merkleRoot = reader.advance(32);
     
-    // 3. Find and validate network
-    let network = cache.getNetwork(networkId.toString());
+    // 3. Find and validate network (convert u64 to string)
+    let networkIdStr = networkId.toString();
+    let network = cache.getNetwork(networkIdStr);
     if (!network || network.removedAt != null) {
       reader.fail("Invalid or removed network");
       return;
@@ -138,11 +140,16 @@ CorrectLastEpoch {
     // 6. Recalculate acceleration and delta
     // ... (calculate based on previous epoch)
     
-    // 7. Update the SetBlockNumbersForEpochMessage merkle root
-    // ... (find the message for latest epoch and update)
+    // 7. Update merkle root on THIS message (not the original)
+    let message = cache.getCorrectLastEpochMessage(id);
+    message.newMerkleRoot = merkleRoot;
+    
+    // 8. Save all entities to store
+    cache.save();
   }
   ```
 - [ ] Add helper functions for recalculating acceleration/delta
+- [ ] Ensure StoreCache includes CorrectLastEpochMessage entities
 
 ### 4. Create Manual Correction Tool
 
@@ -244,6 +251,8 @@ cargo run --bin oracle -- correct-last-epoch --config-file config.toml --network
 2. **No Cascade Effects**: Since it's the last epoch, no subsequent epochs need updating
 3. **Merkle Root Required**: For offchain verification of the correction
 4. **Flexible Network Selection**: Only correct networks that need it, not all
+5. **Preserve Original Messages**: Don't modify SetBlockNumbersForEpochMessage - keep for audit trail
+6. **Offchain Reconstruction**: Observers can reconstruct final state from original + corrections
 
 ## Key Advantages Over Full CorrectEpochs
 
