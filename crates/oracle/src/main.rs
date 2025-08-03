@@ -1,3 +1,4 @@
+pub mod chain_validation;
 pub mod commands;
 pub mod config;
 pub mod contracts;
