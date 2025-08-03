@@ -281,3 +281,97 @@ The `k8s/compose/` directory contains a complete local development environment:
 - IPFS node for subgraph deployment
 - Graph Node for local subgraph testing
 - Configured with environment variables for easy setup
+
+## Development Best Practices and Lessons Learned
+
+### Subgraph Development
+
+**Testing Limitations**
+- Subgraph tests require TTY and must be run manually by the user, not via Claude
+- Use `yarn test` in the packages/subgraph directory
+- Docker environment needs interactive terminal for proper test execution
+
+**AssemblyScript Quirks**
+- AssemblyScript doesn't have TypeScript's type narrowing
+- Use explicit `!` operator for nullable types: `network.addedAt!`
+- Null checks must be done separately before accessing fields
+- Use `load()` for existence checks, then `cache.get()` for updates
+
+**Message Encoding in Tests**
+- Always use Rust encoder for generating test message bytes
+- Manual VarInt encoding is error-prone and should be avoided
+- Add JSON documentation comments for all encoded hex strings in tests
+- Example: `// JSON: { "message": "CorrectLastEpoch", "chainId": "A1", "blockNumber": 20 }`
+
+**Network Validation**
+- Use `cache.isNetworkAlreadyRegistered(chainId)` for existence checks
+- Don't manually validate network entities - use the cache methods
+- CAIP-2 chain IDs are strings, not numbers: `"eip155:42161"`
+
+### Configuration Management
+
+**Generated Files**
+- `constants.ts` is generated from `constants.template.ts` using mustache templates
+- Never commit generated files - they should be in .gitignore
+- Permission configurations come from config/*.json files
+- Use `git rm --cached` to remove accidentally committed generated files
+
+**Permission System**
+- Permissions are configured in `packages/subgraph/config/*.json`
+- Each config file specifies addresses and their allowed message types
+- Constants are generated during build using mustache templating
+- Production config: `arbitrum.json`, Test config: `test.json`
+
+### CLI Command Development
+
+**Command Structure**
+- Use clap derive macros for argument parsing
+- Follow existing patterns in main.rs for new commands
+- Import functions at module level, not within functions
+- Example structure:
+  ```rust
+  SomeCommand {
+      #[clap(short, long)]
+      config_file: PathBuf,
+      #[clap(short = 'n', long)]
+      chain_id: String,
+  }
+  ```
+
+**Error Handling**
+- Use `anyhow::Result<()>` for function returns
+- Use `anyhow::bail!()` for early returns with error messages
+- Validate input parameters before processing
+
+### Repository Management
+
+**Git Ignore Patterns**
+- Use `**` for recursive patterns: `**/tests/.docker/`
+- Yarn files: `.yarn/`, `.yarnrc.yml`
+- Test artifacts: `tests/.docker/`
+- Generated files: `constants.ts`, `subgraph.yaml`
+
+**Commit Practices**
+- Run cargo fmt, cargo clippy, and cargo test before committing
+- Use descriptive commit messages with clear scope
+- Include co-authorship for AI-assisted development
+- Never force push unless absolutely necessary (use `--force-with-lease`)
+
+### Common Pitfalls and Solutions
+
+**1. VarInt Encoding Issues**
+- Problem: Manual encoding gives wrong values (e.g., 15 as 0x0f instead of 0x3d)
+- Solution: Always use `cargo run --bin block-oracle -- encode message.json`
+
+**2. Network Validation Errors**
+- Problem: `Cannot return null for a required field` when checking networks
+- Solution: Use `cache.isNetworkAlreadyRegistered()` instead of manual checks
+
+**3. Test Entity ID Mismatches**
+- Problem: Expected "0x03-0" but got "0x03-0-0"
+- Solution: Check the actual entity ID format in the handler code
+
+**4. Import Visibility Issues**
+- Problem: `function is private` when importing from other crates
+- Solution: Check the crate's public API in lib.rs, use public functions only
+

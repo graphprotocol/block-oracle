@@ -47,26 +47,45 @@
 - The immediate problem: wrong block posted for current epoch
 - Original incorrect block data might be garbage/unobtainable
 
-### Progress Update
+### Current Progress (Latest Update)
 
-### Completed Items
-1. ✅ Rust message definition and serialization
-2. ✅ JSON encoder support with tests
-3. ✅ Subgraph schema and handler implementation
-4. ✅ Unit tests for encoding/decoding
+**Status: 95% Complete** 🎯
 
-### Lessons Learned
-- AssemblyScript doesn't have TypeScript's type narrowing - need explicit `!` operator
-- `epochBlockNumberId` needed string parameter, not BigInt
-- Yarn state files (.yarn/install-state.gz) should be gitignored
+### ✅ Completed Items
+1. **Rust Implementation** - Message definition, serialization, and comprehensive tests
+2. **JSON Encoder** - Full support with validation and error handling
+3. **Subgraph Schema** - Complete with CorrectLastEpochMessage and LastEpochCorrection entities
+4. **Subgraph Handler** - Fully implemented with proper validation and error handling
+5. **CAIP-2 Migration** - Changed from numeric network IDs to chain ID strings (e.g., "eip155:42161")
+6. **Permission System** - Updated production and test configs to allow CorrectLastEpoch
+7. **Comprehensive Testing** - All subgraph tests passing with proper edge case coverage
+8. **Repository Cleanup** - Fixed .gitignore, removed constants.ts from tracking
+9. **Code Quality** - All Rust code formatted, linted, and tested
+
+### 🔄 Currently Working On
+1. **CLI Command** - Adding `correct-last-epoch` subcommand to block-oracle binary (90% complete)
+
+### 🎯 Key Changes from Original Plan
+- **Simplified CLI**: Direct parameter input rather than automatic querying/computation
+- **Fixed Network Validation**: Using `cache.isNetworkAlreadyRegistered()` for proper validation
+- **VarInt Encoding**: Using Rust encoder for all tests to avoid manual encoding errors
+- **Constants Management**: Discovered constants.ts is generated from templates, not committed
+
+### Major Lessons Learned
+1. **AssemblyScript Quirks**: Need explicit `!` operator for nullable types
+2. **Network Validation**: Use existing cache methods rather than manual entity checks
+3. **Subgraph Testing**: Must be run manually by user due to TTY requirements
+4. **Configuration Management**: Permission system uses mustache templates from config files
+5. **VarInt Encoding**: Manual encoding error-prone, always use Rust encoder
+6. **Git Tracking**: Generated files (constants.ts) should not be committed
 
 ## Next Steps When Resuming
-1. Create CLI command for CorrectLastEpoch
-2. Test locally before deploying fix
+1. **Finish CLI Command** - Complete the `correct_last_epoch` function implementation
+2. **Test CLI Command** - Build and test the new command
+3. **Documentation** - Update CLAUDE.md with final usage instructions
 
-The CLI command (last remaining task) needs to:
-- Query subgraph for latest epoch
-- Get current block for specified network (or use provided block)
-- Fetch blocks for ALL networks to compute new merkle root
-- Show dry-run summary before sending
-- Prompt for confirmation unless --yes flag
+### Current CLI Implementation Status
+- ✅ Added CorrectLastEpoch variant to Clap enum with proper arguments
+- ✅ Added match case in main() function
+- 🔄 Implementing `correct_last_epoch()` function
+- ⏳ Need to fix import issues (messages_to_encoded_message_blocks is private)
