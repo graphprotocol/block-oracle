@@ -149,7 +149,7 @@ export function processMessageBlock(
       reader.fail(
         "Submitter {} doesn't have the required permissions to execute {}."
           .replace("{}", submitter)
-          .replace("{}", permissionRequired)
+          .replace("{}", MessageTag.toString(tags[i]))
       );
     }
     processMessage(cache, messageBlock, i, tags[i], reader);
@@ -377,7 +377,7 @@ function executeCorrectLastEpochMessage(
   }
   
   // 2. Parse message
-  let networkId = decodeU64(reader);
+  let chainId = decodeString(reader);
   if (!reader.ok) {
     return;
   }
@@ -390,21 +390,20 @@ function executeCorrectLastEpochMessage(
     return;
   }
   
-  // 3. Find and validate network (convert u64 to string)
-  let networkIdStr = networkId.toString();
-  let network = cache.getNetwork(networkIdStr);
-  if (!network || network.removedAt != null) {
+  // 3. Find and validate network
+  if (!cache.isNetworkAlreadyRegistered(chainId)) {
     reader.fail("Invalid or removed network");
     return;
   }
+  let network = cache.getNetwork(chainId);
   
   // 4. Find NetworkEpochBlockNumber for latest epoch
   let epochBlockId = epochBlockNumberId(latestEpochId!, network.id);
-  let epochBlock = cache.getNetworkEpochBlockNumber(epochBlockId);
-  if (!epochBlock) {
+  if (!cache.hasNetworkEpochBlockNumber(epochBlockId)) {
     reader.fail("No block number found for network in latest epoch");
     return;
   }
+  let epochBlock = cache.getNetworkEpochBlockNumber(epochBlockId);
   
   // 5. Store previous values for audit trail
   let correction = cache.getLastEpochCorrection(id + "-" + network.id);

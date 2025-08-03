@@ -111,11 +111,11 @@ fn messages_to_encoded_message_blocks(
                     },
                 ),
                 Message::CorrectLastEpoch {
-                    network_id,
+                    chain_id,
                     block_number,
                     merkle_root,
                 } => ee::CompressedMessage::CorrectLastEpoch {
-                    network_id,
+                    chain_id,
                     block_number,
                     merkle_root: merkle_root.try_into().map_err(|_| {
                         anyhow!("Bad JSON: The Merkle root must have exactly 32 bytes.")
@@ -178,7 +178,7 @@ pub enum Message {
     },
     #[serde(rename_all = "camelCase")]
     CorrectLastEpoch {
-        network_id: u64,
+        chain_id: String,
         block_number: u64,
         #[serde(deserialize_with = "deserialize_hex")]
         merkle_root: Vec<u8>,
@@ -238,7 +238,7 @@ mod tests {
         let json_str = r#"[
             {
                 "message": "CorrectLastEpoch",
-                "networkId": 1,
+                "chainId": "eip155:1",
                 "blockNumber": 12345678,
                 "merkleRoot": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
             }
@@ -265,7 +265,7 @@ mod tests {
                 },
                 {
                     "message": "CorrectLastEpoch",
-                    "networkId": 0,
+                    "chainId": "eip155:1",
                     "blockNumber": 99999,
                     "merkleRoot": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
                 }
@@ -277,7 +277,7 @@ mod tests {
 
         assert_eq!(encoded_blocks.len(), 1);
         let (message_types, payload) = &encoded_blocks[0];
-        
+
         // Verify message types
         assert_eq!(message_types.len(), 2);
         assert_eq!(message_types[0], "RegisterNetworks");
@@ -296,7 +296,7 @@ mod tests {
         let json_str = r#"[
             {
                 "message": "CorrectLastEpoch",
-                "networkId": 1,
+                "chainId": "eip155:1",
                 "blockNumber": 12345678,
                 "merkleRoot": "0x1234"
             }

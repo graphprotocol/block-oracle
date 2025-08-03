@@ -4,13 +4,90 @@ import {
   assert,
   afterEach,
   beforeEach,
-  createMockedFunction
+  createMockedFunction,
+  describe
 } from "matchstick-as/assembly/index";
-import { processPayload } from "../src/mapping";
+import { processPayload, handleCrossChainEpochOracle } from "../src/mapping";
 import { parseCalldata } from "../src/helpers";
-import { EPOCH_MANAGER_ADDRESS, BIGINT_ONE } from "../src/constants";
+import { EPOCH_MANAGER_ADDRESS, BIGINT_ONE, BIGINT_ZERO } from "../src/constants";
 import { Bytes, BigInt, Address, ethereum } from "@graphprotocol/graph-ts";
-import { Network, GlobalState, PermissionListEntry } from "../generated/schema";
+import { Network, GlobalState, PermissionListEntry, Epoch, NetworkEpochBlockNumber } from "../generated/schema";
+import { CrossChainEpochOracleCall } from "../generated/DataEdge/DataEdge";
+
+let DATA_EDGE_ADDRESS = Address.fromString("0x0000000000000000000000000000000000000000");
+
+function createCrossChainEpochOracleCall(
+  from: Address,
+  payload: Bytes,
+  blockNumber: BigInt,
+  txHash: string
+): CrossChainEpochOracleCall {
+  let call = changetype<CrossChainEpochOracleCall>(newMockCall());
+  call.from = from;
+  call.inputs._payload = payload;
+  call.block.number = blockNumber;
+  call.transaction.hash = Bytes.fromHexString(txHash);
+  return call;
+}
+
+function newMockCall(): ethereum.Call {
+  return changetype<ethereum.Call>(newMockEvent());
+}
+
+function newMockEvent(): ethereum.Event {
+  let event = changetype<ethereum.Event>(new Entity());
+  event.address = Address.fromString("0x0000000000000000000000000000000000000000");
+  event.logIndex = BigInt.fromI32(0);
+  event.transactionLogIndex = BigInt.fromI32(0);
+  event.logType = null;
+  event.block = changetype<ethereum.Block>(new Entity());
+  event.block.baseFeePerGas = null;
+  event.block.difficulty = BigInt.fromI32(0);
+  event.block.gasLimit = BigInt.fromI32(0);
+  event.block.gasUsed = BigInt.fromI32(0);
+  event.block.hash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
+  event.block.miner = Address.fromString("0x0000000000000000000000000000000000000000");
+  event.block.nonce = null;
+  event.block.number = BigInt.fromI32(0);
+  event.block.parentHash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
+  event.block.receiptsRoot = null;
+  event.block.size = null;
+  event.block.stateRoot = null;
+  event.block.timestamp = BigInt.fromI32(0);
+  event.block.totalDifficulty = null;
+  event.block.transactionsRoot = null;
+  event.block.unclesHash = null;
+  event.transaction = changetype<ethereum.Transaction>(new Entity());
+  event.transaction.from = Address.fromString("0x0000000000000000000000000000000000000000");
+  event.transaction.gasLimit = BigInt.fromI32(0);
+  event.transaction.gasPrice = BigInt.fromI32(0);
+  event.transaction.hash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
+  event.transaction.index = BigInt.fromI32(0);
+  event.transaction.to = null;
+  event.transaction.value = BigInt.fromI32(0);
+  event.transaction.nonce = BigInt.fromI32(0);
+  event.transactionHash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
+  event.parameters = [];
+  event.receipt = changetype<ethereum.TransactionReceipt>(new Entity());
+  event.receipt.transactionHash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
+  event.receipt.transactionIndex = BigInt.fromI32(0);
+  event.receipt.blockHash = Bytes.fromHexString("0x0000000000000000000000000000000000000000000000000000000000000000");
+  event.receipt.blockNumber = BigInt.fromI32(0);
+  event.receipt.cumulativeGasUsed = BigInt.fromI32(0);
+  event.receipt.gasUsed = BigInt.fromI32(0);
+  event.receipt.contractAddress = null;
+  event.receipt.logs = [];
+  event.receipt.logsBloom = Bytes.fromHexString("0x00");
+  event.receipt.root = null;
+  event.receipt.status = null;
+  return event;
+}
+
+class Entity extends Bytes {
+  constructor() {
+    super();
+  }
+}
 
 // Previously valid 2 tag bit length transaction
 // test("Payload processing latest example", () => {
@@ -853,4 +930,165 @@ test("(RegisterNetworksAndAliases)", () => {
   // assert.fieldEquals("Network", "A", "arrayIndex", "0");
   // let networkA = Network.load("A")!;
   // assert.assertNull(networkA.nextArrayElement);
+});
+
+test("(RegisterNetworks, SetBlockNumbersForNextEpoch) -> CorrectLastEpoch", () => {
+  // First, register a network and set block numbers for epoch 1
+  // JSON: { "message": "RegisterNetworks", "add": ["A1"], "remove": [] }
+  let registerPayloadBytes = Bytes.fromHexString("0x030103054131") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000"; // Zero address has all permissions in test
+  let txHash1 = "0x01";
+
+  processPayload(submitter, registerPayloadBytes, txHash1, BIGINT_ONE);
+
+  // Set block numbers for epoch 1
+  mockEpochNumber(1);
+  // JSON: { "message": "SetBlockNumbersForNextEpoch", "merkleRoot": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", "accelerations": [15] }
+  let setBlockNumbersBytes = Bytes.fromHexString(
+    "0x001234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef3d"
+  ) as Bytes;
+  let txHash2 = "0x02";
+  processPayload(submitter, setBlockNumbersBytes, txHash2, BIGINT_ONE);
+
+  // Verify initial state
+  assert.entityCount("Epoch", 1);
+  assert.entityCount("Network", 1);
+  assert.entityCount("NetworkEpochBlockNumber", 1);
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A1", "blockNumber", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A1", "acceleration", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A1", "delta", "15");
+
+  // Now send a CorrectLastEpoch message
+  // JSON: { "message": "CorrectLastEpoch", "chainId": "A1", "blockNumber": 20, "merkleRoot": "0xabcd..." }
+  let correctLastEpochBytes = Bytes.fromHexString(
+    "0x0705413129abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+  ) as Bytes;
+  let txHash3 = "0x03";
+
+  processPayload(submitter, correctLastEpochBytes, txHash3, BIGINT_ONE);
+
+  // Verify correction was applied
+  assert.entityCount("CorrectLastEpochMessage", 1);
+  assert.entityCount("LastEpochCorrection", 1);
+  
+  // Check the correction message
+  assert.fieldEquals(
+    "CorrectLastEpochMessage",
+    "0x03-0-0",
+    "newMerkleRoot",
+    "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+  );
+
+  // Check the correction record
+  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "network", "A1");
+  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "epochNumber", "1");
+  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "previousBlockNumber", "15");
+  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "newBlockNumber", "20");
+  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "previousAcceleration", "15");
+  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "previousDelta", "15");
+  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "newAcceleration", "20");
+  assert.fieldEquals("LastEpochCorrection", "0x03-0-0-A1", "newDelta", "20");
+
+  // Verify the NetworkEpochBlockNumber was updated
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A1", "blockNumber", "20");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A1", "acceleration", "20");
+  assert.fieldEquals("NetworkEpochBlockNumber", "1-A1", "delta", "20");
+});
+
+test("CorrectLastEpoch with no epochs should fail", () => {
+  // Try to correct when no epochs exist
+  // JSON: { "message": "CorrectLastEpoch", "chainId": "A1", "blockNumber": 20, "merkleRoot": "0xabcd..." }
+  let correctLastEpochBytes = Bytes.fromHexString(
+    "0x0705413129abcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+  ) as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000"; // Zero address has all permissions in test
+  let txHash = "0x01";
+
+  processPayload(submitter, correctLastEpochBytes, txHash, BIGINT_ONE);
+
+  // Verify the payload was marked as invalid
+  assert.fieldEquals("Payload", "0x01", "valid", "false");
+  assert.fieldEquals("Payload", "0x01", "errorMessage", "No epochs exist to correct");
+  
+  // No correction entities should be created
+  assert.entityCount("CorrectLastEpochMessage", 0);
+  assert.entityCount("LastEpochCorrection", 0);
+});
+
+test("CorrectLastEpoch with invalid network should fail", () => {
+  // First create an epoch by setting up a network and creating an epoch
+  mockEpochNumber(1);
+  
+  // Register a network first so we have proper state
+  // JSON: { "message": "RegisterNetworks", "add": ["A1"], "remove": [] }
+  let registerPayload = Bytes.fromHexString("0x030103054131") as Bytes;
+  processPayload("0x0000000000000000000000000000000000000000", registerPayload, "setup-tx", BIGINT_ONE);
+  
+  // Create an epoch
+  // JSON: { "message": "SetBlockNumbersForNextEpoch", "merkleRoot": "0x1234...", "accelerations": [15] }
+  let epochPayload = Bytes.fromHexString("0x001234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef3d") as Bytes;
+  processPayload("0x0000000000000000000000000000000000000000", epochPayload, "epoch-tx", BIGINT_ONE);
+
+  // Try to correct a network that doesn't exist (using non-existent chain ID "XX")
+  // JSON: { "message": "CorrectLastEpoch", "chainId": "XX", "blockNumber": 29, "merkleRoot": "0xabcd..." }
+  let correctLastEpochBytes = Bytes.fromHexString(
+    "0x070558583babcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+  ) as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000"; // Zero address has all permissions in test
+  let txHash = "0x01";
+
+  processPayload(submitter, correctLastEpochBytes, txHash, BIGINT_ONE);
+
+  // Verify the payload was marked as invalid
+  assert.fieldEquals("Payload", "0x01", "valid", "false");
+  assert.fieldEquals("Payload", "0x01", "errorMessage", "Invalid or removed network");
+});
+
+test("CorrectLastEpoch with multiple epochs calculates delta correctly", () => {
+  // Register a network
+  // JSON: { "message": "RegisterNetworks", "add": ["A1"], "remove": [] }
+  let registerPayloadBytes = Bytes.fromHexString("0x030103054131") as Bytes;
+  let submitter = "0x0000000000000000000000000000000000000000"; // Zero address has all permissions in test
+  processPayload(submitter, registerPayloadBytes, "0x01", BIGINT_ONE);
+
+  // Set block numbers for epoch 1
+  mockEpochNumber(1);
+  // JSON: { "message": "SetBlockNumbersForNextEpoch", "merkleRoot": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", "accelerations": [10] }
+  let setBlockNumbersBytes1 = Bytes.fromHexString(
+    "0x001234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef29"
+  ) as Bytes;
+  processPayload(submitter, setBlockNumbersBytes1, "0x02", BIGINT_ONE);
+
+  // Set block numbers for epoch 2 (block 25, delta 15, acceleration 5)
+  mockEpochNumber(2);
+  // JSON: { "message": "SetBlockNumbersForNextEpoch", "merkleRoot": "0x2234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef", "accelerations": [5] }
+  let setBlockNumbersBytes2 = Bytes.fromHexString(
+    "0x002234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef15"
+  ) as Bytes;
+  processPayload(submitter, setBlockNumbersBytes2, "0x03", BIGINT_ONE);
+
+  // Verify state before correction
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A1", "blockNumber", "25");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A1", "delta", "15");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A1", "acceleration", "5");
+
+  // Correct epoch 2 to block 30
+  // JSON: { "message": "CorrectLastEpoch", "chainId": "A1", "blockNumber": 30, "merkleRoot": "0xabcd..." }
+  let correctLastEpochBytes = Bytes.fromHexString(
+    "0x070541313dabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+  ) as Bytes;
+  processPayload(submitter, correctLastEpochBytes, "0x04", BIGINT_ONE);
+
+  // Check the correction record
+  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "previousBlockNumber", "25");
+  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "newBlockNumber", "30");
+  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "previousDelta", "15");
+  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "newDelta", "20"); // 30 - 10 = 20
+  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "previousAcceleration", "5");
+  assert.fieldEquals("LastEpochCorrection", "0x04-0-0-A1", "newAcceleration", "10"); // 20 - 10 = 10
+
+  // Verify the NetworkEpochBlockNumber was updated correctly
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A1", "blockNumber", "30");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A1", "delta", "20");
+  assert.fieldEquals("NetworkEpochBlockNumber", "2-A1", "acceleration", "10");
 });

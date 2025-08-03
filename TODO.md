@@ -80,7 +80,9 @@ Create CLI command to send CorrectLastEpoch messages:
   2. For the specified network:
      - If block number provided, use it
      - Otherwise, query RPC for current block
-  3. Fetch block hashes for ALL networks in the epoch (with correction applied)
+  3. Fetch block hashes for ALL networks in the epoch:
+     - For the network being corrected: use the new block number
+     - For all other networks: use the block numbers from the subgraph (NOT current blocks)
   4. Compute new merkle root with corrected values
   5. Display correction summary:
      ```

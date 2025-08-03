@@ -54,7 +54,7 @@ pub enum Message {
         permissions: Vec<String>,
     },
     CorrectLastEpoch {
-        network_id: NetworkIndex,
+        chain_id: String,
         block_number: u64,
         merkle_root: Bytes32,
     },
@@ -100,7 +100,7 @@ pub enum CompressedMessage {
         permissions: Vec<u64>,
     },
     CorrectLastEpoch {
-        network_id: NetworkIndex,
+        chain_id: String,
         block_number: u64,
         merkle_root: Bytes32,
     },

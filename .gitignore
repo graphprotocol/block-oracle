@@ -11,7 +11,8 @@ target/
 # Ignore node stuff
 node_modules/
 yarn-error.log
-.yarn/install-state.gz
+.yarn/
+.yarnrc.yml
 
 # Ignore build stuff
 cache/
@@ -26,6 +27,9 @@ bin/
 
 # Ignore matchstick bin output
 .bin/
+
+# Ignore test docker files
+**/tests/.docker/
 
 # Others
 .env

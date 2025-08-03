@@ -50,10 +50,10 @@ fn serialize_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
             permissions,
         } => serialize_change_permissions(address, *valid_through, permissions, bytes),
         CompressedMessage::CorrectLastEpoch {
-            network_id,
+            chain_id,
             block_number,
             merkle_root,
-        } => serialize_correct_last_epoch(*network_id, *block_number, merkle_root, bytes),
+        } => serialize_correct_last_epoch(chain_id, *block_number, merkle_root, bytes),
     }
 }
 
@@ -121,12 +121,12 @@ fn serialize_change_permissions(
 }
 
 fn serialize_correct_last_epoch(
-    network_id: NetworkIndex,
+    chain_id: &str,
     block_number: u64,
     merkle_root: &Bytes32,
     bytes: &mut Vec<u8>,
 ) {
-    serialize_u64(network_id, bytes);
+    serialize_str(chain_id, bytes);
     serialize_u64(block_number, bytes);
     bytes.extend_from_slice(merkle_root);
 }
@@ -226,12 +226,12 @@ mod tests {
     fn test_correct_last_epoch_serialization() {
         use crate::messages::{Bytes32, CompressedMessage};
 
-        let network_id = 42u64;
+        let chain_id = "eip155:42161".to_string();
         let block_number = 1234567890u64;
         let merkle_root: Bytes32 = [0xAB; 32];
 
         let message = CompressedMessage::CorrectLastEpoch {
-            network_id,
+            chain_id,
             block_number,
             merkle_root,
         };
@@ -247,11 +247,11 @@ mod tests {
         assert_eq!(bytes[0] & 0x0F, 7);
 
         // The rest should contain:
-        // - network_id (variable length encoded)
-        // - block_number (variable length encoded)  
+        // - chain_id (string with length prefix)
+        // - block_number (variable length encoded)
         // - merkle_root (32 bytes)
-        assert!(bytes.len() > 33); // At least preamble + 2 encoded u64s + 32 byte merkle root
-        
+        assert!(bytes.len() > 33); // At least preamble + length + chain_id + block_number + 32 byte merkle root
+
         // Verify merkle root is at the end
         let merkle_start = bytes.len() - 32;
         assert_eq!(&bytes[merkle_start..], &merkle_root);
