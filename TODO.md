@@ -88,32 +88,52 @@ Create CLI command to send CorrectLastEpoch messages:
   ```
 
 - [🔄] Implementation logic:
-  1. Validate input parameters (chain ID format, merkle root format)
-  2. Create JSON message with provided parameters
-  3. Encode message using json-oracle-encoder
-  4. Submit to DataEdge contract
-  5. Display transaction hash
+  1. Query subgraph for latest epoch and current state
+  2. For the specified network:
+     - If block number provided, use it
+     - Otherwise, query RPC for current block
+  3. Fetch block hashes for ALL networks in the epoch:
+     - For the network being corrected: use the new block number
+     - For all other networks: use the block numbers from the subgraph (NOT current blocks)
+  4. Compute new merkle root with corrected values
+  5. Display correction summary and prompt for confirmation (unless --yes)
+  6. If --dry-run, exit without sending
+  7. Generate and submit message
 
 Current implementation status:
-- ✅ CLI argument parsing added to main.rs
-- 🔄 Function implementation in progress
-- ⏳ Build and test pending
+- ✅ CLI argument parsing updated with correct structure
+- ✅ Dry-run and confirmation prompts implemented
+- 🔄 Core logic needs implementation:
+  - ⏳ Subgraph querying for latest epoch data
+  - ⏳ RPC client initialization for all networks
+  - ⏳ Block hash fetching from multiple networks
+  - ⏳ Merkle root computation using epoch-encoding crate
+  - ⏳ Message creation and submission
 
 Example usage:
 ```bash
-# Correct latest epoch for Arbitrum with new block number
+# Dry run - see what would happen without sending
 cargo run --bin block-oracle -- correct-last-epoch \
   --config-file config.toml \
   --chain-id "eip155:42161" \
   --block-number 12345 \
-  --merkle-root "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+  --dry-run
 
-# Or with 0x prefix
+# Correct with confirmation prompt  
 cargo run --bin block-oracle -- correct-last-epoch \
-  -c config.toml \
-  -n "eip155:1" \
-  -b 18500000 \
-  -m "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+  --config-file config.toml \
+  --chain-id "eip155:42161" \
+  --block-number 12345
+
+# Auto-detect current block and skip confirmation
+cargo run --bin block-oracle -- correct-last-epoch \
+  --config-file config.toml \
+  --chain-id "eip155:42161" \
+  --yes
+
+# Short form
+cargo run --bin block-oracle -- correct-last-epoch \
+  -c config.toml -n "eip155:1" -b 18500000 -y
 ```
 
 ### ✅ 5. Testing Strategy - COMPLETED
@@ -148,17 +168,22 @@ cargo run --bin block-oracle -- correct-last-epoch \
 8. **Infrastructure** - .gitignore updates, constants.ts cleanup
 
 ### What's In Progress 🔄
-1. **CLI Command** - 90% complete, needs final build/test
+1. **CLI Command** - Structure complete, core logic needs implementation:
+   - ✅ Argument parsing with correct options (dry-run, confirmation, optional block number)
+   - ✅ User interface with emojis and clear prompts
+   - ⏳ Subgraph integration for epoch data
+   - ⏳ Multi-network RPC client setup
+   - ⏳ Merkle root computation
 
-### Usage
-Once CLI is complete, users can correct incorrect block numbers in the latest epoch using:
+### Current Status
+The CLI command structure is complete and ready for testing the user interface:
 ```bash
-cargo run --bin block-oracle -- correct-last-epoch \
-  --config-file config.toml \
-  --chain-id "eip155:42161" \
-  --block-number 12345 \
-  --merkle-root "0xabcd..."
+# Test the help and dry-run functionality
+cargo run --bin block-oracle -- correct-last-epoch --help
+cargo run --bin block-oracle -- correct-last-epoch -c config.toml -n "eip155:42161" -b 12345 --dry-run
 ```
+
+**Next Steps:** Implement the core logic for subgraph querying, RPC integration, and merkle root computation.
 
 ## Design Decisions
 

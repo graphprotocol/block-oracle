@@ -85,7 +85,18 @@
 3. **Documentation** - Update CLAUDE.md with final usage instructions
 
 ### Current CLI Implementation Status
-- ✅ Added CorrectLastEpoch variant to Clap enum with proper arguments
+- ✅ Added CorrectLastEpoch variant to Clap enum with proper arguments (updated for correct UX)
 - ✅ Added match case in main() function
-- 🔄 Implementing `correct_last_epoch()` function
-- ⏳ Need to fix import issues (messages_to_encoded_message_blocks is private)
+- ✅ CLI structure complete with dry-run, confirmation prompts, and optional block number
+- ✅ User interface implemented with clear messaging and emojis
+- 🔄 Core logic implementation needed:
+  - ⏳ Subgraph integration for querying latest epoch data
+  - ⏳ Multi-network RPC client setup for fetching block hashes
+  - ⏳ Merkle root computation using epoch-encoding algorithms
+  - ⏳ Message creation and blockchain submission
+
+**Important Discovery:** The original TODO.md had more sophisticated CLI requirements than initially implemented. The CLI should automatically compute merkle roots by:
+1. Querying subgraph for latest epoch block numbers across all networks
+2. Using RPCs to fetch corresponding block hashes 
+3. Computing merkle root using the same algorithm as normal oracle operation
+4. Only requiring the user to specify which network to correct and optionally the block number
