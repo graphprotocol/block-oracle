@@ -46,7 +46,7 @@ mod auth {
         /// Create a new `AuthInterceptor` with the given authorization token.
         pub(super) fn with_token(token: &str) -> Self {
             Self {
-                header_value: format!("bearer {}", token),
+                header_value: format!("bearer {token}"),
             }
         }
     }
@@ -57,7 +57,7 @@ mod auth {
             let auth = self.header_value.parse().map_err(|err| {
                 Status::new(
                     tonic::Code::Unauthenticated,
-                    format!("invalid authorization token: {}", err),
+                    format!("invalid authorization token: {err}"),
                 )
             })?;
 
@@ -178,7 +178,7 @@ where
                 block_ptr_per_chain.insert(chain_id, block);
             }
             Err(e) => {
-                println!("Error: {:?}", e);
+                println!("Error: {e:?}");
             }
         }
     }

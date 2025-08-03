@@ -202,7 +202,7 @@ async fn correct_last_epoch(
         .latest_epoch_number
         .ok_or_else(|| anyhow::anyhow!("No latest epoch found in subgraph"))?;
 
-    println!("   Latest epoch: {}", latest_epoch_number);
+    println!("   Latest epoch: {latest_epoch_number}");
     println!("   Registered networks: {}", global_state.networks.len());
 
     // Verify the target chain exists in registered networks
@@ -227,11 +227,11 @@ async fn correct_last_epoch(
     // Step 3: Get corrected block number for target network
     let corrected_block_number = match block_number {
         Some(num) => {
-            println!("   Using provided block number: {}", num);
+            println!("   Using provided block number: {num}");
             num
         }
         None => {
-            println!("   Auto-detecting current block for {}...", chain_id);
+            println!("   Auto-detecting current block for {chain_id}...");
 
             // Try to find the target chain in JSON-RPC providers first
             let mut found_block = None;
@@ -460,9 +460,9 @@ async fn correct_last_epoch(
     // Step 7: Display correction summary
     println!();
     println!("📋 Correction Summary:");
-    println!("   Epoch: {}", latest_epoch_number);
-    println!("   Network: {}", chain_id);
-    println!("   New block number: {}", corrected_block_number);
+    println!("   Epoch: {latest_epoch_number}");
+    println!("   Network: {chain_id}");
+    println!("   New block number: {corrected_block_number}");
     println!(
         "   New merkle root: 0x{}",
         hex::encode(computed_merkle_root)

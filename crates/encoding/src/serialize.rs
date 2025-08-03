@@ -213,7 +213,7 @@ mod tests {
     fn encode_i64() {
         for (unsigned, signed) in ZIGZAG_TESTS.iter() {
             let mut buf_u64 = Vec::new();
-            serialize_u64(*unsigned as u64, &mut buf_u64);
+            serialize_u64(*unsigned, &mut buf_u64);
 
             let mut buf_i64 = Vec::new();
             serialize_i64(*signed, &mut buf_i64);

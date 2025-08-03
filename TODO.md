@@ -336,29 +336,52 @@ cargo run --bin block-oracle -- correct-last-epoch \
 
 ## 📋 Implementation Summary
 
-**Status: 97% Complete** - Core functionality implemented, tested, and schema optimized
+**Status: 100% Complete** ✅ - All functionality implemented, tested, and CI-compliant
 
 ### What's Done ✅
 1. **Rust Message Definition** - CorrectLastEpoch message type with CAIP-2 chain IDs
 2. **Encoding/Serialization** - Full implementation with comprehensive tests
 3. **JSON Encoder Support** - Complete with validation and examples
-4. **Subgraph Schema** - New entities for message and audit trail
+4. **Subgraph Schema** - Simplified single-entity design for audit trail
 5. **Subgraph Handler** - Full implementation with proper validation
 6. **Permission System** - Production and test configurations updated
 7. **Comprehensive Testing** - All edge cases covered, tests passing
-8. **Schema Optimization** - Simplified single-entity design for better performance
-9. **Infrastructure** - .gitignore updates, constants.ts cleanup
+8. **Schema Optimization** - Merged entities for better performance
+9. **Repository Cleanup** - .gitignore updates, constants.ts removed from tracking
+10. **CLI Implementation** - Full implementation with sophisticated features:
+    - ✅ Argument parsing with correct options (dry-run, confirmation, optional block number)
+    - ✅ User interface with emojis and clear prompts
+    - ✅ Subgraph integration for epoch data
+    - ✅ Mixed provider support (JSON-RPC + Blockmeta)
+    - ✅ Automatic block detection when not specified
+    - ✅ Merkle root computation using Encoder
+    - ✅ Transaction submission with safety features
+11. **CI Compliance** - Fixed clippy::uninlined_format_args issues
 
-### What's In Progress 🔄
-1. **CLI Command** - Structure complete, core logic needs implementation:
-   - ✅ Argument parsing with correct options (dry-run, confirmation, optional block number)
-   - ✅ User interface with emojis and clear prompts
-   - ⏳ Subgraph integration for epoch data
-   - ⏳ Multi-network RPC client setup
-   - ⏳ Merkle root computation
+### Key Implementation Details
 
-### Current Status
-The CLI command structure is complete and ready for testing the user interface:
+1. **Merkle Root Computation Challenge**:
+   - The `epoch_encoding::merkle` module is private
+   - Solution: Use `Encoder` with a temporary `SetBlockNumbersForNextEpoch` message
+   - Extract merkle root from `compressed_msg.as_non_empty_block_numbers()`
+
+2. **Blockmeta Provider Enhancement**:
+   - Added `num_to_id` method to BlockmetaClient for fetching blocks by number
+   - Exposed `NumToIdReq` and `BlockResp` types from the gen module
+   - Enables fetching specific blocks from non-EVM chains
+
+3. **Mixed Provider Architecture**:
+   - Seamlessly handles both JSON-RPC (EVM) and Blockmeta (non-EVM) providers
+   - Automatic provider selection based on chain configuration
+   - Unified `BlockPtr` output for merkle root computation
+
+4. **CLI Safety Features**:
+   - Comprehensive validation of network registration
+   - Clear error messages for missing epoch data
+   - Progress indicators throughout the process
+   - Transaction hash displayed on success
+
+### Production Usage
 ```bash
 # Test the help and dry-run functionality
 cargo run --bin block-oracle -- correct-last-epoch --help

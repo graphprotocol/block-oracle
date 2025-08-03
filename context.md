@@ -50,7 +50,7 @@
 
 ### Current Progress (Latest Update)
 
-**Status: 97% Complete** 🎯
+**Status: 100% Complete** 🎯
 
 ### ✅ Completed Items
 1. **Rust Implementation** - Message definition, serialization, and comprehensive tests
@@ -63,20 +63,21 @@
 8. **Schema Optimization** - Merged entities for better performance, optimized epochBlockNumberId
 9. **Repository Cleanup** - Fixed .gitignore, removed constants.ts from tracking
 10. **Code Quality** - All Rust code formatted, linted, and tested
-
-### 🔄 Currently Working On
-1. **CLI Command** - Core logic implementation (structure complete, needs integration code)
+11. **CLI Implementation** - Full implementation with sophisticated auto-computation logic
+12. **Mixed Provider Support** - Seamlessly handles both JSON-RPC and Blockmeta providers
+13. **CI Compliance** - Fixed clippy::uninlined_format_args lint issues
 
 ### 🎯 Key Changes from Original Plan
-- **Corrected CLI Requirements**: CLI should auto-compute merkle roots, not take them as input
+- **Corrected CLI Requirements**: CLI auto-computes merkle roots rather than taking them as input
 - **Schema Simplification**: Merged LastEpochCorrection into CorrectLastEpochMessage for better performance
-- **Mixed Provider Support**: CLI will support both JSON-RPC (EVM) and Blockmeta (non-EVM) chains
+- **Mixed Provider Support**: CLI supports both JSON-RPC (EVM) and Blockmeta (non-EVM) chains seamlessly
 - **Fixed Network Validation**: Using `cache.isNetworkAlreadyRegistered()` for proper validation
 - **VarInt Encoding**: Using Rust encoder for all tests to avoid manual encoding errors
 - **Constants Management**: Discovered constants.ts is generated from templates, not committed
+- **Blockmeta Integration**: Added `num_to_id` method to BlockmetaClient for fetching blocks by number
 
 ### Major Lessons Learned
-1. **AssemblyScript Quirks**: Need explicit `!` operator for nullable types
+1. **AssemblyScript Quirks**: Need explicit `!` operator for nullable types, no type narrowing
 2. **Network Validation**: Use existing cache methods rather than manual entity checks
 3. **Subgraph Testing**: Must be run manually by user due to TTY requirements
 4. **Configuration Management**: Permission system uses mustache templates from config files
@@ -84,45 +85,82 @@
 6. **Git Tracking**: Generated files (constants.ts) should not be committed
 7. **Schema Design**: Single entities perform better than complex relationships for simple use cases
 8. **Function Optimization**: Accept native types (BigInt) instead of strings to avoid conversions
+9. **Merkle Root Computation**: Cannot use `epoch_encoding::merkle` directly (private module), must use Encoder
+10. **Blockmeta API**: Only has `get_latest_block`, need to add `num_to_id` for block-by-number queries
+11. **Mixed Providers**: CLI must handle both provider types seamlessly for complete network coverage
+12. **Clippy Strictness**: CI may have stricter clippy rules than local, especially for format strings
 
-## Next Steps When Resuming
-1. **Implement CLI Core Logic** - The only remaining work is the actual integration code
-2. **Test CLI Command** - Build and test the complete implementation
-3. **Final Documentation** - Update CLAUDE.md with usage examples
+## Implementation Complete - Awaiting Review
 
-### Current CLI Implementation Status
-- ✅ Added CorrectLastEpoch variant to Clap enum with proper arguments
-- ✅ Added match case in main() function  
-- ✅ CLI structure complete with dry-run, confirmation prompts, and optional block number
-- ✅ User interface implemented with clear messaging and emojis
-- 🔄 **FINAL TASK**: Core logic implementation needed:
-  - ⏳ Subgraph integration for querying latest epoch data
-  - ⏳ Multi-network RPC client setup (both JSON-RPC and Blockmeta providers)
-  - ⏳ Block hash fetching from multiple provider types
-  - ⏳ Merkle root computation using epoch-encoding algorithms  
-  - ⏳ Message creation and blockchain submission
+### CLI Implementation Details
+The CLI command `correct-last-epoch` is now fully implemented with:
 
-### Key Implementation Requirements for CLI
-The CLI should automatically compute merkle roots by:
-1. **Query subgraph** for latest epoch block numbers across ALL networks
-2. **Initialize RPC clients** for both JSON-RPC (EVM) and Blockmeta (non-EVM) providers
-3. **Fetch block hashes** for all networks using current epoch block numbers (except the one being corrected)
-4. **Use provided/latest block** for the network being corrected
-5. **Compute merkle root** using the same algorithm as normal oracle operation (`epoch_encoding::merkle::merkle_root`)
-6. **Create and submit message** using existing patterns from the main oracle
+1. **Sophisticated Auto-Computation**:
+   - Queries subgraph for latest epoch state and all network data
+   - Auto-detects current block from appropriate provider if not specified
+   - Fetches block hashes from all networks using their epoch block numbers
+   - Computes merkle root using same algorithm as main oracle
 
-### Complete Implementation Reference Available
-TODO.md contains comprehensive code examples and patterns from the existing oracle for:
-- Subgraph querying (`query_subgraph()` with GraphQL)
-- RPC client setup (`JrpcProviderForChain` and `BlockmetaProviderForChain`)
-- Block fetching (`get_latest_block()`, `num_to_id()`)
-- Merkle root computation (`MerkleLeaf` with `network.array_index`)
-- Message creation (JSON encoder or Message enum)
-- Transaction submission (`contracts.submit_call()`)
+2. **Mixed Provider Architecture**:
+   - JSON-RPC providers for EVM chains (Ethereum, Arbitrum, Polygon, etc.)
+   - Blockmeta GRPC providers for non-EVM chains (Bitcoin, etc.)
+   - Seamless integration with automatic provider selection
+   - Added `num_to_id` method to BlockmetaClient for fetching blocks by number
+
+3. **Safety Features**:
+   - Dry-run mode (`--dry-run`) shows what would happen without sending
+   - Confirmation prompt (skip with `--yes`/`-y`)
+   - Comprehensive validation of network registration and epoch data
+   - Clear error messages for all failure cases
+
+4. **Technical Implementation**:
+   - Used `epoch_encoding::Encoder` to compute merkle roots (merkle module is private)
+   - Created temporary `SetBlockNumbersForNextEpoch` message for merkle computation
+   - Proper handling of both provider types with unified BlockPtr output
+   - Rich console output with progress indicators and emojis
+
+### Usage Examples
+
+```bash
+# View help
+cargo run --bin block-oracle -- correct-last-epoch --help
+
+# Dry run with specific block number
+cargo run --bin block-oracle -- correct-last-epoch \
+  --config-file config.toml \
+  --chain-id "eip155:42161" \
+  --block-number 12345 \
+  --dry-run
+
+# Auto-detect current block with confirmation
+cargo run --bin block-oracle -- correct-last-epoch \
+  --config-file config.toml \
+  --chain-id "eip155:1" 
+
+# Skip confirmation prompt
+cargo run --bin block-oracle -- correct-last-epoch \
+  -c config.toml -n "eip155:42161" -b 12345 -y
+```
 
 ## Current Repository State
 - **Branch**: `pcv/feat-correct-epoch` 
-- **Last Commit**: Schema simplification and epochBlockNumberId optimization
-- **All Tests**: Passing (subgraph tests verified manually)
+- **Last Commits**: 
+  - `bf1d58e` - Fix clippy uninlined_format_args lint
+  - `8729600` - Complete CorrectLastEpoch CLI implementation
+  - `ed25808` - Simplify schema and optimize epochBlockNumberId
+- **All Tests**: Passing (including CI with strict clippy)
 - **Build Status**: Clean builds for both Rust oracle and AssemblyScript subgraph
-- **Ready For**: CLI core logic implementation (final 3% of work)
+- **Implementation Status**: 100% Complete - Awaiting user review
+
+## Potential Review Areas
+
+Based on the implementation, the user might want to review:
+
+1. **CLI Auto-Detection Logic**: The automatic block detection from providers
+2. **Merkle Root Computation**: Using Encoder workaround instead of direct merkle module
+3. **Error Messages**: User-facing error messages and their clarity
+4. **Provider Selection**: How the CLI chooses between JSON-RPC and Blockmeta
+5. **Transaction Gas Settings**: Using default config settings for gas
+6. **Confirmation UX**: The prompt wording and dry-run output format
+7. **Network Validation**: Ensuring all edge cases are handled properly
+8. **Code Organization**: Helper functions placement in main.rs vs separate modules
