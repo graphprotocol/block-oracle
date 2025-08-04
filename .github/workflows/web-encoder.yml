@@ -20,6 +20,14 @@ jobs:
           node-version: latest
           cache: "npm"
           cache-dependency-path: packages/json-encoder-web/package-lock.json
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          override: true
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --version "0.2.88"
       - run: npm install
         working-directory: packages/json-encoder-web
       - run: npm run build

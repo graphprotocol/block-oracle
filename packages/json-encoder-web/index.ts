@@ -1,4 +1,4 @@
-import * as wasm from './pkg';
+import * as wasm from './pkg/json_encoder_web';
 import * as copy from 'copy-to-clipboard';
 import notie from 'notie';
 import { editor as monacoEditor } from 'monaco-editor/esm/vs/editor/editor.api'

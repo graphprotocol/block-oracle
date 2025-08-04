@@ -1,7 +1,6 @@
 const webpack = require('webpack');
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const WasmPackPlugin = require("@wasm-tool/wasm-pack-plugin");
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 module.exports = {
@@ -17,9 +16,6 @@ module.exports = {
 	plugins: [
 		new HtmlWebpackPlugin({
 			template: 'index.html'
-		}),
-		new WasmPackPlugin({
-			crateDirectory: path.resolve(__dirname, '.')
 		}),
 		new MonacoWebpackPlugin({
 			// We don't want to pollute our distribution with support for many
@@ -56,6 +52,6 @@ module.exports = {
 		]
 	},
 	resolve: {
-		extensions: ['', '.js', '.jsx', '.css', '.ts']
+		extensions: ['', '.js', '.jsx', '.css', '.ts', '.wasm']
 	}
 };
