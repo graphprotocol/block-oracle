@@ -27,7 +27,7 @@ jobs:
           target: wasm32-unknown-unknown
           override: true
       - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli --version "0.2.88"
+        run: cargo install wasm-bindgen-cli --version "0.2.100"
       - run: npm install
         working-directory: packages/json-encoder-web
       - run: npm run build
