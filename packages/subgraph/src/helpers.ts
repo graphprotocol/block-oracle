@@ -173,6 +173,10 @@ export function doesSubmitterHavePermission(
   let permissionList = cache.getGlobalState().permissionList;
   let permissionListEntry = cache.getPermissionListEntry(submitter);
 
+  if (permissionRequired == "CorrectLastEpochMessage" && permissionListEntry.permissions.includes("CorrectEpochsMessage")) {
+    return true; // Workaround for time sensitive hotfix
+  };
+
   return permissionListEntry.permissions.includes(permissionRequired);
 }
 

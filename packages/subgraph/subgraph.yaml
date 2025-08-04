@@ -1,6 +1,11 @@
 specVersion: 0.0.5
 schema:
   file: ./schema.graphql
+features:
+  - grafting
+graft:
+  base: QmW26TG5s9myd1gzio9fkgVHEEjZ7u5ktWDpkNePzbusNo
+  block: 364677000
 dataSources:
   - kind: ethereum
     name: DataEdge
