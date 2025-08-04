@@ -110,6 +110,17 @@ fn messages_to_encoded_message_blocks(
                         accelerations,
                     },
                 ),
+                Message::CorrectLastEpoch {
+                    chain_id,
+                    block_number,
+                    merkle_root,
+                } => ee::CompressedMessage::CorrectLastEpoch {
+                    chain_id,
+                    block_number,
+                    merkle_root: merkle_root.try_into().map_err(|_| {
+                        anyhow!("Bad JSON: The Merkle root must have exactly 32 bytes.")
+                    })?,
+                },
             };
             message_types.push(message_type);
             compressed_contents.push(ready_to_encode);
@@ -165,6 +176,13 @@ pub enum Message {
         valid_through: u64,
         permissions: Vec<String>,
     },
+    #[serde(rename_all = "camelCase")]
+    CorrectLastEpoch {
+        chain_id: String,
+        block_number: u64,
+        #[serde(deserialize_with = "deserialize_hex")]
+        merkle_root: Vec<u8>,
+    },
 }
 
 impl Message {
@@ -177,6 +195,7 @@ impl Message {
             Message::Reset => "Reset",
             Message::RegisterNetworksAndAliases { .. } => "RegisterNetworksAndAliases",
             Message::ChangePermissions { .. } => "ChangePermissions",
+            Message::CorrectLastEpoch { .. } => "CorrectLastEpoch",
         }
     }
 }
@@ -208,4 +227,85 @@ pub fn calldata(payload: Vec<u8>) -> Vec<u8> {
     let payload = Token::Bytes(payload);
     let encoded = encode(&[payload]);
     signature.into_iter().chain(encoded).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_correct_last_epoch_json_encoding() {
+        let json_str = r#"[
+            {
+                "message": "CorrectLastEpoch",
+                "chainId": "eip155:1",
+                "blockNumber": 12345678,
+                "merkleRoot": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+            }
+        ]"#;
+
+        let json: serde_json::Value = serde_json::from_str(json_str).unwrap();
+        let payload = messages_to_payload(json).unwrap();
+
+        // Verify payload is not empty
+        assert!(!payload.is_empty());
+
+        // First byte should contain tag 7 in lower nibble
+        assert_eq!(payload[0] & 0x0F, 7);
+    }
+
+    #[test]
+    fn test_correct_last_epoch_with_multiple_messages() {
+        let json_str = r#"[
+            [
+                {
+                    "message": "RegisterNetworks",
+                    "remove": [],
+                    "add": ["eip155:1"]
+                },
+                {
+                    "message": "CorrectLastEpoch",
+                    "chainId": "eip155:1",
+                    "blockNumber": 99999,
+                    "merkleRoot": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcdefabcd"
+                }
+            ]
+        ]"#;
+
+        let json: serde_json::Value = serde_json::from_str(json_str).unwrap();
+        let encoded_blocks = messages_to_encoded_message_blocks(json).unwrap();
+
+        assert_eq!(encoded_blocks.len(), 1);
+        let (message_types, payload) = &encoded_blocks[0];
+
+        // Verify message types
+        assert_eq!(message_types.len(), 2);
+        assert_eq!(message_types[0], "RegisterNetworks");
+        assert_eq!(message_types[1], "CorrectLastEpoch");
+
+        // Verify payload contains both messages
+        // Preamble should have tags 3 and 7
+        let preamble = payload[0];
+        assert_eq!(preamble & 0x0F, 3); // First tag
+        assert_eq!((preamble >> 4) & 0x0F, 7); // Second tag
+    }
+
+    #[test]
+    fn test_correct_last_epoch_invalid_merkle_root() {
+        // Test with invalid merkle root (not 32 bytes)
+        let json_str = r#"[
+            {
+                "message": "CorrectLastEpoch",
+                "chainId": "eip155:1",
+                "blockNumber": 12345678,
+                "merkleRoot": "0x1234"
+            }
+        ]"#;
+
+        let json: serde_json::Value = serde_json::from_str(json_str).unwrap();
+        let result = messages_to_payload(json);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("32 bytes"));
+    }
 }

@@ -1,3 +1,4 @@
+pub mod commands;
 pub mod config;
 pub mod contracts;
 pub mod metrics;
@@ -6,12 +7,8 @@ pub mod runner;
 pub mod subgraph;
 
 use clap::Parser;
-use contracts::Contracts;
 use json_oracle_encoder::{print_encoded_json_messages, OutputKind};
-use reqwest::Client;
 use std::path::PathBuf;
-use std::time::Duration;
-use web3::transports::Http;
 
 pub use config::Config;
 pub use models::{BlockmetaProviderForChain, Caip2ChainId, JrpcProviderForChain};
@@ -41,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
         }
         Clap::CurrentEpoch { config_file } => {
             let config = Config::parse(config_file);
-            print_current_epoch(config).await?;
+            commands::print_current_epoch(config).await?;
         }
         Clap::SendMessage {
             config_file,
@@ -49,7 +46,17 @@ async fn main() -> anyhow::Result<()> {
         } => {
             let config = Config::parse(config_file);
             let payload = hex::decode(payload)?;
-            send_message(config, payload).await?;
+            commands::send_message(config, payload).await?;
+        }
+        Clap::CorrectLastEpoch {
+            config_file,
+            chain_id,
+            block_number,
+            dry_run,
+            yes,
+        } => {
+            let config = Config::parse(config_file);
+            commands::correct_last_epoch(config, chain_id, block_number, dry_run, yes).await?;
         }
     }
 
@@ -88,34 +95,22 @@ enum Clap {
         config_file: PathBuf,
         payload: String,
     },
-}
-
-async fn send_message(config: Config, payload: Vec<u8>) -> anyhow::Result<()> {
-    let private_key = config.owner_private_key;
-    let contracts = init_contracts(config)?;
-    let tx = contracts.submit_call(payload, &private_key).await?;
-    println!("Sent message.\nTransaction hash: {tx:?}");
-    Ok(())
-}
-
-async fn print_current_epoch(config: Config) -> anyhow::Result<()> {
-    let contracts = init_contracts(config)?;
-    let current_epoch = contracts.query_current_epoch().await?;
-    println!("{current_epoch}");
-    Ok(())
-}
-
-fn init_contracts(config: Config) -> anyhow::Result<Contracts<Http>> {
-    let client = Client::builder()
-        .timeout(Duration::from_secs(60))
-        .build()
-        .unwrap();
-    let transport = Http::with_client(client, config.protocol_chain.jrpc_url);
-    let protocol_chain = JrpcProviderForChain::new(config.protocol_chain.id, transport);
-    Contracts::new(
-        protocol_chain.web3,
-        config.data_edge_address,
-        config.epoch_manager_address,
-        config.transaction_monitoring_options,
-    )
+    /// Correct the block number for a network in the latest epoch.
+    CorrectLastEpoch {
+        /// The path of the TOML configuration file.
+        #[clap(short, long)]
+        config_file: PathBuf,
+        /// The CAIP-2 chain ID of the network to correct (e.g. "eip155:42161")
+        #[clap(short = 'n', long)]
+        chain_id: String,
+        /// The corrected block number for the network (if not provided, uses current block from RPC)
+        #[clap(short, long)]
+        block_number: Option<u64>,
+        /// Show what would be done without sending the transaction
+        #[clap(long)]
+        dry_run: bool,
+        /// Skip confirmation prompt
+        #[clap(short, long)]
+        yes: bool,
+    },
 }

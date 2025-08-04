@@ -27,7 +27,8 @@ export enum MessageTag {
   RegisterNetworksMessage,
   ChangePermissionsMessage,
   ResetStateMessage,
-  RegisterNetworksAndAliasesMessage
+  RegisterNetworksAndAliasesMessage,
+  CorrectLastEpochMessage
 }
 
 export namespace MessageTag {
@@ -38,7 +39,8 @@ export namespace MessageTag {
     "RegisterNetworksMessage",
     "ChangePermissionsMessage",
     "ResetStateMessage",
-    "RegisterNetworksAndAliasesMessage"
+    "RegisterNetworksAndAliasesMessage",
+    "CorrectLastEpochMessage"
   ];
   export function toString(tag: MessageTag): string {
     return tags[tag];
@@ -220,7 +222,7 @@ export function commitNetworkChanges(
   state.activeNetworkCount = newNetworksList.length;
 }
 
-function epochBlockNumberId(epochId: BigInt, networkId: string): string {
+export function epochBlockNumberId(epochId: BigInt, networkId: string): string {
   return [epochId.toString(), networkId].join("-");
 }
 

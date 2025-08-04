@@ -49,6 +49,11 @@ fn serialize_message(message: &CompressedMessage, bytes: &mut Vec<u8>) {
             valid_through,
             permissions,
         } => serialize_change_permissions(address, *valid_through, permissions, bytes),
+        CompressedMessage::CorrectLastEpoch {
+            chain_id,
+            block_number,
+            merkle_root,
+        } => serialize_correct_last_epoch(chain_id, *block_number, merkle_root, bytes),
     }
 }
 
@@ -115,6 +120,17 @@ fn serialize_change_permissions(
     }
 }
 
+fn serialize_correct_last_epoch(
+    chain_id: &str,
+    block_number: u64,
+    merkle_root: &Bytes32,
+    bytes: &mut Vec<u8>,
+) {
+    serialize_str(chain_id, bytes);
+    serialize_u64(block_number, bytes);
+    bytes.extend_from_slice(merkle_root);
+}
+
 fn serialize_str(value: &str, bytes: &mut Vec<u8>) {
     serialize_u64(value.len() as u64, bytes);
     bytes.extend_from_slice(value.as_bytes());
@@ -157,6 +173,7 @@ fn message_tag(m: &CompressedMessage) -> u8 {
         CompressedMessage::ChangePermissions { .. } => 4,
         CompressedMessage::Reset => 5,
         CompressedMessage::RegisterNetworksAndAliases { .. } => 6,
+        CompressedMessage::CorrectLastEpoch { .. } => 7,
     }
 }
 
@@ -196,12 +213,47 @@ mod tests {
     fn encode_i64() {
         for (unsigned, signed) in ZIGZAG_TESTS.iter() {
             let mut buf_u64 = Vec::new();
-            serialize_u64(*unsigned as u64, &mut buf_u64);
+            serialize_u64(*unsigned, &mut buf_u64);
 
             let mut buf_i64 = Vec::new();
             serialize_i64(*signed, &mut buf_i64);
 
             assert_eq!(&buf_i64[..], &buf_u64[..]);
         }
+    }
+
+    #[test]
+    fn test_correct_last_epoch_serialization() {
+        use crate::messages::{Bytes32, CompressedMessage};
+
+        let chain_id = "eip155:42161".to_string();
+        let block_number = 1234567890u64;
+        let merkle_root: Bytes32 = [0xAB; 32];
+
+        let message = CompressedMessage::CorrectLastEpoch {
+            chain_id,
+            block_number,
+            merkle_root,
+        };
+
+        // Test message tag
+        assert_eq!(message_tag(&message), 7);
+
+        // Test serialization
+        let mut bytes = Vec::new();
+        serialize_messages(&[message], &mut bytes);
+
+        // First byte should be the preamble with tag 7
+        assert_eq!(bytes[0] & 0x0F, 7);
+
+        // The rest should contain:
+        // - chain_id (string with length prefix)
+        // - block_number (variable length encoded)
+        // - merkle_root (32 bytes)
+        assert!(bytes.len() > 33); // At least preamble + length + chain_id + block_number + 32 byte merkle root
+
+        // Verify merkle root is at the end
+        let merkle_start = bytes.len() - 32;
+        assert_eq!(&bytes[merkle_start..], &merkle_root);
     }
 }

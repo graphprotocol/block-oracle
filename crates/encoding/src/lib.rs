@@ -178,6 +178,17 @@ impl Encoder {
                         .collect(),
                 });
             }
+            Message::CorrectLastEpoch {
+                chain_id,
+                block_number,
+                merkle_root,
+            } => {
+                self.compressed.push(CompressedMessage::CorrectLastEpoch {
+                    chain_id: chain_id.clone(),
+                    block_number: *block_number,
+                    merkle_root: *merkle_root,
+                });
+            }
         };
         Ok(())
     }
@@ -494,5 +505,46 @@ mod tests {
             }
             _ => panic!("Expected ChangePermissions message"),
         }
+    }
+
+    #[test]
+    fn correct_last_epoch_message() {
+        let mut encoder = Encoder::new(CURRENT_ENCODING_VERSION, vec![]).unwrap();
+
+        let test_merkle_root = [42u8; 32];
+        let test_chain_id = "eip155:42161".to_string();
+        let test_block_number = 12345678u64;
+
+        let compressed = encoder
+            .compress(&[Message::CorrectLastEpoch {
+                chain_id: test_chain_id.clone(),
+                block_number: test_block_number,
+                merkle_root: test_merkle_root,
+            }])
+            .unwrap();
+
+        assert_eq!(compressed.len(), 1);
+
+        match &compressed[0] {
+            CompressedMessage::CorrectLastEpoch {
+                chain_id,
+                block_number,
+                merkle_root,
+            } => {
+                assert_eq!(*chain_id, test_chain_id);
+                assert_eq!(*block_number, test_block_number);
+                assert_eq!(*merkle_root, test_merkle_root);
+            }
+            _ => panic!("Expected CorrectLastEpoch message"),
+        }
+
+        // Test encoding
+        let encoded = encoder.encode(&compressed);
+        assert!(!encoded.is_empty());
+
+        // Verify the message tag is correct (should be 7)
+        let preamble = encoded[0];
+        let tag = preamble & 0x0F; // Extract the first tag
+        assert_eq!(tag, 7);
     }
 }

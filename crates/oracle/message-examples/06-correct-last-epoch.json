@@ -1,0 +1,8 @@
+[
+   {
+      "message": "CorrectLastEpoch",
+      "networkId": 0,
+      "blockNumber": 12345678,
+      "merkleRoot": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+   }
+]

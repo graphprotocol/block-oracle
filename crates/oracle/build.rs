@@ -43,7 +43,7 @@ fn main() {
     if env::var("CARGO_FEATURE_PROTO_GEN").is_ok() {
         // Check if all the build requirements are met.
         if let Err(err) = check_build_requirements() {
-            panic!("{}", err);
+            panic!("{err}");
         }
 
         let src_dir = root_dir().join("src");
@@ -63,7 +63,7 @@ fn main() {
             );
 
         if let Err(err) = status {
-            panic!("Protobuf code generation failed: {}", err);
+            panic!("Protobuf code generation failed: {err}");
         }
     }
 }

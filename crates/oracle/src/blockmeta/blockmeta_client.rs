@@ -14,6 +14,7 @@ pub use self::auth::AuthInterceptor;
 use self::gen::block_client::BlockClient;
 pub use self::gen::BlockResp as Block;
 use self::gen::Empty;
+pub use self::gen::{BlockResp, NumToIdReq};
 use crate::{BlockmetaProviderForChain, Caip2ChainId};
 
 /// This file is **generated** by the `build.rs` when compiling the crate with the `proto-gen`
@@ -45,7 +46,7 @@ mod auth {
         /// Create a new `AuthInterceptor` with the given authorization token.
         pub(super) fn with_token(token: &str) -> Self {
             Self {
-                header_value: format!("bearer {}", token),
+                header_value: format!("bearer {token}"),
             }
         }
     }
@@ -56,7 +57,7 @@ mod auth {
             let auth = self.header_value.parse().map_err(|err| {
                 Status::new(
                     tonic::Code::Unauthenticated,
-                    format!("invalid authorization token: {}", err),
+                    format!("invalid authorization token: {err}"),
                 )
             })?;
 
@@ -134,6 +135,16 @@ where
             Err(err) => Err(anyhow::anyhow!("request failed: {}", err.message())),
         }
     }
+
+    /// Fetch a block by its number from the StreamingFast Blockmeta service.
+    ///
+    /// Returns `None` if the block does not exist.
+    pub async fn num_to_id(&mut self, request: NumToIdReq) -> anyhow::Result<BlockResp> {
+        match self.grpc_client.num_to_id(request).await {
+            Ok(res) => Ok(res.into_inner()),
+            Err(err) => Err(anyhow::anyhow!("request failed: {}", err.message())),
+        }
+    }
 }
 
 /// Fetches the latest available block number and hash from all `chains`.
@@ -167,7 +178,7 @@ where
                 block_ptr_per_chain.insert(chain_id, block);
             }
             Err(e) => {
-                println!("Error: {:?}", e);
+                println!("Error: {e:?}");
             }
         }
     }

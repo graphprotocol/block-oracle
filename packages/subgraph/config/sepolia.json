@@ -10,7 +10,8 @@
         { "entry": "UpdateVersionsMessage" },
         { "entry": "RegisterNetworksMessage" },
         { "entry": "RegisterNetworksAndAliasesMessage" },
-        { "entry": "ChangePermissionsMessage", "lastEntry": true }
+        { "entry": "ChangePermissionsMessage" },
+        { "entry": "CorrectLastEpochMessage", "lastEntry": true }
       ],
       "validThrough": "0"
     },

@@ -79,6 +79,25 @@ type RegisterNetworksAndAliasesMessage implements Message @entity {
   addCount: BigInt!
 }
 
+type CorrectLastEpochMessage implements Message @entity {
+  id: ID!
+  block: MessageBlock!
+  data: Bytes
+  # Message fields
+  newMerkleRoot: Bytes!
+  # Single network correction (since one network per message)
+  network: Network!
+  epochNumber: BigInt!
+  # Audit trail - before correction
+  previousBlockNumber: BigInt!
+  previousAcceleration: BigInt!
+  previousDelta: BigInt!
+  # Audit trail - after correction  
+  newBlockNumber: BigInt!
+  newAcceleration: BigInt!
+  newDelta: BigInt!
+}
+
 type Network @entity {
   id: ID! # chainID now
   #chainID: String!

@@ -53,6 +53,11 @@ pub enum Message {
         valid_through: u64,
         permissions: Vec<String>,
     },
+    CorrectLastEpoch {
+        chain_id: String,
+        block_number: u64,
+        merkle_root: Bytes32,
+    },
 }
 
 impl Message {
@@ -65,7 +70,8 @@ impl Message {
             "ChangePermissionsMessage" => 4,
             "ResetStateMessage" => 5,
             "RegisterNetworksAndAliasesMessage" => 6,
-            _ => 7,
+            "CorrectLastEpochMessage" => 7,
+            _ => 8,
         }
     }
 }
@@ -92,6 +98,11 @@ pub enum CompressedMessage {
         address: [u8; 20],
         valid_through: u64,
         permissions: Vec<u64>,
+    },
+    CorrectLastEpoch {
+        chain_id: String,
+        block_number: u64,
+        merkle_root: Bytes32,
     },
 }
 
@@ -124,4 +135,23 @@ pub enum CompressedSetBlockNumbersForNextEpoch {
 pub struct EpochDetails {
     tx_hash: Bytes32,
     merkle_root: Bytes32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_str_to_u64_mapping() {
+        assert_eq!(Message::str_to_u64("SetBlockNumbersForNextEpochMessage"), 0);
+        assert_eq!(Message::str_to_u64("CorrectEpochsMessage"), 1);
+        assert_eq!(Message::str_to_u64("UpdateVersionMessage"), 2);
+        assert_eq!(Message::str_to_u64("RegisterNetworksMessage"), 3);
+        assert_eq!(Message::str_to_u64("ChangePermissionsMessage"), 4);
+        assert_eq!(Message::str_to_u64("ResetStateMessage"), 5);
+        assert_eq!(Message::str_to_u64("RegisterNetworksAndAliasesMessage"), 6);
+        assert_eq!(Message::str_to_u64("CorrectLastEpochMessage"), 7);
+        assert_eq!(Message::str_to_u64("UnknownMessage"), 8);
+        assert_eq!(Message::str_to_u64("AnotherUnknownMessage"), 8);
+    }
 }
