@@ -53,9 +53,13 @@ impl<'a, T: Transport> TransactionMonitor<'a, T> {
         )
         .await
         .map_err(TransactionMonitorError::Startup)?;
+
+        // Add 20% margin to the fetched gas price
+        let gas_price = gas_price + (gas_price / 5); // 20% increase
+
         debug!(
             %nonce,
-            %gas_price, "Fetched current nonce and gas price from provider"
+            %gas_price, "Fetched current nonce and gas price from provider (with 20% margin)"
         );
 
         let transaction_parameters = TransactionParameters {
