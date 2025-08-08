@@ -54,9 +54,11 @@ async fn main() -> anyhow::Result<()> {
             block_number,
             dry_run,
             yes,
+            skip_merkle,
         } => {
             let config = Config::parse(config_file);
-            commands::correct_last_epoch(config, chain_id, block_number, dry_run, yes).await?;
+            commands::correct_last_epoch(config, chain_id, block_number, dry_run, yes, skip_merkle)
+                .await?;
         }
     }
 
@@ -112,5 +114,8 @@ enum Clap {
         /// Skip confirmation prompt
         #[clap(short, long)]
         yes: bool,
+        /// Skip merkle root computation and use 0x0 instead
+        #[clap(long)]
+        skip_merkle: bool,
     },
 }
