@@ -71,6 +71,14 @@ pub async fn run(config_file: impl AsRef<Path>) -> Result<(), Error> {
     init_logging(config.log_level);
     info!(log_level = %config.log_level, "The block oracle is starting.");
 
+    // Validate RPC chain IDs before starting
+    if let Err(err) = crate::chain_validation::validate_chain_ids(&config).await {
+        error!("Chain ID validation failed: {}", err);
+        return Err(Error::BadJrpcProtocolChain(web3::Error::Decoder(
+            err.to_string(),
+        )));
+    }
+
     // Spawn the metrics server
     tokio::spawn(metrics_server(&METRICS, config.metrics_port));
 
