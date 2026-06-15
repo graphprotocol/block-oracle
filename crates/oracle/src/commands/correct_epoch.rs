@@ -18,6 +18,7 @@ pub async fn correct_last_epoch(
     block_number: Option<u64>,
     dry_run: bool,
     yes: bool,
+    skip_merkle: bool,
 ) -> anyhow::Result<()> {
     // Step 1: Query subgraph for latest epoch information
     println!("🔍 Querying subgraph for latest epoch information...");
@@ -48,10 +49,50 @@ pub async fn correct_last_epoch(
         target_network.array_index
     );
 
-    // Step 2: Initialize RPC clients for all networks
-    println!("📡 Setting up RPC clients for all networks...");
-    let indexed_chains = indexed_chains(&config);
-    let blockmeta_indexed_chains = blockmeta_indexed_chains(&config);
+    // Step 2: Initialize RPC clients
+    // We need RPC clients if: (1) not skipping merkle, or (2) need to auto-detect block number
+    let need_all_rpcs = !skip_merkle;
+    let need_target_rpc = block_number.is_none();
+
+    let (indexed_chains, blockmeta_indexed_chains) = if need_all_rpcs {
+        println!("📡 Setting up RPC clients for all networks...");
+        (indexed_chains(&config), blockmeta_indexed_chains(&config))
+    } else if need_target_rpc {
+        println!("📡 Setting up RPC client for target network...");
+        // Only initialize RPC for the target chain
+        let mut target_jrpc = vec![];
+        let mut target_blockmeta = vec![];
+
+        // Check if target chain is in JSON-RPC providers
+        for chain in &config.indexed_chains {
+            if chain.id.as_str() == chain_id {
+                let transport = JrpcExpBackoff::http(
+                    chain.jrpc_url.clone(),
+                    chain.id.clone(),
+                    config.retry_strategy_max_wait_time,
+                );
+                target_jrpc.push(JrpcProviderForChain::new(chain.id.clone(), transport));
+                break;
+            }
+        }
+
+        // Check if target chain is in Blockmeta providers
+        for chain in &config.blockmeta_indexed_chains {
+            if chain.id.as_str() == chain_id {
+                target_blockmeta.push(BlockmetaProviderForChain::new(
+                    chain.id.clone(),
+                    chain.url.clone(),
+                    &config.blockmeta_auth_token,
+                ));
+                break;
+            }
+        }
+
+        (target_jrpc, target_blockmeta)
+    } else {
+        println!("⏭️  Skipping RPC client setup (--skip-merkle enabled and block number provided)");
+        (vec![], vec![])
+    };
 
     // Step 3: Get corrected block number for target network
     let corrected_block_number = match block_number {
@@ -106,185 +147,208 @@ pub async fn correct_last_epoch(
         }
     };
 
-    // Step 4: Get block numbers for all networks from the latest epoch
-    println!("🔍 Collecting block data from latest epoch for all networks...");
-    let mut epoch_blocks: BTreeMap<Caip2ChainId, (u64, u64)> = BTreeMap::new(); // (block_number, array_index)
-
-    for network in &global_state.networks {
-        if let Some(block_update) = &network.latest_block_update {
-            if block_update.updated_at_epoch_number == latest_epoch_number {
-                epoch_blocks.insert(
-                    network.id.clone(),
-                    (block_update.block_number, network.array_index),
-                );
-                println!(
-                    "   {}: block {} (index {})",
-                    network.id.as_str(),
-                    block_update.block_number,
-                    network.array_index
-                );
-            }
-        }
-    }
-
-    if epoch_blocks.is_empty() {
-        anyhow::bail!("No networks have block data for epoch {}. This might indicate the epoch is too recent.", latest_epoch_number);
-    }
-
-    // Step 5: Fetch block hashes for all networks using their epoch block numbers
-    println!("🔗 Fetching block hashes for merkle root computation...");
-    let mut all_blocks: BTreeMap<Caip2ChainId, BlockPtr> = BTreeMap::new();
-
-    // Fetch from JSON-RPC providers
-    for jrpc_chain in &indexed_chains {
-        if let Some((block_num, _array_index)) = epoch_blocks.get(&jrpc_chain.chain_id) {
-            let use_corrected_block = jrpc_chain.chain_id.as_str() == chain_id;
-            let target_block_number = if use_corrected_block {
-                corrected_block_number
-            } else {
-                *block_num
-            };
-
-            // Get block by number
-            let block_id =
-                web3::helpers::serialize(&BlockNumber::Number(U64::from(target_block_number)));
-            let include_txs = web3::helpers::serialize(&false);
-            let fut = jrpc_chain
-                .web3
-                .transport()
-                .execute("eth_getBlockByNumber", vec![block_id, include_txs]);
-
-            #[derive(serde::Deserialize)]
-            struct BlockResponse {
-                hash: web3::types::H256,
-                number: U64,
-            }
-
-            let call_fut: CallFuture<BlockResponse, _> = CallFuture::new(fut);
-            let block = call_fut.await.map_err(|e| {
-                anyhow::anyhow!(
-                    "Failed to get block {} from {}: {}",
-                    target_block_number,
-                    jrpc_chain.chain_id.as_str(),
-                    e
-                )
-            })?;
-
-            let block_ptr = BlockPtr {
-                number: block.number.as_u64(),
-                hash: block.hash.0,
-            };
-
-            all_blocks.insert(jrpc_chain.chain_id.clone(), block_ptr);
-
-            if use_corrected_block {
-                println!(
-                    "   {} (CORRECTED): block {} -> hash {}",
-                    jrpc_chain.chain_id.as_str(),
-                    target_block_number,
-                    hex::encode(block_ptr.hash)
-                );
-            } else {
-                println!(
-                    "   {}: block {} -> hash {}",
-                    jrpc_chain.chain_id.as_str(),
-                    target_block_number,
-                    hex::encode(block_ptr.hash)
-                );
-            }
-        }
-    }
-
-    // Fetch from Blockmeta providers
-    for blockmeta_chain in &blockmeta_indexed_chains {
-        if let Some((block_num, _array_index)) = epoch_blocks.get(&blockmeta_chain.chain_id) {
-            let use_corrected_block = blockmeta_chain.chain_id.as_str() == chain_id;
-            let target_block_number = if use_corrected_block {
-                corrected_block_number
-            } else {
-                *block_num
-            };
-
-            // Get block by number using Blockmeta gRPC
-            let mut client = blockmeta_chain.client.clone();
-            let request = blockmeta_client::NumToIdReq {
-                block_num: target_block_number,
-            };
-
-            let block_resp = client.num_to_id(request).await?;
-
-            let block_hash = block_resp
-                .id
-                .parse::<BlockHash>()
-                .map_err(|e| anyhow::anyhow!("Invalid block hash from Blockmeta: {}", e))?;
-
-            let block_ptr = BlockPtr {
-                number: block_resp.num,
-                hash: block_hash.0,
-            };
-
-            all_blocks.insert(blockmeta_chain.chain_id.clone(), block_ptr);
-
-            if use_corrected_block {
-                println!(
-                    "   {} (CORRECTED): block {} -> hash {}",
-                    blockmeta_chain.chain_id.as_str(),
-                    target_block_number,
-                    hex::encode(block_ptr.hash)
-                );
-            } else {
-                println!(
-                    "   {}: block {} -> hash {}",
-                    blockmeta_chain.chain_id.as_str(),
-                    target_block_number,
-                    hex::encode(block_ptr.hash)
-                );
-            }
-        }
-    }
-
-    // Step 6: Compute merkle root using the same algorithm as the oracle
-    println!("🧮 Computing merkle root...");
-
-    // Use the encoder to compute the merkle root by creating a temporary SetBlockNumbersForNextEpoch message
-    let available_networks: Vec<(String, epoch_encoding::Network)> = {
-        global_state
-            .networks
-            .iter()
-            .map(|network| (network.id.as_str().to_owned(), network.clone().into()))
-            .collect()
-    };
-
-    let mut encoder =
-        epoch_encoding::Encoder::new(epoch_encoding::CURRENT_ENCODING_VERSION, available_networks)
-            .expect("Failed to create encoder");
-
-    // Create a temporary message with our corrected blocks to compute the merkle root
-    let message = epoch_encoding::Message::SetBlockNumbersForNextEpoch(
-        all_blocks
-            .iter()
-            .map(|(chain_id, block_ptr)| (chain_id.as_str().to_owned(), *block_ptr))
-            .collect(),
-    );
-
-    let compressed = encoder
-        .compress(&[message])
-        .expect("Failed to compress message for merkle root computation");
-
-    let computed_merkle_root = if let Some(compressed_msg) = compressed.first() {
-        if let Some((_, root)) = compressed_msg.as_non_empty_block_numbers() {
-            root
-        } else {
-            anyhow::bail!("Expected non-empty block numbers message for merkle root computation");
-        }
+    // Step 4: Get block numbers for all networks from the latest epoch (skip if not needed)
+    let epoch_blocks = if skip_merkle {
+        println!("⏭️  Skipping epoch block collection (--skip-merkle enabled)");
+        BTreeMap::new()
     } else {
-        anyhow::bail!("Failed to compress message for merkle root computation");
+        println!("🔍 Collecting block data from latest epoch for all networks...");
+        let mut epoch_blocks: BTreeMap<Caip2ChainId, (u64, u64)> = BTreeMap::new(); // (block_number, array_index)
+
+        for network in &global_state.networks {
+            if let Some(block_update) = &network.latest_block_update {
+                if block_update.updated_at_epoch_number == latest_epoch_number {
+                    epoch_blocks.insert(
+                        network.id.clone(),
+                        (block_update.block_number, network.array_index),
+                    );
+                    println!(
+                        "   {}: block {} (index {})",
+                        network.id.as_str(),
+                        block_update.block_number,
+                        network.array_index
+                    );
+                }
+            }
+        }
+
+        if epoch_blocks.is_empty() {
+            anyhow::bail!("No networks have block data for epoch {}. This might indicate the epoch is too recent.", latest_epoch_number);
+        }
+
+        epoch_blocks
     };
 
-    println!(
-        "   Computed merkle root: 0x{}",
-        hex::encode(computed_merkle_root)
-    );
+    // Step 5: Fetch block hashes for all networks (skip if merkle disabled)
+    let all_blocks = if skip_merkle {
+        println!("⏭️  Skipping block hash fetching (--skip-merkle enabled)");
+        BTreeMap::new()
+    } else {
+        println!("🔗 Fetching block hashes for merkle root computation...");
+        let mut all_blocks: BTreeMap<Caip2ChainId, BlockPtr> = BTreeMap::new();
+
+        // Fetch from JSON-RPC providers
+        for jrpc_chain in &indexed_chains {
+            if let Some((block_num, _array_index)) = epoch_blocks.get(&jrpc_chain.chain_id) {
+                let use_corrected_block = jrpc_chain.chain_id.as_str() == chain_id;
+                let target_block_number = if use_corrected_block {
+                    corrected_block_number
+                } else {
+                    *block_num
+                };
+
+                // Get block by number
+                let block_id =
+                    web3::helpers::serialize(&BlockNumber::Number(U64::from(target_block_number)));
+                let include_txs = web3::helpers::serialize(&false);
+                let fut = jrpc_chain
+                    .web3
+                    .transport()
+                    .execute("eth_getBlockByNumber", vec![block_id, include_txs]);
+
+                #[derive(serde::Deserialize)]
+                struct BlockResponse {
+                    hash: web3::types::H256,
+                    number: U64,
+                }
+
+                let call_fut: CallFuture<BlockResponse, _> = CallFuture::new(fut);
+                let block = call_fut.await.map_err(|e| {
+                    anyhow::anyhow!(
+                        "Failed to get block {} from {}: {}",
+                        target_block_number,
+                        jrpc_chain.chain_id.as_str(),
+                        e
+                    )
+                })?;
+
+                let block_ptr = BlockPtr {
+                    number: block.number.as_u64(),
+                    hash: block.hash.0,
+                };
+
+                all_blocks.insert(jrpc_chain.chain_id.clone(), block_ptr);
+
+                if use_corrected_block {
+                    println!(
+                        "   {} (CORRECTED): block {} -> hash {}",
+                        jrpc_chain.chain_id.as_str(),
+                        target_block_number,
+                        hex::encode(block_ptr.hash)
+                    );
+                } else {
+                    println!(
+                        "   {}: block {} -> hash {}",
+                        jrpc_chain.chain_id.as_str(),
+                        target_block_number,
+                        hex::encode(block_ptr.hash)
+                    );
+                }
+            }
+        }
+
+        // Fetch from Blockmeta providers
+        for blockmeta_chain in &blockmeta_indexed_chains {
+            if let Some((block_num, _array_index)) = epoch_blocks.get(&blockmeta_chain.chain_id) {
+                let use_corrected_block = blockmeta_chain.chain_id.as_str() == chain_id;
+                let target_block_number = if use_corrected_block {
+                    corrected_block_number
+                } else {
+                    *block_num
+                };
+
+                // Get block by number using Blockmeta gRPC
+                let mut client = blockmeta_chain.client.clone();
+                let request = blockmeta_client::NumToIdReq {
+                    block_num: target_block_number,
+                };
+
+                let block_resp = client.num_to_id(request).await?;
+
+                let block_hash = block_resp
+                    .id
+                    .parse::<BlockHash>()
+                    .map_err(|e| anyhow::anyhow!("Invalid block hash from Blockmeta: {}", e))?;
+
+                let block_ptr = BlockPtr {
+                    number: block_resp.num,
+                    hash: block_hash.0,
+                };
+
+                all_blocks.insert(blockmeta_chain.chain_id.clone(), block_ptr);
+
+                if use_corrected_block {
+                    println!(
+                        "   {} (CORRECTED): block {} -> hash {}",
+                        blockmeta_chain.chain_id.as_str(),
+                        target_block_number,
+                        hex::encode(block_ptr.hash)
+                    );
+                } else {
+                    println!(
+                        "   {}: block {} -> hash {}",
+                        blockmeta_chain.chain_id.as_str(),
+                        target_block_number,
+                        hex::encode(block_ptr.hash)
+                    );
+                }
+            }
+        }
+
+        all_blocks
+    };
+
+    // Step 6: Compute merkle root (or use zero if skipped)
+    let computed_merkle_root = if skip_merkle {
+        println!("⏭️  Skipping merkle root computation (--skip-merkle enabled)");
+        println!("🅾️  Using zero merkle root: 0x{}", hex::encode([0u8; 32]));
+        [0u8; 32]
+    } else {
+        println!("🧮 Computing merkle root...");
+
+        // Use the encoder to compute the merkle root by creating a temporary SetBlockNumbersForNextEpoch message
+        let available_networks: Vec<(String, epoch_encoding::Network)> = {
+            global_state
+                .networks
+                .iter()
+                .map(|network| (network.id.as_str().to_owned(), network.clone().into()))
+                .collect()
+        };
+
+        let mut encoder = epoch_encoding::Encoder::new(
+            epoch_encoding::CURRENT_ENCODING_VERSION,
+            available_networks,
+        )
+        .expect("Failed to create encoder");
+
+        // Create a temporary message with our corrected blocks to compute the merkle root
+        let message = epoch_encoding::Message::SetBlockNumbersForNextEpoch(
+            all_blocks
+                .iter()
+                .map(|(chain_id, block_ptr)| (chain_id.as_str().to_owned(), *block_ptr))
+                .collect(),
+        );
+
+        let compressed = encoder
+            .compress(&[message])
+            .expect("Failed to compress message for merkle root computation");
+
+        let merkle_root = if let Some(compressed_msg) = compressed.first() {
+            if let Some((_, root)) = compressed_msg.as_non_empty_block_numbers() {
+                root
+            } else {
+                anyhow::bail!(
+                    "Expected non-empty block numbers message for merkle root computation"
+                );
+            }
+        } else {
+            anyhow::bail!("Failed to compress message for merkle root computation");
+        };
+
+        println!("   Computed merkle root: 0x{}", hex::encode(merkle_root));
+
+        merkle_root
+    };
 
     // Step 7: Display correction summary
     println!();
@@ -296,7 +360,11 @@ pub async fn correct_last_epoch(
         "   New merkle root: 0x{}",
         hex::encode(computed_merkle_root)
     );
-    println!("   Total networks in merkle tree: {}", all_blocks.len());
+    if skip_merkle {
+        println!("   Merkle computation: SKIPPED");
+    } else {
+        println!("   Total networks in merkle tree: {}", all_blocks.len());
+    }
 
     // Step 8: Create the CorrectLastEpoch message and show details
     println!();
